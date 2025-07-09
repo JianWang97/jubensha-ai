@@ -3,6 +3,7 @@ from enum import Enum
 
 class GamePhase(Enum):
     """游戏阶段枚举"""
+    BACKGROUND = "background"
     INTRODUCTION = "introduction"
     EVIDENCE_COLLECTION = "evidence_collection"
     INVESTIGATION = "investigation"

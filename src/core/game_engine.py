@@ -19,7 +19,7 @@ class GameEngine:
         # 初始化游戏组件
         self.characters = self._init_characters()
         self.agents = {}
-        self.current_phase = GamePhase.INTRODUCTION
+        self.current_phase = GamePhase.BACKGROUND
         self.events = []
         
         # 初始化管理器
@@ -66,6 +66,10 @@ class GameEngine:
     def get_game_phases_info(self) -> List[Dict]:
         """获取游戏阶段信息"""
         return self.script_data["game_phases"]
+    
+    def get_background_story(self) -> Dict:
+        """获取背景故事信息"""
+        return self.script_data.get("background_story", {})
     
     async def initialize_agents(self, api_key: str):
         """初始化AI代理"""
@@ -118,6 +122,32 @@ class GameEngine:
         actions = []
         
         if self.current_phase == GamePhase.ENDED:
+            return actions
+        
+        # 背景介绍阶段由系统叙述，不需要AI发言
+        if self.current_phase == GamePhase.BACKGROUND:
+            background = self.get_background_story()
+            if background:
+                # 添加背景故事的各个部分
+                story_parts = [
+                    f"【{background.get('title', '案件背景')}】",
+                    f"现场情况：{background.get('setting_description', '')}",
+                    f"案件经过：{background.get('incident_description', '')}",
+                    f"死者背景：{background.get('victim_background', '')}",
+                    f"调查范围：{background.get('investigation_scope', '')}",
+                    f"游戏规则：{background.get('rules_reminder', '')}"
+                ]
+                
+                for part in story_parts:
+                    if part.split('：', 1)[-1]:  # 只添加有内容的部分
+                        self.add_public_chat("系统", part, "background")
+                        actions.append({
+                            "character": "系统",
+                            "action": part,
+                            "type": "background"
+                        })
+                        await asyncio.sleep(2)  # 每部分之间的延迟
+            
             return actions
             
         # 让每个AI代理依次行动

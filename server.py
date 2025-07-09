@@ -72,6 +72,12 @@ async def get_characters():
         })
     return {"status": "success", "data": characters}
 
+@app.get("/api/background")
+async def get_background():
+    """获取背景故事API"""
+    background = game_server.game_engine.get_background_story()
+    return {"status": "success", "data": background}
+
 @app.post("/api/tts/stream")
 async def stream_tts(request: TTSRequest):
     """TTS流式音频生成API"""
