@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI剧本杀游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .game-controls {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .game-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .info-panel h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .character-list {
+            list-style: none;
+        }
+
+        .character-item {
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .character-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .character-background {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .game-log {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            height: 500px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+        }
+
+        .log-character {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .log-content {
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .log-system {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+
+        .log-system .log-character {
+            color: #2196f3;
+        }
+
+        .phase-indicator {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .connected {
+            background: #4caf50;
+        }
+
+        .disconnected {
+            background: #f44336;
+        }
+
+        .votes-panel {
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .vote-item {
+            margin: 5px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .game-result {
+            background: #e8f5e8;
+            border: 2px solid #4caf50;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .result-title {
+            font-size: 1.5em;
+            color: #2e7d32;
+            margin-bottom: 15px;
+        }
+
+        .evidence-panel {
+            background: #f3e5f5;
+            border: 2px solid #9c27b0;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .evidence-item {
+            background: white;
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #9c27b0;
+        }
+
+        .evidence-name {
+            font-weight: bold;
+            color: #7b1fa2;
+            margin-bottom: 5px;
+        }
+
+        .evidence-description {
+            color: #555;
+            font-size: 0.9em;
+            margin-bottom: 3px;
+        }
+
+        .evidence-location {
+            color: #888;
+            font-size: 0.8em;
+            font-style: italic;
+        }
+
+        .audio-controls {
+            background: #f0f8ff;
+            border: 2px solid #2196f3;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .audio-status {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .audio-playing {
+            background: #e8f5e8;
+            border-color: #4caf50;
+        }
+
+        .audio-playing .audio-status {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .game-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎭 AI剧本杀游戏</h1>
+            <p>体验AI角色扮演的推理乐趣</p>
+        </div>
+
+        <div class="connection-status" id="connectionStatus">
+            连接中...
+        </div>
+
+        <div class="game-controls">
+            <button class="btn" id="startBtn" onclick="startGame()">开始游戏</button>
+            <button class="btn" id="nextPhaseBtn" onclick="nextPhase()" disabled>下一阶段</button>
+            <button class="btn" id="resetBtn" onclick="resetGame()">重置游戏</button>
+        </div>
+
+        <div class="audio-controls audio-playing">
+            <button class="btn" id="toggleTTSBtn" onclick="toggleTTS()">🔇 禁用语音播放</button>
+            <button class="btn" id="stopAudioBtn" onclick="stopAllAudio()" disabled>⏹️ 停止播放</button>
+            <div class="audio-status" id="audioStatus">语音播放: 已启用</div>
+        </div>
+
+        <div class="phase-indicator" id="phaseIndicator">
+            当前阶段: 等待开始
+        </div>
+
+        <div class="game-info">
+            <div class="info-panel">
+                <h3>🎭 角色信息</h3>
+                <ul class="character-list" id="characterList">
+                    <!-- 角色信息将在这里动态加载 -->
+                </ul>
+            </div>
+
+            <div class="info-panel">
+                <h3>📊 游戏状态</h3>
+                <div id="gameStatus">
+                    <p>等待游戏开始...</p>
+                </div>
+                <div id="evidencePanel" style="display: none;">
+                    <h4>🔍 已发现证据:</h4>
+                    <div id="evidenceList"></div>
+                </div>
+                <div id="votesPanel" style="display: none;">
+                    <h4>投票结果:</h4>
+                    <div id="votesList"></div>
+                </div>
+                <div id="gameResult" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h3>📝 游戏日志</h3>
+            <div class="game-log" id="gameLog">
+                <div class="log-entry log-system">
+                    <div class="log-character">系统</div>
+                    <div class="log-content">欢迎来到AI剧本杀游戏！点击"开始游戏"开始体验。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let gameState = {};
+        let isConnected = false;
+        let ttsEnabled = true;
+        let audioQueue = [];
+        let isPlaying = false;
+
+        // WebSocket连接
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function(event) {
+                console.log('WebSocket连接已建立');
+                isConnected = true;
+                updateConnectionStatus();
+                loadCharacters();
+            };
+            
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                handleWebSocketMessage(message);
+            };
+            
+            ws.onclose = function(event) {
+                console.log('WebSocket连接已关闭');
+                isConnected = false;
+                updateConnectionStatus();
+                // 尝试重连
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket错误:', error);
+                isConnected = false;
+                updateConnectionStatus();
+            };
+        }
+
+        // 处理WebSocket消息
+        function handleWebSocketMessage(message) {
+            console.log('收到消息:', message);
+            
+            switch(message.type) {
+                case 'game_state':
+                case 'game_state_update':
+                    gameState = message.data;
+                    updateGameDisplay();
+                    break;
+                    
+                case 'game_started':
+                    addLogEntry('系统', '游戏已开始！');
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('nextPhaseBtn').disabled = false;
+                    break;
+                    
+                case 'ai_action':
+                    addLogEntry(message.data.character, message.data.action);
+                    // 如果启用了TTS，将发言加入播放队列
+                    if (ttsEnabled) {
+                        queueTTS(message.data.character, message.data.action);
+                    }
+                    break;
+                    
+                case 'phase_changed':
+                    gameState = message.data.game_state;
+                    updatePhaseIndicator(message.data.phase);
+                    addLogEntry('系统', `游戏进入${getPhaseDisplayName(message.data.phase)}阶段`);
+                    updateGameDisplay();
+                    break;
+                    
+                case 'voting_complete':
+                    displayVotes(message.data);
+                    break;
+                    
+                case 'game_result':
+                    displayGameResult(message.data);
+                    break;
+                    
+                case 'game_reset':
+                    resetDisplay();
+                    addLogEntry('系统', '游戏已重置');
+                    break;
+                    
+                case 'error':
+                    addLogEntry('系统', `错误: ${message.message}`);
+                    break;
+            }
+        }
+
+        // 更新连接状态显示
+        function updateConnectionStatus() {
+            const statusEl = document.getElementById('connectionStatus');
+            if (isConnected) {
+                statusEl.textContent = '已连接';
+                statusEl.className = 'connection-status connected';
+            } else {
+                statusEl.textContent = '连接断开';
+                statusEl.className = 'connection-status disconnected';
+            }
+        }
+
+        // 发送WebSocket消息
+        function sendMessage(message) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(message));
+            } else {
+                console.error('WebSocket未连接');
+            }
+        }
+
+        // 游戏控制函数
+        function startGame() {
+            sendMessage({type: 'start_game'});
+        }
+
+        function nextPhase() {
+            sendMessage({type: 'next_phase'});
+        }
+
+        function resetGame() {
+            sendMessage({type: 'reset_game'});
+        }
+
+        // 加载角色信息
+        async function loadCharacters() {
+            try {
+                const response = await fetch('/api/characters');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    displayCharacters(data.data);
+                }
+            } catch (error) {
+                console.error('加载角色信息失败:', error);
+            }
+        }
+
+        // 显示角色信息
+        function displayCharacters(characters) {
+            const characterList = document.getElementById('characterList');
+            characterList.innerHTML = '';
+            
+            characters.forEach(character => {
+                const li = document.createElement('li');
+                li.className = 'character-item';
+                
+                let statusIcon = '';
+                if (character.is_victim) {
+                    statusIcon = '💀';
+                } else if (character.is_murderer) {
+                    statusIcon = '🔪';
+                } else {
+                    statusIcon = '🕵️';
+                }
+                
+                li.innerHTML = `
+                    <div class="character-name">${statusIcon} ${character.name}</div>
+                    <div class="character-background">${character.background}</div>
+                `;
+                characterList.appendChild(li);
+            });
+        }
+
+        // 更新游戏显示
+        function updateGameDisplay() {
+            updatePhaseIndicator(gameState.phase);
+            updateGameStatus();
+            updateEvidenceDisplay();
+        }
+
+        // 更新阶段指示器
+        function updatePhaseIndicator(phase) {
+            const phaseEl = document.getElementById('phaseIndicator');
+            phaseEl.textContent = `当前阶段: ${getPhaseDisplayName(phase)}`;
+        }
+
+        // 获取阶段显示名称
+        function getPhaseDisplayName(phase) {
+            const phaseNames = {
+                'introduction': '自我介绍',
+                'evidence_collection': '搜证阶段',
+                'investigation': '调查取证',
+                'discussion': '自由讨论',
+                'voting': '投票表决',
+                'revelation': '真相揭晓',
+                'ended': '游戏结束'
+            };
+            return phaseNames[phase] || phase;
+        }
+
+        // 更新游戏状态
+        function updateGameStatus() {
+            const statusEl = document.getElementById('gameStatus');
+            if (gameState.events && gameState.events.length > 0) {
+                const lastEvent = gameState.events[gameState.events.length - 1];
+                statusEl.innerHTML = `
+                    <p><strong>最新动态:</strong></p>
+                    <p>${lastEvent.character}: ${lastEvent.content.substring(0, 100)}${lastEvent.content.length > 100 ? '...' : ''}</p>
+                    <p><strong>总事件数:</strong> ${gameState.events.length}</p>
+                `;
+            }
+        }
+
+        // 更新证据展示
+        function updateEvidenceDisplay() {
+            const evidencePanel = document.getElementById('evidencePanel');
+            const evidenceList = document.getElementById('evidenceList');
+            
+            if (gameState.discovered_evidence && gameState.discovered_evidence.length > 0) {
+                evidencePanel.style.display = 'block';
+                evidenceList.innerHTML = '';
+                
+                gameState.discovered_evidence.forEach(evidence => {
+                    const evidenceItem = document.createElement('div');
+                    evidenceItem.className = 'evidence-item';
+                    evidenceItem.innerHTML = `
+                        <div class="evidence-name">🔍 ${evidence.name}</div>
+                        <div class="evidence-description">${evidence.description}</div>
+                        <div class="evidence-location">发现地点: ${evidence.location}</div>
+                    `;
+                    evidenceList.appendChild(evidenceItem);
+                });
+            } else {
+                evidencePanel.style.display = 'none';
+            }
+        }
+
+        // 添加日志条目
+        function addLogEntry(character, content) {
+            const gameLog = document.getElementById('gameLog');
+            const logEntry = document.createElement('div');
+            
+            const isSystem = character === '系统';
+            logEntry.className = `log-entry ${isSystem ? 'log-system' : ''}`;
+            
+            logEntry.innerHTML = `
+                <div class="log-character">${character}</div>
+                <div class="log-content">${content}</div>
+            `;
+            
+            gameLog.appendChild(logEntry);
+            gameLog.scrollTop = gameLog.scrollHeight;
+        }
+
+        // 显示投票结果
+        function displayVotes(votes) {
+            const votesPanel = document.getElementById('votesPanel');
+            const votesList = document.getElementById('votesList');
+            
+            votesPanel.style.display = 'block';
+            votesList.innerHTML = '';
+            
+            for (const [voter, voted] of Object.entries(votes)) {
+                const voteItem = document.createElement('div');
+                voteItem.className = 'vote-item';
+                voteItem.textContent = `${voter} 投票给 ${voted}`;
+                votesList.appendChild(voteItem);
+            }
+        }
+
+        // 显示游戏结果
+        function displayGameResult(result) {
+            const gameResult = document.getElementById('gameResult');
+            gameResult.style.display = 'block';
+            
+            const success = result.success ? '成功' : '失败';
+            const successIcon = result.success ? '🎉' : '😞';
+            
+            gameResult.innerHTML = `
+                <div class="game-result">
+                    <div class="result-title">${successIcon} 游戏结果: ${success}</div>
+                    <p><strong>真正的凶手:</strong> ${result.murderer}</p>
+                    <p><strong>受害者:</strong> ${result.victim}</p>
+                    <p><strong>玩家投票结果:</strong> ${result.most_voted}</p>
+                    <div style="margin-top: 15px;">
+                        <strong>投票统计:</strong>
+                        ${Object.entries(result.vote_counts).map(([name, count]) => 
+                            `<div>${name}: ${count}票</div>`
+                        ).join('')}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('nextPhaseBtn').disabled = true;
+        }
+
+        // 重置显示
+        function resetDisplay() {
+            document.getElementById('gameLog').innerHTML = `
+                <div class="log-entry log-system">
+                    <div class="log-character">系统</div>
+                    <div class="log-content">游戏已重置，点击"开始游戏"重新开始。</div>
+                </div>
+            `;
+            
+            document.getElementById('votesPanel').style.display = 'none';
+            document.getElementById('evidencePanel').style.display = 'none';
+            document.getElementById('gameResult').style.display = 'none';
+            document.getElementById('phaseIndicator').textContent = '当前阶段: 等待开始';
+            document.getElementById('gameStatus').innerHTML = '<p>等待游戏开始...</p>';
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('nextPhaseBtn').disabled = true;
+        }
+
+        // TTS相关函数
+        function toggleTTS() {
+            ttsEnabled = !ttsEnabled;
+            const btn = document.getElementById('toggleTTSBtn');
+            const status = document.getElementById('audioStatus');
+            const controls = document.querySelector('.audio-controls');
+            
+            if (ttsEnabled) {
+                btn.textContent = '🔇 禁用语音播放';
+                status.textContent = '语音播放: 已启用';
+                controls.classList.add('audio-playing');
+            } else {
+                btn.textContent = '🔊 启用语音播放';
+                status.textContent = '语音播放: 已禁用';
+                controls.classList.remove('audio-playing');
+                stopAllAudio();
+            }
+        }
+
+
+
+        function queueTTS(character, text) {
+            if (!ttsEnabled || !text.trim()) return;
+            
+            audioQueue.push({ character, text });
+            
+            if (!isPlaying) {
+                playNextInQueue();
+            }
+        }
+
+        async function playNextInQueue() {
+            if (audioQueue.length === 0) {
+                isPlaying = false;
+                updateAudioStatus('等待发言...');
+                return;
+            }
+
+            isPlaying = true;
+            const { character, text } = audioQueue.shift();
+            
+            updateAudioStatus(`正在播放: ${character}`);
+            document.getElementById('stopAudioBtn').disabled = false;
+
+            try {
+                await playTTS(character, text);
+            } catch (error) {
+                console.error('TTS播放错误:', error);
+                updateAudioStatus('播放出错');
+            }
+
+            // 播放下一个
+            setTimeout(() => playNextInQueue(), 500);
+        }
+
+        // 音频上下文变量
+        let audioContext = null;
+        let currentAudioSources = [];
+
+        // 初始化音频上下文
+        async function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+            }
+            return audioContext;
+        }
+
+        // 实时播放音频数据块
+        async function playAudioChunk(audioData) {
+            try {
+                const context = await initAudioContext();
+                
+                // 解码base64音频数据
+                const binaryString = atob(audioData);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                // 将字节数据转换为Int16Array
+                const audioBuffer = new Int16Array(bytes.buffer);
+                
+                // 创建AudioBuffer
+                const buffer = context.createBuffer(1, audioBuffer.length, 24000);
+                const channelData = buffer.getChannelData(0);
+                
+                // 将Int16数据转换为Float32 (-1.0 到 1.0)
+                for (let i = 0; i < audioBuffer.length; i++) {
+                    channelData[i] = audioBuffer[i] / 32768.0;
+                }
+
+                // 播放音频
+                const source = context.createBufferSource();
+                source.buffer = buffer;
+                source.connect(context.destination);
+                source.start();
+                
+                // 记录音频源以便停止
+                currentAudioSources.push(source);
+                
+                return new Promise((resolve) => {
+                    source.onended = () => {
+                        // 从数组中移除已结束的音频源
+                        const index = currentAudioSources.indexOf(source);
+                        if (index > -1) {
+                            currentAudioSources.splice(index, 1);
+                        }
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                console.error('播放音频块时出错:', error);
+                throw error;
+            }
+        }
+
+        async function playTTS(character, text) {
+            try {
+                // 初始化音频上下文
+                await initAudioContext();
+                
+                const response = await fetch('/api/tts/stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text, character })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    if (!isPlaying) {
+                        // 如果播放被停止，中断流处理
+                        break;
+                    }
+                    
+                    // 解码数据块
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留不完整的行
+
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                let jsonData;
+                                // 检查是否是SSE格式 (data: {...})
+                                if (line.startsWith('data: ')) {
+                                    const jsonStr = line.substring(6); // 移除 "data: " 前缀
+                                    jsonData = JSON.parse(jsonStr);
+                                } else {
+                                    // 尝试直接解析JSON
+                                    jsonData = JSON.parse(line);
+                                }
+                                
+                                if (jsonData.audio) {
+                                    // 实时播放音频块
+                                    await playAudioChunk(jsonData.audio);
+                                } else if (jsonData.error) {
+                                    throw new Error(jsonData.error);
+                                } else if (jsonData.done || jsonData.end) {
+                                    console.log('TTS转换完成');
+                                }
+                            } catch (parseError) {
+                                console.error(`解析数据时出错: ${parseError.message}`);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('TTS请求错误:', error);
+                throw error;
+            }
+        }
+
+
+
+        function stopAllAudio() {
+            audioQueue = [];
+            isPlaying = false;
+            
+            // 停止所有Web Audio API音频源
+            currentAudioSources.forEach(source => {
+                try {
+                    source.stop();
+                } catch (e) {
+                    // 音频源可能已经停止，忽略错误
+                }
+            });
+            currentAudioSources = [];
+            
+            // 停止所有HTML5音频元素（向后兼容）
+            const audioElements = document.querySelectorAll('audio');
+            audioElements.forEach(audio => {
+                audio.pause();
+                audio.currentTime = 0;
+            });
+            
+            // 暂停音频上下文
+            if (audioContext) {
+                audioContext.suspend();
+            }
+            
+            document.getElementById('stopAudioBtn').disabled = true;
+            updateAudioStatus(ttsEnabled ? '已停止播放' : '语音播放: 已禁用');
+        }
+
+        function updateAudioStatus(status) {
+            document.getElementById('audioStatus').textContent = status;
+        }
+
+        // 页面加载完成后连接WebSocket
+        window.addEventListener('load', function() {
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>

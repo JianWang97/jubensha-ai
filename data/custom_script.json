@@ -1,0 +1,36 @@
+{
+  "script_info": {
+    "title": "古宅疑云",
+    "description": "一个发生在古老庄园的神秘谋杀案",
+    "victim": "庄园主人",
+    "setting": "古老的英式庄园"
+  },
+  "characters": [
+    {
+      "name": "管家",
+      "background": "忠诚的老管家，在庄园工作了30年",
+      "secret": "知道主人的财产分配秘密",
+      "objective": "保护庄园的秘密",
+      "is_murderer": true,
+      "is_victim": false
+    },
+    {
+      "name": "继承人",
+      "background": "主人的侄子，唯一的法定继承人",
+      "secret": "欠下巨额赌债",
+      "objective": "尽快继承遗产",
+      "is_murderer": false,
+      "is_victim": false
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence_1",
+      "name": "毒药瓶",
+      "location": "厨房橱柜",
+      "description": "一个空的毒药瓶，标签已被撕掉",
+      "related_to": "管家",
+      "significance": "凶器，管家有机会接触"
+    }
+  ]
+}
