@@ -1,0 +1,17 @@
+{
+  "id": "mansion_mystery_bg",
+  "script_id": "mansion_mystery",
+  "title": "古宅疑云",
+  "setting_description": "案发现场位于一座古老的英式庄园，庄园历史悠久，建筑风格典雅。庄园内有图书馆、厨房、主卧室等多个房间。",
+  "incident_description": "庄园主人在自己的卧室中被发现死亡，初步判断为中毒身亡。现场没有明显的打斗痕迹，但房间内有被搜查的迹象。",
+  "victim_background": "死者是庄园的主人，65岁，独居多年。生前性格严厉，与周围的人关系复杂。最近正在考虑财产分配问题。",
+  "investigation_scope": "警方已经锁定了庄园内的几名相关人员，包括忠诚的老管家和唯一的法定继承人。需要通过调查找出真正的凶手。",
+  "rules_reminder": "每个人都有自己的动机和秘密，通过搜集证据和推理，找出真正的凶手。",
+  "murder_method": "中毒",
+  "murder_location": "主卧室",
+  "discovery_time": "次日早晨",
+  "victory_conditions": {
+    "players_win": "正确识别出真正的凶手（管家）",
+    "murderer_wins": "成功误导其他玩家，避免被识别"
+  }
+}

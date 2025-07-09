@@ -1,0 +1,17 @@
+{
+  "id": "business_murder_bg",
+  "script_id": "business_murder",
+  "title": "商业纠纷谋杀案",
+  "setting_description": "案发现场位于一栋高档写字楼的顶层办公室，这里是赵总的私人办公场所。办公室装修豪华，有独立的书房、会议室和休息区。",
+  "incident_description": "昨晚11点左右，保安发现赵总倒在办公室书房内，身中数刀已经死亡。现场没有明显的打斗痕迹，但书房内物品有被翻动的迹象。",
+  "victim_background": "死者赵总，45岁，某投资公司总裁。生前以手段强硬著称，在商界树敌不少。最近公司业务扩张迅速，但也卷入了多起商业纠纷。",
+  "investigation_scope": "警方已经锁定了几名与死者有密切关系的嫌疑人，他们都在案发当晚出现在大楼内。现在需要通过调查找出真正的凶手。",
+  "rules_reminder": "请注意：每个人都有自己的秘密，但只有一个人是真正的凶手。通过搜集证据、询问调查，找出真相。",
+  "murder_method": "手术刀刺杀",
+  "murder_location": "公司内部书房",
+  "discovery_time": "次日早晨",
+  "victory_conditions": {
+    "players_win": "正确识别出真正的凶手（张医生）",
+    "murderer_wins": "成功误导其他玩家，避免被识别"
+  }
+}

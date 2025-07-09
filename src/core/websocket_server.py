@@ -14,10 +14,12 @@ except ImportError:
 load_dotenv()
 
 class GameWebSocketServer:
-    def __init__(self):
+    def __init__(self, script_id: int = 1):
         self.clients: Set[Any] = set()
-        self.game_engine = GameEngine("data/script_data.json")
+        self.script_id = script_id
+        self.game_engine = GameEngine()
         self.is_game_running = False
+        self._game_initialized = False
         
     async def register_client(self, websocket: Any):
         """注册新的WebSocket客户端"""
@@ -29,6 +31,16 @@ class GameWebSocketServer:
             "type": "game_state",
             "data": self.game_engine.game_state
         })
+    
+    async def _initialize_game(self):
+        """初始化游戏数据"""
+        try:
+            await self.game_engine.load_script_data(self.script_id)
+            self._game_initialized = True
+            print(f"Game initialized with script ID: {self.script_id}")
+        except Exception as e:
+            print(f"Failed to initialize game: {e}")
+            raise
     
     async def unregister_client(self, websocket: Any):
         """注销WebSocket客户端"""
@@ -76,7 +88,8 @@ class GameWebSocketServer:
             message_type = data.get("type")
             
             if message_type == "start_game":
-                await self.start_game()
+                script_id = data.get("script_id")
+                await self.start_game(script_id)
             elif message_type == "next_phase":
                 await self.next_phase()
             elif message_type == "get_game_state":
@@ -103,25 +116,29 @@ class GameWebSocketServer:
                 "message": str(e)
             })
     
-    async def start_game(self):
+    async def start_game(self, script_id=None):
         """开始游戏"""
         if self.is_game_running:
             return
+        
+        # 如果提供了新的script_id，重新初始化游戏引擎
+        if script_id and script_id != self.script_id:
+            # 确保script_id是整数类型
+            if isinstance(script_id, str):
+                script_id = int(script_id)
+            self.script_id = script_id
+            self.game_engine = GameEngine()
+            self._game_initialized = False
+        
+        # 确保游戏已初始化
+        if not self._game_initialized:
+            await self._initialize_game()
             
         self.is_game_running = True
         
-        # 初始化AI代理
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key or api_key == "your_openai_api_key_here":
-            await self.broadcast({
-                "type": "error",
-                "message": "请在.env文件中设置有效的OPENAI_API_KEY"
-            })
-            self.is_game_running = False
-            return
-            
         try:
-            await self.game_engine.initialize_agents(api_key)
+            # 使用新的配置系统初始化AI代理
+            await self.game_engine.initialize_agents()
             
             await self.broadcast({
                 "type": "game_started",
@@ -155,7 +172,11 @@ class GameWebSocketServer:
     async def reset_game(self):
         """重置游戏"""
         self.is_game_running = False
-        self.game_engine = GameEngine("data/script_data.json")
+        self.game_engine = GameEngine()
+        self._game_initialized = False
+        
+        # 重新初始化游戏数据
+        await self._initialize_game()
         
         await self.broadcast({
             "type": "game_reset",
@@ -171,6 +192,16 @@ class GameWebSocketServer:
                 
                 # 广播AI行动
                 for action in actions:
+                    # 确保action中的数据是可序列化的字符串
+                    if isinstance(action, dict):
+                        # 确保action字段是字符串
+                        if 'action' in action and not isinstance(action['action'], str):
+                            # 如果action不是字符串，尝试转换或使用默认值
+                            if isinstance(action['action'], dict):
+                                action['action'] = "[系统信息格式错误]"
+                            else:
+                                action['action'] = str(action['action'])
+                    
                     await self.broadcast({
                         "type": "ai_action",
                         "data": action
@@ -240,7 +271,7 @@ class GameWebSocketServer:
             await self.unregister_client(websocket)
 
 # 全局服务器实例
-game_server = GameWebSocketServer()
+game_server = GameWebSocketServer(script_id=5)  # 默认使用商业纠纷谋杀案
 
 async def start_websocket_server(host="localhost", port=8765):
     """启动WebSocket服务器（仅在websockets库可用时）"""

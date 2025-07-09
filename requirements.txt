@@ -1,0 +1,32 @@
+# Web框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+
+# 数据库
+psycopg2-binary>=2.9.0
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# 存储
+minio>=7.2.0
+
+# AI/LLM服务
+openai>=1.0.0
+langchain>=0.1.0
+langchain-openai>=0.1.0
+langchain-core>=0.1.0
+
+# TTS服务
+dashscope>=1.23.8
+
+# 工具库
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+aiofiles>=23.0.0
+
+# 开发工具
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0

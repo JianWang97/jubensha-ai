@@ -1,10 +1,11 @@
 """游戏引擎核心模块"""
 import asyncio
-from typing import Dict, List
+import json
+from typing import Dict, List, Optional
 
 from ..models import Character, GameEvent, GamePhase
 from ..agents import AIAgent
-from ..utils import ScriptLoader
+from .script_repository import script_repository
 from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
 from .voice_manager import VoiceManager
@@ -12,33 +13,109 @@ from .voice_manager import VoiceManager
 class GameEngine:
     """剧本杀游戏引擎"""
     
-    def __init__(self, script_file: str = "script_data.json"):
-        # 加载剧本数据
-        self.script_data = ScriptLoader.load_script_data(script_file)
-        ScriptLoader.validate_script_data(self.script_data)
-        
-        # 初始化游戏组件
-        self.characters = self._init_characters()
+    def __init__(self, script_id: Optional[int] = None):
+        self.script_id = script_id
+        self.script_data = None
+        self.characters = []
         self.agents = {}
         self.current_phase = GamePhase.BACKGROUND
         self.events = []
         
-        # 初始化管理器
-        self.evidence_manager = EvidenceManager(self.script_data["evidence"])
-        self.voting_manager = VotingManager(self.characters)
+        # 初始化管理器（稍后在load_script_data中设置）
+        self.evidence_manager = None
+        self.voting_manager = None
         self.voice_manager = VoiceManager()
         
         # 游戏状态
-        self.public_chat = []  # 公开聊天记录，所有agent共享
+        self.public_chat = []
         self.game_state = {
             "phase": self.current_phase.value,
             "events": self.events,
-            "characters": [char.name for char in self.characters],
+            "characters": [],
             "votes": {},
-            "evidence": self.script_data["evidence"],
+            "evidence": [],
             "discovered_evidence": [],
             "public_chat": self.public_chat
         }
+    
+    async def load_script_data(self, script_id: int):
+        """从数据库加载剧本数据"""
+        self.script_id = script_id
+        
+        # 获取剧本基本信息
+        script = await script_repository.get_script_by_id(script_id)
+        if not script:
+            raise ValueError(f"未找到剧本ID: {script_id}")
+        
+        # 获取完整的剧本数据
+        full_script = await script_repository.get_script_by_id(script_id)
+        if not full_script:
+            raise ValueError(f"未找到剧本ID: {script_id}")
+        
+        # 从完整剧本对象中提取数据
+        characters = [{
+            'id': char.id,
+            'name': char.name,
+            'background': char.background,
+            'gender': char.gender,
+            'age': char.age,
+            'profession': char.profession,
+            'secret': char.secret,
+            'objective': char.objective,
+            'is_victim': char.is_victim,
+            'is_murderer': char.is_murderer,
+            'personality_traits': char.personality_traits
+        } for char in full_script.characters]
+        
+        evidence = [{
+            'id': ev.id,
+            'name': ev.name,
+            'description': ev.description,
+            'location': ev.location,
+            'related_to': ev.related_to,
+            'significance': ev.significance,
+            'type': ev.evidence_type.value,
+            'importance': ev.importance
+        } for ev in full_script.evidence]
+        
+        locations = [{
+            'id': loc.id,
+            'name': loc.name,
+            'description': loc.description,
+            'searchable_items': loc.searchable_items,
+            'is_crime_scene': loc.is_crime_scene
+        } for loc in full_script.locations]
+        
+        background_story = full_script.background_story
+        game_phases = full_script.game_phases
+        
+        # 组装剧本数据
+        self.script_data = {
+            "script_info": {
+                "title": full_script.info.title,
+                "description": full_script.info.description,
+                "player_count": full_script.info.player_count,
+                "difficulty": full_script.info.difficulty,
+                "estimated_time": full_script.info.duration_minutes,
+                "tags": full_script.info.tags
+            },
+            "characters": characters,
+            "evidence": evidence,
+            "locations": locations,
+            "background_story": background_story,
+            "game_phases": game_phases
+        }
+        
+        # 初始化游戏组件
+        self.characters = self._init_characters()
+        self.evidence_manager = EvidenceManager(self.script_data["evidence"])
+        self.voting_manager = VotingManager(self.characters)
+        
+        # 更新游戏状态
+        self.game_state.update({
+            "characters": [char.name for char in self.characters],
+            "evidence": self.script_data["evidence"]
+        })
     
     def _init_characters(self) -> List[Character]:
         """初始化角色"""
@@ -82,11 +159,11 @@ class GameEngine:
         """获取声音分配详细信息"""
         return self.voice_manager.get_assignment_info()
     
-    async def initialize_agents(self, api_key: str):
+    async def initialize_agents(self):
         """初始化AI代理"""
         for character in self.characters:
             if not character.is_victim:
-                self.agents[character.name] = AIAgent(character, api_key)
+                self.agents[character.name] = AIAgent(character)
     
     async def next_phase(self):
         """进入下一个游戏阶段"""
@@ -138,26 +215,79 @@ class GameEngine:
         # 背景介绍阶段由系统叙述，不需要AI发言
         if self.current_phase == GamePhase.BACKGROUND:
             background = self.get_background_story()
-            if background:
+            if background and isinstance(background, dict):
                 # 添加背景故事的各个部分
                 story_parts = [
                     f"【{background.get('title', '案件背景')}】",
-                    f"现场情况：{background.get('setting_description', '')}",
-                    f"案件经过：{background.get('incident_description', '')}",
-                    f"死者背景：{background.get('victim_background', '')}",
-                    f"调查范围：{background.get('investigation_scope', '')}",
-                    f"游戏规则：{background.get('rules_reminder', '')}"
+                    f"现场情况：{background.get('setting_description', '暂无相关信息')}",
+                    f"案件经过：{background.get('incident_description', '暂无相关信息')}",
+                    f"死者背景：{background.get('victim_background', '暂无相关信息')}",
+                    f"调查范围：{background.get('investigation_scope', '暂无相关信息')}",
+                    f"游戏规则：{background.get('rules_reminder', '暂无相关信息')}"
                 ]
                 
                 for part in story_parts:
-                    if part.split('：', 1)[-1]:  # 只添加有内容的部分
+                    # 确保part是字符串类型
+                    if not isinstance(part, str):
+                        continue
+                        
+                    # 检查内容是否为空或None
+                    content = part.split('：', 1)[-1] if '：' in part else part
+                    if content and content.strip() and content != '暂无相关信息' and content != 'None':
                         self.add_public_chat("系统", part, "background")
                         actions.append({
                             "character": "系统",
-                            "action": part,
+                            "action": part,  # 确保这里传递的是字符串
                             "type": "background"
                         })
                         await asyncio.sleep(2)  # 每部分之间的延迟
+                    else:
+                        # 如果内容为空或是默认值，显示提示信息
+                        part_name = part.split('：')[0] if '：' in part else part
+                        placeholder_text = f"{part_name}：暂无相关信息"
+                        self.add_public_chat("系统", placeholder_text, "background")
+                        actions.append({
+                            "character": "系统",
+                            "action": placeholder_text,  # 确保这里传递的是字符串
+                            "type": "background"
+                        })
+                        await asyncio.sleep(2)
+            elif background:
+                # 如果background不是字典，可能是字符串或其他类型，需要处理
+                import json
+                if isinstance(background, str):
+                    try:
+                        # 尝试解析JSON字符串
+                        background_dict = json.loads(background)
+                        if isinstance(background_dict, dict):
+                            background = background_dict
+                        else:
+                            # 如果不是字典，直接显示错误信息
+                            error_msg = "背景信息格式错误，请联系管理员"
+                            self.add_public_chat("系统", error_msg, "background")
+                            actions.append({
+                                "character": "系统",
+                                "action": error_msg,
+                                "type": "background"
+                            })
+                    except json.JSONDecodeError:
+                        # JSON解析失败，直接显示原始字符串（但这不应该发生）
+                        error_msg = "背景信息解析失败，请联系管理员"
+                        self.add_public_chat("系统", error_msg, "background")
+                        actions.append({
+                            "character": "系统",
+                            "action": error_msg,
+                            "type": "background"
+                        })
+                else:
+                    # 其他类型，显示错误信息
+                    error_msg = "背景信息类型错误，请联系管理员"
+                    self.add_public_chat("系统", error_msg, "background")
+                    actions.append({
+                        "character": "系统",
+                        "action": error_msg,
+                        "type": "background"
+                    })
             
             return actions
             

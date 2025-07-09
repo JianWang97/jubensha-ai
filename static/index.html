@@ -291,7 +291,13 @@
         </div>
 
         <div class="game-controls">
-            <button class="btn" id="startBtn" onclick="startGame()">开始游戏</button>
+            <div style="margin-bottom: 15px;">
+                <label for="scriptSelect" style="margin-right: 10px; font-weight: bold;">选择剧本:</label>
+                <select id="scriptSelect" onchange="onScriptChange()" style="padding: 8px 12px; border-radius: 8px; border: 2px solid #667eea; font-size: 14px; min-width: 200px;">
+                    <option value="">请选择剧本...</option>
+                </select>
+            </div>
+            <button class="btn" id="startBtn" onclick="startGame()" disabled>开始游戏</button>
             <button class="btn" id="nextPhaseBtn" onclick="nextPhase()" disabled>下一阶段</button>
             <button class="btn" id="resetBtn" onclick="resetGame()">重置游戏</button>
         </div>
@@ -349,6 +355,8 @@
         let ttsEnabled = true;
         let audioQueue = [];
         let isPlaying = false;
+        let selectedScriptId = null;
+        let voiceMapping = {};  // 声音映射
 
         // WebSocket连接
         function connectWebSocket() {
@@ -361,7 +369,8 @@
                 console.log('WebSocket连接已建立');
                 isConnected = true;
                 updateConnectionStatus();
-                loadCharacters();
+                loadScripts();
+                loadVoiceMapping();  // 连接建立时就加载声音映射
             };
             
             ws.onmessage = function(event) {
@@ -399,6 +408,8 @@
                     addLogEntry('系统', '游戏已开始！');
                     document.getElementById('startBtn').disabled = true;
                     document.getElementById('nextPhaseBtn').disabled = false;
+                    // 游戏开始时加载声音映射
+                    loadVoiceMapping();
                     break;
                     
                 case 'ai_action':
@@ -458,7 +469,11 @@
 
         // 游戏控制函数
         function startGame() {
-            sendMessage({type: 'start_game'});
+            if (!selectedScriptId) {
+                alert('请先选择一个剧本！');
+                return;
+            }
+            sendMessage({type: 'start_game', script_id: selectedScriptId});
         }
 
         function nextPhase() {
@@ -469,10 +484,64 @@
             sendMessage({type: 'reset_game'});
         }
 
-        // 加载角色信息
-        async function loadCharacters() {
+        // 加载剧本列表
+        async function loadScripts() {
             try {
-                const response = await fetch('/api/characters');
+                const response = await fetch('/api/scripts');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    displayScripts(data.data);
+                }
+            } catch (error) {
+                console.error('加载剧本列表失败:', error);
+            }
+        }
+
+        // 加载声音映射
+        async function loadVoiceMapping() {
+            try {
+                const response = await fetch('/api/voices');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    voiceMapping = data.data.mapping;
+                    console.log('声音映射已加载:', voiceMapping);
+                }
+            } catch (error) {
+                console.error('加载声音映射失败:', error);
+            }
+        }
+
+        // 显示剧本列表
+        function displayScripts(scripts) {
+            const scriptSelect = document.getElementById('scriptSelect');
+            scriptSelect.innerHTML = '<option value="">请选择剧本...</option>';
+            
+            scripts.forEach(script => {
+                const option = document.createElement('option');
+                option.value = script.id;
+                option.textContent = `${script.title} (${script.duration_minutes}分钟)`;
+                scriptSelect.appendChild(option);
+            });
+        }
+
+        // 剧本选择变化处理
+        function onScriptChange() {
+            const scriptSelect = document.getElementById('scriptSelect');
+            selectedScriptId = scriptSelect.value;
+            
+            if (selectedScriptId) {
+                loadCharacters(selectedScriptId);
+                document.getElementById('startBtn').disabled = false;
+            } else {
+                document.getElementById('characterList').innerHTML = '';
+                document.getElementById('startBtn').disabled = true;
+            }
+        }
+
+        // 加载角色信息
+        async function loadCharacters(scriptId) {
+            try {
+                const response = await fetch(`/api/characters/${scriptId}`);
                 const data = await response.json();
                 if (data.status === 'success') {
                     displayCharacters(data.data);
@@ -673,9 +742,28 @@
 
 
         function queueTTS(character, text) {
-            if (!ttsEnabled || !text.trim()) return;
+            if (!ttsEnabled || !text || typeof text !== 'string' || !text.trim()) return;
             
-            audioQueue.push({ character, text });
+            // 检查是否是JSON格式的文本，如果是则拒绝处理
+            const trimmedText = text.trim();
+            if (trimmedText.startsWith('{') && trimmedText.endsWith('}')) {
+                try {
+                    JSON.parse(trimmedText);
+                    // 如果成功解析为JSON，说明传入的是JSON数据，应该拒绝
+                    console.warn('检测到JSON格式的文本，跳过TTS播放:', trimmedText.substring(0, 100) + '...');
+                    return;
+                } catch (e) {
+                    // 不是有效的JSON，可以继续处理
+                }
+            }
+            
+            // 限制文本长度，避免过长的输入
+            let processedText = trimmedText;
+            if (processedText.length > 500) {
+                processedText = processedText.substring(0, 500) + '...';
+            }
+            
+            audioQueue.push({ character, text: processedText });
             
             if (!isPlaying) {
                 playNextInQueue();
@@ -775,12 +863,16 @@
                 // 初始化音频上下文
                 await initAudioContext();
                 
+                // 使用声音映射获取角色对应的声音，如果没有映射则使用角色名
+                const voiceToUse = voiceMapping[character] || character;
+                console.log(`角色 ${character} 使用声音: ${voiceToUse}`);
+                
                 const response = await fetch('/api/tts/stream', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ text, character })
+                    body: JSON.stringify({ text, character: character })
                 });
 
                 if (!response.ok) {

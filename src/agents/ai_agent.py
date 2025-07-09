@@ -1,30 +1,24 @@
 """AI代理模块"""
 from typing import Dict
-from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
 import os
 
 from ..models import Character, GamePhase
+from ..services import LLMService
+from ..services.llm_service import LLMMessage
+from ..core.config import config
 
 class AIAgent:
     """AI角色代理"""
     
-    def __init__(self, character: Character, api_key: str):
+    def __init__(self, character: Character, api_key: str = None):
         self.character = character
         
-        # 构建LLM配置
-        llm_config = {
-            "api_key": api_key,
-            "model": os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
-            "temperature": 0.7
-        }
+        # 使用新的LLM服务抽象层
+        if api_key:
+            # 兼容旧的API，临时更新配置
+            os.environ["OPENAI_API_KEY"] = api_key
         
-        # 如果设置了自定义base_url，则添加到配置中
-        base_url = os.getenv("OPENAI_BASE_URL")
-        if base_url:
-            llm_config["base_url"] = base_url
-            
-        self.llm = ChatOpenAI(**llm_config)
+        self.llm_service = LLMService.from_config(config.llm_config)
         self.memory = []
         
     async def think_and_act(self, game_state: Dict, phase: GamePhase) -> str:
@@ -33,11 +27,11 @@ class AIAgent:
         context = self._build_context(game_state, phase)
         
         messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=context)
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=context)
         ]
         
-        response = await self.llm.ainvoke(messages)
+        response = await self.llm_service.chat_completion(messages)
         action = response.content
         
         # 记录到记忆中

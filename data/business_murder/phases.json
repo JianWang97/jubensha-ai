@@ -1,0 +1,58 @@
+[
+  {
+    "id": "background",
+    "name": "背景介绍阶段",
+    "description": "介绍案件背景、现场情况和基本设定",
+    "order_index": 1,
+    "estimated_duration": 10
+  },
+  {
+    "id": "introduction",
+    "name": "自我介绍阶段",
+    "description": "玩家简单介绍角色身份和背景，不透露秘密信息",
+    "order_index": 2,
+    "estimated_duration": 15
+  },
+  {
+    "id": "evidence_collection",
+    "name": "搜证阶段",
+    "description": "搜查现场、检查物品、寻找物理证据",
+    "order_index": 3,
+    "estimated_duration": 30
+  },
+  {
+    "id": "investigation",
+    "name": "调查阶段",
+    "description": "询问其他角色问题，分析已发现的证据，寻找更多线索",
+    "order_index": 4,
+    "estimated_duration": 40
+  },
+  {
+    "id": "discussion",
+    "name": "讨论阶段",
+    "description": "分享发现和推理，分析证据",
+    "order_index": 5,
+    "estimated_duration": 20
+  },
+  {
+    "id": "voting",
+    "name": "投票阶段",
+    "description": "说出认为的凶手并给出理由",
+    "order_index": 6,
+    "estimated_duration": 10
+  },
+  {
+    "id": "revelation",
+    "name": "揭晓阶段",
+    "description": "揭示真相",
+    "order_index": 7,
+    "estimated_duration": 5
+  },
+  {
+    "id": "ended",
+    "name": "游戏结束",
+    "description": "游戏结束",
+    "order_index": 8,
+    "estimated_duration": 0
+  }
+]

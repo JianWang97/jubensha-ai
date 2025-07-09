@@ -1,0 +1,47 @@
+[
+  {
+    "id": "butler",
+    "script_id": "mansion_mystery",
+    "name": "管家",
+    "age": 60,
+    "gender": "男",
+    "profession": "管家",
+    "background": "忠诚的老管家，在庄园工作了30年",
+    "secret": "知道主人的财产分配秘密",
+    "objective": "保护庄园的秘密",
+    "personality_traits": ["忠诚", "谨慎", "老练"],
+    "is_murderer": true,
+    "is_victim": false,
+    "voice": "zh-CN-YunxiNeural"
+  },
+  {
+    "id": "heir",
+    "script_id": "mansion_mystery",
+    "name": "继承人",
+    "age": 35,
+    "gender": "男",
+    "profession": "无业",
+    "background": "主人的侄子，唯一的法定继承人",
+    "secret": "欠下巨额赌债",
+    "objective": "尽快继承遗产",
+    "personality_traits": ["急躁", "贪婪", "不负责任"],
+    "is_murderer": false,
+    "is_victim": false,
+    "voice": "zh-CN-YunyangNeural"
+  },
+  {
+    "id": "mansion_owner",
+    "script_id": "mansion_mystery",
+    "name": "庄园主人",
+    "age": 65,
+    "gender": "男",
+    "profession": "庄园主",
+    "background": "古老庄园的主人，富有但孤独",
+    "secret": null,
+    "objective": null,
+    "personality_traits": ["严厉", "孤独", "富有"],
+    "is_murderer": false,
+    "is_victim": true,
+    "voice": "zh-CN-YunxiNeural"
+  }
+]

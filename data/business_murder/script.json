@@ -1,0 +1,12 @@
+{
+  "id": "business_murder",
+  "title": "商业纠纷谋杀案",
+  "description": "一起发生在商业办公楼内的谋杀案，涉及商业纠纷、债务关系和复杂的人际关系。玩家需要通过调查证据、分析动机来找出真正的凶手。",
+  "setting": "现代都市商业区",
+  "victim": "张总（公司老板）",
+  "max_players": 6,
+  "min_players": 4,
+  "estimated_duration": "2-3小时",
+  "difficulty": "中等",
+  "tags": ["商业", "现代", "推理", "心理"]
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "evidence_1",
+    "script_id": "mansion_mystery",
+    "name": "毒药瓶",
+    "description": "一个空的毒药瓶，标签已被撕掉",
+    "location_id": "kitchen",
+    "related_character_id": "butler",
+    "evidence_type": "物理证据",
+    "importance_level": "关键证据",
+    "discovery_phase": "evidence_collection",
+    "significance": "凶器，管家有机会接触"
+  }
+]
