@@ -8,5 +8,6 @@ class Character:
     background: str
     secret: str
     objective: str
+    gender: str = "中性"  # 男/女/中性
     is_murderer: bool = False
     is_victim: bool = False

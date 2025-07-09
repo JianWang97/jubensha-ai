@@ -7,6 +7,7 @@ from ..agents import AIAgent
 from ..utils import ScriptLoader
 from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
+from .voice_manager import VoiceManager
 
 class GameEngine:
     """剧本杀游戏引擎"""
@@ -25,6 +26,7 @@ class GameEngine:
         # 初始化管理器
         self.evidence_manager = EvidenceManager(self.script_data["evidence"])
         self.voting_manager = VotingManager(self.characters)
+        self.voice_manager = VoiceManager()
         
         # 游戏状态
         self.public_chat = []  # 公开聊天记录，所有agent共享
@@ -52,6 +54,7 @@ class GameEngine:
                 background=char_data["background"],
                 secret=char_data["secret"],
                 objective=char_data["objective"],
+                gender=char_data.get("gender", "中性"),
                 is_murderer=char_data.get("is_murderer", False),
                 is_victim=char_data.get("is_victim", False)
             )
@@ -70,6 +73,14 @@ class GameEngine:
     def get_background_story(self) -> Dict:
         """获取背景故事信息"""
         return self.script_data.get("background_story", {})
+    
+    def get_voice_mapping(self) -> Dict[str, str]:
+        """获取角色声音映射"""
+        return self.voice_manager.get_voice_mapping(self.characters)
+    
+    def get_voice_assignment_info(self) -> Dict[str, Dict]:
+        """获取声音分配详细信息"""
+        return self.voice_manager.get_assignment_info()
     
     async def initialize_agents(self, api_key: str):
         """初始化AI代理"""

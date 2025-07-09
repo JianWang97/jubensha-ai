@@ -63,6 +63,7 @@
       "background": "知名外科医生，40岁，性格严谨",
       "secret": "曾经因为医疗事故被死者赵总威胁",
       "objective": "隐藏医疗事故的真相",
+      "gender": "男",
       "is_murderer": true,
       "is_victim": false,
       "personality_traits": ["严谨", "专业", "谨慎"]
@@ -74,6 +75,7 @@
       "background": "公司高级秘书，28岁，聪明能干",
       "secret": "发现了死者赵总的财务造假，被威胁要灭口",
       "objective": "保护自己不被怀疑",
+      "gender": "女",
       "is_murderer": false,
       "is_victim": false,
       "personality_traits": ["聪明", "能干", "机警"]
@@ -85,6 +87,7 @@
       "background": "资深律师，45岁，口才很好",
       "secret": "与死者赵总有巨额经济纠纷",
       "objective": "证明自己的清白",
+      "gender": "男",
       "is_murderer": false,
       "is_victim": false,
       "personality_traits": ["口才好", "资深", "善辩"]
@@ -96,6 +99,7 @@
       "background": "成功商人，50岁，手段狠辣",
       "secret": "欠死者赵总一大笔钱，生意失败急需资金",
       "objective": "转移怀疑到其他人身上，证明自己的清白",
+      "gender": "男",
       "is_murderer": false,
       "is_victim": false,
       "personality_traits": ["狠辣", "商业头脑", "有手段"]
@@ -104,6 +108,7 @@
       "name": "赵总",
       "profession": "公司总裁",
       "background": "公司总裁，案件受害者",
+      "gender": "男",
       "is_murderer": false,
       "is_victim": true,
       "cause_of_death": "被手术刀刺杀"

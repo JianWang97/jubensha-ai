@@ -67,6 +67,7 @@ async def get_characters():
         characters.append({
             "name": char.name,
             "background": char.background,
+            "gender": char.gender,
             "is_victim": char.is_victim,
             "is_murderer": char.is_murderer  # 在实际游戏中不应该暴露这个信息
         })
@@ -78,23 +79,27 @@ async def get_background():
     background = game_server.game_engine.get_background_story()
     return {"status": "success", "data": background}
 
+@app.get("/api/voices")
+async def get_voice_assignments():
+    """获取声音分配信息API"""
+    voice_mapping = game_server.game_engine.get_voice_mapping()
+    voice_info = game_server.game_engine.get_voice_assignment_info()
+    return {
+        "status": "success", 
+        "data": {
+            "mapping": voice_mapping,
+            "details": voice_info
+        }
+    }
+
 @app.post("/api/tts/stream")
 async def stream_tts(request: TTSRequest):
     """TTS流式音频生成API"""
     text = request.text
     character = request.character
     
-    # 根据角色选择不同的声音
-    # 可用音色: Cherry, Serena, Ethan, Chelsie, Dylan, Jada, Sunny
-    voice_mapping = {
-        "张医生": "Dylan",
-        "李秘书": "Serena", 
-        "王律师": "Dylan",
-        "陈老板": "Cherry",
-        "系统": "Chelsie",
-        "default": "Ethan"
-    }
-    
+    # 使用智能声音分配系统
+    voice_mapping = game_server.game_engine.get_voice_mapping()
     voice = voice_mapping.get(character, "Ethan")
     print(f"Using voice: {voice}")
     async def generate_audio():

@@ -194,7 +194,7 @@ class GameWebSocketServer:
                     await self.game_engine.process_voting()
                     await self.broadcast({
                         "type": "voting_complete",
-                        "data": self.game_engine.votes
+                        "data": self.game_engine.voting_manager.votes
                     })
                 
                 # 自动进入下一阶段（除了最后阶段）
