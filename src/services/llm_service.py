@@ -177,9 +177,13 @@ class LLMService:
     @staticmethod
     def create_service(provider: str, **config) -> BaseLLMService:
         """创建LLM服务实例"""
-        if provider.lower() == "openai":
+        if not provider:
+            raise ValueError("LLM provider cannot be None or empty")
+        
+        provider_lower = provider.lower()
+        if provider_lower == "openai":
             return OpenAILLMService(**config)
-        elif provider.lower() == "langchain":
+        elif provider_lower == "langchain":
             return LangChainLLMService(**config)
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")

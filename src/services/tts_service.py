@@ -183,9 +183,13 @@ class TTSService:
     @staticmethod
     def create_service(provider: str, **config) -> BaseTTSService:
         """创建TTS服务实例"""
-        if provider.lower() == "dashscope":
+        if not provider:
+            raise ValueError("TTS provider cannot be None or empty")
+        
+        provider_lower = provider.lower()
+        if provider_lower == "dashscope":
             return DashScopeTTSService(**config)
-        elif provider.lower() == "openai":
+        elif provider_lower == "openai":
             return OpenAITTSService(**config)
         else:
             raise ValueError(f"Unsupported TTS provider: {provider}")

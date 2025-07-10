@@ -30,7 +30,7 @@ class TTSRequest(BaseModel):
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 注册剧本管理API路由
-app.include_router(script_router, prefix="/api")
+app.include_router(script_router)
 
 @app.get("/")
 async def get_index():

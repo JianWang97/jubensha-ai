@@ -1,5 +1,5 @@
 """数据模型模块"""
-from .character import Character
+from .script import ScriptCharacter as Character
 from .game_event import GameEvent
 from .game_phase import GamePhase
 

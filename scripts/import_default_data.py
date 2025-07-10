@@ -101,11 +101,12 @@ async def import_script_data(script_data, script_name):
                     'description': char.get('background', ''),
                     'gender': char.get('gender', 'unknown'),
                     'age': char.get('age'),
-                    'occupation': char.get('occupation'),
-                    'personality': char.get('personality'),
+                    'occupation': char.get('profession', char.get('occupation', '')),
+                    'personality': char.get('personality', ''),
+                    'personality_traits': char.get('personality_traits', []),
                     'background_story': char.get('background', ''),
-                    'secret': char.get('secret'),
-                    'motivation': char.get('motivation'),
+                    'secret': char.get('secret') or '',
+                    'motivation': char.get('objective', char.get('motivation', '')) or '',
                     'is_victim': char.get('is_victim', False),
                     'is_murderer': char.get('is_murderer', False),
                     'order_index': i
@@ -115,13 +116,24 @@ async def import_script_data(script_data, script_name):
         
         # 导入证据
         if 'evidence' in script_data:
+            # 创建位置ID到名称的映射
+            location_map = {}
+            if 'locations' in script_data:
+                for loc in script_data['locations']:
+                    location_map[loc.get('id')] = loc.get('name')
+            
             for i, evidence in enumerate(script_data['evidence']):
+                # 处理location字段，支持location_id到名称的转换
+                location = evidence.get('location')
+                if not location and evidence.get('location_id'):
+                    location = location_map.get(evidence.get('location_id'))
+                
                 evidence_data = {
                     'script_id': script_id,
                     'name': evidence.get('name', f'证据{i+1}'),
                     'description': evidence.get('description', ''),
-                    'type': evidence.get('type', 'physical'),
-                    'location': evidence.get('location'),
+                    'type': evidence.get('evidence_type', evidence.get('type', 'physical')),
+                    'location': location,
                     'discoverer': evidence.get('discoverer'),
                     'discovery_condition': evidence.get('discovery_condition'),
                     'significance': evidence.get('significance'),

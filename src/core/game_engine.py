@@ -9,6 +9,9 @@ from .script_repository import script_repository
 from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
 from .voice_manager import VoiceManager
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GameEngine:
     """剧本杀游戏引擎"""
@@ -44,6 +47,7 @@ class GameEngine:
         
         # 获取剧本基本信息
         script = await script_repository.get_script_by_id(script_id)
+        logger.info(f"加载剧本数据: {script}")
         if not script:
             raise ValueError(f"未找到剧本ID: {script_id}")
         
@@ -127,13 +131,20 @@ class GameEngine:
                 continue
                 
             character = Character(
+                id=char_data.get("id"),
+                script_id=char_data.get("script_id"),
                 name=char_data["name"],
+                age=char_data.get("age"),
+                profession=char_data.get("profession", ""),
                 background=char_data["background"],
-                secret=char_data["secret"],
-                objective=char_data["objective"],
+                secret=char_data["secret"] or "",
+                objective=char_data["objective"] or "",
                 gender=char_data.get("gender", "中性"),
                 is_murderer=char_data.get("is_murderer", False),
-                is_victim=char_data.get("is_victim", False)
+                is_victim=char_data.get("is_victim", False),
+                personality_traits=char_data.get("personality_traits", []),
+                avatar_url=char_data.get("avatar_url"),
+                voice_preference=char_data.get("voice_preference")
             )
             characters.append(character)
             

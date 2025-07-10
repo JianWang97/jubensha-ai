@@ -10,6 +10,8 @@ class EvidenceManager:
     
     def process_evidence_search(self, action: str, character: str) -> Optional[Dict]:
         """处理搜证行动，判断是否发现证据"""
+        if not action:
+            return None
         action_lower = action.lower()
         
         for evidence in self.evidence:
@@ -37,4 +39,6 @@ class EvidenceManager:
     
     def get_evidence_by_location(self, location: str) -> List[Dict]:
         """根据位置获取证据"""
+        if not location:
+            return []
         return [e for e in self.evidence if location.lower() in e["location"].lower()]

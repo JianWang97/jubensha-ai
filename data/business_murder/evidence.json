@@ -6,7 +6,7 @@
     "description": "一把沾有血迹的手术刀，刀柄上有指纹",
     "location_id": "study_room",
     "related_character_id": "zhang_doctor",
-    "evidence_type": "物理证据",
+    "evidence_type": "physical",
     "importance_level": "关键证据",
     "discovery_phase": "evidence_collection",
     "significance": "凶器，指向医生的专业背景"
@@ -18,7 +18,7 @@
     "description": "显示公司财务造假的证据文件",
     "location_id": "safe",
     "related_character_id": "li_secretary",
-    "evidence_type": "文件证据",
+    "evidence_type": "document",
     "importance_level": "重要证据",
     "discovery_phase": "evidence_collection",
     "significance": "揭示财务造假，李秘书可能因此被威胁"
@@ -30,7 +30,7 @@
     "description": "一份未完成的起诉书，针对王律师的经济纠纷",
     "location_id": "office_desk",
     "related_character_id": "wang_lawyer",
-    "evidence_type": "文件证据",
+    "evidence_type": "document",
     "importance_level": "重要证据",
     "discovery_phase": "evidence_collection",
     "significance": "证明王律师与死者有经济纠纷"
@@ -42,7 +42,7 @@
     "description": "陈老板签名的巨额借条，已过还款期限",
     "location_id": "wallet",
     "related_character_id": "chen_boss",
-    "evidence_type": "文件证据",
+    "evidence_type": "document",
     "importance_level": "重要证据",
     "discovery_phase": "evidence_collection",
     "significance": "证明陈老板欠死者大笔钱款"
@@ -54,7 +54,7 @@
     "description": "显示案发当晚各人员进出时间的录像",
     "location_id": "security_room",
     "related_character_id": null,
-    "evidence_type": "视频证据",
+    "evidence_type": "video",
     "importance_level": "关键证据",
     "discovery_phase": "evidence_collection",
     "significance": "可以确定各人的行踪和时间线"
@@ -66,7 +66,7 @@
     "description": "一封匿名威胁信，警告死者不要多管闲事",
     "location_id": "bedroom",
     "related_character_id": null,
-    "evidence_type": "文件证据",
+    "evidence_type": "document",
     "importance_level": "重要证据",
     "discovery_phase": "evidence_collection",
     "significance": "显示死者生前受到威胁"

@@ -193,6 +193,60 @@
             font-size: 1.1em;
         }
 
+        .main-content {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .scripts-sidebar {
+            flex: 0 0 400px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .scripts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .script-list-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .script-list-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .script-list-item.active {
+            background: #667eea;
+            color: white;
+            border-color: #5a6fd8;
+        }
+
+        .script-detail-panel {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
         .scripts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -491,6 +545,19 @@
                 grid-template-columns: 1fr;
             }
 
+            .main-content {
+                flex-direction: column;
+            }
+
+            .scripts-sidebar {
+                flex: none;
+                max-height: 50vh;
+            }
+
+            .script-detail-panel {
+                max-height: none;
+            }
+
             .scripts-grid {
                 grid-template-columns: 1fr;
             }
@@ -556,14 +623,28 @@
             <div>⏳ 加载中...</div>
         </div>
 
-        <!-- 剧本列表 -->
-        <div class="scripts-grid" id="scriptsGrid">
-            <!-- 剧本卡片将通过JavaScript动态生成 -->
-        </div>
+        <!-- 主要内容区域 -->
+        <div class="main-content">
+            <!-- 左侧剧本列表 -->
+            <div class="scripts-sidebar">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">📚 剧本列表</h3>
+                <div class="scripts-list" id="scriptsList">
+                    <!-- 剧本列表项将通过JavaScript动态生成 -->
+                </div>
+                <!-- 分页 -->
+                <div class="pagination" id="pagination" style="margin-top: 20px; justify-content: center;">
+                    <!-- 分页按钮将通过JavaScript动态生成 -->
+                </div>
+            </div>
 
-        <!-- 分页 -->
-        <div class="pagination" id="pagination">
-            <!-- 分页按钮将通过JavaScript动态生成 -->
+            <!-- 右侧详情面板 -->
+            <div class="script-detail-panel" id="scriptDetailPanel">
+                <div style="text-align: center; color: #7f8c8d; padding: 50px 20px;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">📖</div>
+                    <h3>选择一个剧本查看详情</h3>
+                    <p>点击左侧列表中的剧本来查看详细信息</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -734,7 +815,7 @@
                     ...currentFilter
                 });
                 
-                const response = await fetch(`/api/scripts/?${params}`);
+                const response = await fetch(`/api/scripts?${params}`);
                 const result = await response.json();
                 
                 if (result.success) {
@@ -781,52 +862,34 @@
 
         // 渲染剧本列表
         function renderScripts(scripts) {
-            const grid = document.getElementById('scriptsGrid');
+            const list = document.getElementById('scriptsList');
             
             if (scripts.length === 0) {
-                grid.innerHTML = `
-                    <div style="grid-column: 1 / -1; text-align: center; padding: 50px; color: #7f8c8d;">
-                        <div style="font-size: 3em; margin-bottom: 20px;">📝</div>
-                        <h3>暂无剧本</h3>
-                        <p>点击"创建剧本"开始创作您的第一个剧本</p>
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: #7f8c8d;">
+                        <div style="font-size: 2em; margin-bottom: 15px;">📝</div>
+                        <h4>暂无剧本</h4>
+                        <p>点击"创建剧本"开始创作</p>
                     </div>
                 `;
                 return;
             }
             
-            grid.innerHTML = scripts.map(script => `
-                <div class="script-card">
-                    <div class="script-cover">
-                        ${script.cover_image_url ? 
-                            `<img src="${script.cover_image_url}" alt="${script.title}">` : 
-                            `<div>🎭 ${script.title}</div>`
-                        }
-                        <div class="script-status status-${script.status}">
+            list.innerHTML = scripts.map(script => `
+                <div class="script-list-item" onclick="selectScript(${script.id})" data-script-id="${script.id}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <div style="font-weight: bold; font-size: 1.1em;">${script.title}</div>
+                        <span class="script-status status-${script.status}" style="font-size: 0.8em; padding: 2px 8px;">
                             ${getStatusText(script.status)}
-                        </div>
+                        </span>
                     </div>
-                    <div class="script-content">
-                        <div class="script-title">${script.title}</div>
-                        <div class="script-description">${script.description || '暂无描述'}</div>
-                        <div class="script-meta">
-                            <span>👤 ${script.author || '未知作者'}</span>
-                            <span>👥 ${script.player_count}人</span>
-                            <span>⏱️ ${script.duration_minutes}分钟</span>
-                        </div>
-                        <div class="script-tags">
-                            ${script.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
-                        </div>
-                        <div class="script-actions">
-                            <button class="btn btn-secondary btn-small" onclick="viewScript(${script.id})">
-                                👁️ 查看
-                            </button>
-                            <button class="btn btn-primary btn-small" onclick="editScript(${script.id})">
-                                ✏️ 编辑
-                            </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteScript(${script.id})">
-                                🗑️ 删除
-                            </button>
-                        </div>
+                    <div style="color: #666; font-size: 0.9em; margin-bottom: 8px;">
+                        ${script.description ? script.description.substring(0, 60) + (script.description.length > 60 ? '...' : '') : '暂无描述'}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8em; color: #888;">
+                        <span>👤 ${script.author || '未知'}</span>
+                        <span>👥 ${script.player_count}人</span>
+                        <span>⏱️ ${script.duration_minutes}分钟</span>
                     </div>
                 </div>
             `).join('');
@@ -864,6 +927,113 @@
                 'archived': '已归档'
             };
             return statusMap[status] || status;
+        }
+
+        // 选择剧本
+        async function selectScript(scriptId) {
+            // 更新列表项的选中状态
+            document.querySelectorAll('.script-list-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-script-id="${scriptId}"]`).classList.add('active');
+            
+            // 加载并显示剧本详情
+            try {
+                const response = await fetch(`/api/scripts/${scriptId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderScriptDetail(result.data);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                showError('加载剧本详情失败: ' + error.message);
+            }
+        }
+
+        // 渲染剧本详情
+        function renderScriptDetail(script) {
+            const panel = document.getElementById('scriptDetailPanel');
+            
+            panel.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px;">
+                    <div>
+                        <h2 style="color: #2c3e50; margin-bottom: 10px;">📖 ${script.info.title}</h2>
+                        <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px;">
+                            <span class="script-status status-${script.info.status}">${getStatusText(script.info.status)}</span>
+                            <span style="color: #666;">👤 ${script.info.author || '未知作者'}</span>
+                            <span style="color: #666;">👥 ${script.info.player_count}人</span>
+                            <span style="color: #666;">⏱️ ${script.info.duration_minutes}分钟</span>
+                            <span style="color: #666;">🎯 ${script.info.difficulty}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-primary btn-small" onclick="editScript(${script.info.id})">
+                            ✏️ 编辑
+                        </button>
+                        <button class="btn btn-danger btn-small" onclick="deleteScript(${script.info.id})">
+                            🗑️ 删除
+                        </button>
+                    </div>
+                </div>
+                
+                ${script.info.description ? `
+                    <div style="margin-bottom: 25px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 10px;">📝 剧本描述</h4>
+                        <p style="line-height: 1.6; color: #555;">${script.info.description}</p>
+                    </div>
+                ` : ''}
+                
+                ${script.info.tags && script.info.tags.length > 0 ? `
+                    <div style="margin-bottom: 25px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 10px;">🏷️ 标签</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${script.info.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 15px;">👥 角色信息 (${script.characters.length}个)</h4>
+                    <div style="display: grid; gap: 15px;">
+                        ${script.characters.map(char => `
+                            <div style="border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+                                <div style="font-weight: bold; margin-bottom: 5px;">${char.name}</div>
+                                <div style="color: #666; font-size: 0.9em; margin-bottom: 8px;">${char.gender} · ${char.profession}</div>
+                                <div style="color: #555; line-height: 1.4;">${char.background}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 15px;">🔍 证据信息 (${script.evidence.length}个)</h4>
+                    <div style="display: grid; gap: 15px;">
+                        ${script.evidence.map(ev => `
+                            <div style="border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+                                <div style="font-weight: bold; margin-bottom: 5px;">${ev.name}</div>
+                                <div style="color: #666; font-size: 0.9em; margin-bottom: 8px;">
+                                    ${ev.evidence_type} · 位置: ${ev.location} · 重要性: ${ev.importance}
+                                </div>
+                                <div style="color: #555; line-height: 1.4;">${ev.description}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 15px;">🏠 场景信息 (${script.locations.length}个)</h4>
+                    <div style="display: grid; gap: 15px;">
+                        ${script.locations.map(loc => `
+                            <div style="border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px; background: #f8f9fa;">
+                                <div style="font-weight: bold; margin-bottom: 8px;">${loc.name}</div>
+                                <div style="color: #555; line-height: 1.4;">${loc.description}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
 
         // 搜索剧本
@@ -955,101 +1125,9 @@
             }
         }
 
-        // 查看剧本详情
+        // 查看剧本详情（现在直接调用selectScript）
         async function viewScript(scriptId) {
-            try {
-                const response = await fetch(`/api/scripts/${scriptId}`);
-                const result = await response.json();
-                
-                if (result.success) {
-                    const script = result.data;
-                    
-                    // 创建详情模态框内容
-                    const detailHTML = `
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h2 class="modal-title">📖 ${script.info.title}</h2>
-                                <span class="close" onclick="closeDetailModal()">&times;</span>
-                            </div>
-                            <div style="max-height: 70vh; overflow-y: auto;">
-                                <div style="margin-bottom: 20px;">
-                                    <strong>作者:</strong> ${script.info.author || '未知'}<br>
-                                    <strong>状态:</strong> ${getStatusText(script.info.status)}<br>
-                                    <strong>玩家人数:</strong> ${script.info.player_count}人<br>
-                                    <strong>游戏时长:</strong> ${script.info.duration_minutes}分钟<br>
-                                    <strong>难度:</strong> ${script.info.difficulty}
-                                </div>
-                                
-                                ${script.info.description ? `
-                                    <div style="margin-bottom: 20px;">
-                                        <h4>剧本描述</h4>
-                                        <p>${script.info.description}</p>
-                                    </div>
-                                ` : ''}
-                                
-                                <div style="margin-bottom: 20px;">
-                                    <h4>角色信息 (${script.characters.length}个)</h4>
-                                    ${script.characters.map(char => `
-                                        <div style="border: 1px solid #e0e0e0; padding: 15px; margin: 10px 0; border-radius: 8px;">
-                                            <strong>${char.name}</strong> (${char.gender}, ${char.profession})<br>
-                                            <small>${char.background}</small>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                                
-                                <div style="margin-bottom: 20px;">
-                                    <h4>证据信息 (${script.evidence.length}个)</h4>
-                                    ${script.evidence.map(ev => `
-                                        <div style="border: 1px solid #e0e0e0; padding: 15px; margin: 10px 0; border-radius: 8px;">
-                                            <strong>${ev.name}</strong> (${ev.evidence_type})<br>
-                                            <small>位置: ${ev.location} | 重要性: ${ev.importance}</small><br>
-                                            <small>${ev.description}</small>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                                
-                                <div>
-                                    <h4>场景信息 (${script.locations.length}个)</h4>
-                                    ${script.locations.map(loc => `
-                                        <div style="border: 1px solid #e0e0e0; padding: 15px; margin: 10px 0; border-radius: 8px;">
-                                            <strong>${loc.name}</strong><br>
-                                            <small>${loc.description}</small>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    // 创建详情模态框
-                    const detailModal = document.createElement('div');
-                    detailModal.id = 'detailModal';
-                    detailModal.className = 'modal';
-                    detailModal.style.display = 'block';
-                    detailModal.innerHTML = detailHTML;
-                    
-                    document.body.appendChild(detailModal);
-                    
-                    // 点击外部关闭
-                    detailModal.addEventListener('click', function(e) {
-                        if (e.target === this) {
-                            closeDetailModal();
-                        }
-                    });
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                showError('加载剧本详情失败: ' + error.message);
-            }
-        }
-
-        // 关闭详情模态框
-        function closeDetailModal() {
-            const detailModal = document.getElementById('detailModal');
-            if (detailModal) {
-                detailModal.remove();
-            }
+            await selectScript(scriptId);
         }
 
         // 删除剧本

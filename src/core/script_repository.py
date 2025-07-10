@@ -490,8 +490,8 @@ class ScriptRepository:
         query = """
         INSERT INTO characters (script_id, name, background, gender, age, 
                               profession, secret, objective, 
-                              is_victim, is_murderer)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                              is_victim, is_murderer, personality_traits)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         """
         await db_manager.execute_command(
             query,
@@ -501,10 +501,11 @@ class ScriptRepository:
             character_data['gender'],
             character_data.get('age'),
             character_data.get('occupation'),
-            character_data.get('secret'),
-            character_data.get('motivation'),
+            character_data.get('secret') or '',
+            character_data.get('motivation') or '',
             character_data['is_victim'],
-            character_data['is_murderer']
+            character_data['is_murderer'],
+            character_data.get('personality_traits', [])
         )
     
     async def create_evidence(self, evidence_data: Dict) -> None:

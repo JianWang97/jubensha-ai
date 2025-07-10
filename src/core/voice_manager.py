@@ -1,6 +1,6 @@
 """声音分配管理器"""
 from typing import Dict, List, Set
-from ..models.character import Character
+from ..models.script import ScriptCharacter as Character
 
 class VoiceManager:
     """智能声音分配管理器"""
