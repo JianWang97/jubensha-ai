@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
 import json
@@ -21,6 +22,15 @@ from src.core.script_repository import script_repository
 load_dotenv()
 
 app = FastAPI(title="AI剧本杀游戏")
+
+# 添加CORS中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 在生产环境中应该设置具体的域名
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class TTSRequest(BaseModel):
     text: str
@@ -43,10 +53,10 @@ async def get_script_manager():
     return HTMLResponse(content=open("static/script_manager.html", "r", encoding="utf-8").read())
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, session_id: str = None, script_id: int = 1):
     """WebSocket端点"""
     await websocket.accept()
-    await game_server.register_client(websocket)
+    await game_server.register_client(websocket, session_id, script_id)
     
     try:
         while True:
@@ -56,24 +66,55 @@ async def websocket_endpoint(websocket: WebSocket):
         await game_server.unregister_client(websocket)
 
 @app.get("/api/game/status")
-async def get_game_status():
+async def get_game_status(session_id: str = None):
     """获取游戏状态API"""
-    return {
-        "status": "success",
-        "data": game_server.game_engine.game_state
-    }
+    try:
+        # 如果没有提供session_id，使用默认会话
+        if session_id is None:
+            session_id = "default"
+        
+        # 获取或创建会话
+        session = game_server.get_or_create_session(session_id)
+        
+        # 确保游戏已初始化
+        if not session._game_initialized:
+            await game_server._initialize_game(session)
+        
+        return {
+            "status": "success",
+            "data": session.game_engine.game_state
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to get game status: {str(e)}"
+        }
 
 @app.post("/api/game/start")
-async def start_game():
+async def start_game(session_id: str = None, script_id: int = 1):
     """启动游戏API"""
-    await game_server.start_game()
-    return {"status": "success", "message": "游戏启动中..."}
+    try:
+        # 如果没有提供session_id，使用默认会话
+        if session_id is None:
+            session_id = "default"
+        
+        await game_server.start_game(session_id, script_id)
+        return {"status": "success", "message": "游戏启动中..."}
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to start game: {str(e)}"}
 
 @app.post("/api/game/reset")
-async def reset_game():
+async def reset_game(session_id: str = None):
     """重置游戏API"""
-    await game_server.reset_game()
-    return {"status": "success", "message": "游戏已重置"}
+    try:
+        # 如果没有提供session_id，使用默认会话
+        if session_id is None:
+            session_id = "default"
+        
+        await game_server.reset_game(session_id)
+        return {"status": "success", "message": "游戏已重置"}
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to reset game: {str(e)}"}
 
 @app.get("/api/scripts")
 async def get_scripts():
@@ -113,25 +154,55 @@ async def get_background():
             return {"status": "success", "data": background}
         else:
             # 如果数据库中没有剧本，使用游戏引擎的默认背景
-            background = game_server.game_engine.get_background_story()
-            return {"status": "success", "data": background}
+            try:
+                session = game_server.get_or_create_session("default")
+                if not session._game_initialized:
+                    await game_server._initialize_game(session)
+                background = session.game_engine.get_background_story()
+                return {"status": "success", "data": background}
+            except Exception as engine_error:
+                return {"status": "error", "message": f"Failed to get background: {str(engine_error)}"}
     except Exception as e:
         # 出错时回退到游戏引擎的默认背景
-        background = game_server.game_engine.get_background_story()
-        return {"status": "success", "data": background}
+        try:
+            session = game_server.get_or_create_session("default")
+            if not session._game_initialized:
+                await game_server._initialize_game(session)
+            background = session.game_engine.get_background_story()
+            return {"status": "success", "data": background}
+        except Exception as engine_error:
+            return {"status": "error", "message": f"Failed to get background: {str(engine_error)}"}
 
 @app.get("/api/voices")
-async def get_voice_assignments():
+async def get_voice_assignments(session_id: str = None):
     """获取声音分配信息API"""
-    voice_mapping = game_server.game_engine.get_voice_mapping()
-    voice_info = game_server.game_engine.get_voice_assignment_info()
-    return {
-        "status": "success", 
-        "data": {
-            "mapping": voice_mapping,
-            "details": voice_info
+    try:
+        # 如果没有提供session_id，创建一个默认会话
+        if session_id is None:
+            session_id = "default"
+        
+        # 获取或创建会话
+        session = game_server.get_or_create_session(session_id)
+        
+        # 确保游戏已初始化
+        if not session._game_initialized:
+            await game_server._initialize_game(session)
+        
+        voice_mapping = session.game_engine.get_voice_mapping()
+        voice_info = session.game_engine.get_voice_assignment_info()
+        
+        return {
+            "status": "success", 
+            "data": {
+                "mapping": voice_mapping,
+                "details": voice_info
+            }
         }
-    }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to get voice assignments: {str(e)}"
+        }
 
 @app.post("/api/tts/stream")
 async def stream_tts(request: TTSRequest):
@@ -165,8 +236,17 @@ async def stream_tts(request: TTSRequest):
         text = text[:1000] + "..."
     
     # 使用智能声音分配系统
-    voice_mapping = game_server.game_engine.get_voice_mapping()
-    voice = voice_mapping.get(character, "Ethan")
+    try:
+        # 获取默认会话的声音映射
+        session = game_server.get_or_create_session("default")
+        if not session._game_initialized:
+            await game_server._initialize_game(session)
+        voice_mapping = session.game_engine.get_voice_mapping()
+        voice = voice_mapping.get(character, "Ethan")
+    except Exception as e:
+        print(f"Failed to get voice mapping: {e}, using default voice")
+        voice = "Ethan"
+    
     print(f"TTS Request - Character: {character}, Voice: {voice}, Text: {text[:50]}...")
     
     # 创建TTS服务实例
