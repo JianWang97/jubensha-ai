@@ -1,6 +1,56 @@
 import { useState, useCallback } from 'react';
 import { useConfigStore } from '@/stores/configStore';
 
+export interface ScriptWithDetail{
+  info:Script,
+  background_story: BackgroundStory;
+  characters: Character[];
+  evidence: Evidence[];
+  locations: Locations[];
+  game_phases: GamePhases[];
+}
+
+export interface BackgroundStory{
+  title: string;
+  setting_description: string;
+  incident_description: string;
+  victim_background: string;
+  investigation_scope: string;
+  rules_reminder: string;
+  murder_method: string;
+  murder_location: string;
+  discovery_time: string;
+  victory_conditions: string;
+}
+
+export interface Evidence {
+  id: number;
+  name: string;
+  location: string;
+  description: string;
+  related_to: string | null;
+  significance: string;
+  evidence_type: string;
+  importance: string;
+  image_url: string | null;
+  is_hidden: boolean;
+}
+
+export interface Locations{
+  id: number;
+  name: string;
+  description: string;
+  searchable_items: any[];
+  background_image_url: string | null;
+  is_crime_scene: boolean;
+}
+
+export interface GamePhases{
+  phase: string;
+  name: string;
+  description: string;
+}
+
 // 定义从后端获取的剧本数据结构
 export interface Script {
   id: number;
@@ -584,6 +634,25 @@ export const useApiClient = () => {
   }, []);
 
   /**
+   * 获取指定剧本的全部信息
+   */
+  const getScriptWithDetail = useCallback(async (scriptId: number): Promise<ScriptWithDetail> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const scriptData = await apiRequest<ScriptWithDetail>(`/scripts/${scriptId}`);
+      return scriptData;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
    * 获取声音分配信息
    */
   const getVoiceAssignments = useCallback(async (sessionId?: string): Promise<VoiceAssignment[]> => {
@@ -667,6 +736,7 @@ export const useApiClient = () => {
     searchScripts,
     getScriptStats,
     getScriptsWithFilters,
+    getScriptWithDetail,
     // 角色相关API
     getCharacters,
     // 游戏相关API

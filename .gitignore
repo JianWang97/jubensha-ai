@@ -14,6 +14,7 @@ wheels/
 *.log
 
 ai_agent.log
+log/*
 
 frontend/.env
 frontend/node_modules/

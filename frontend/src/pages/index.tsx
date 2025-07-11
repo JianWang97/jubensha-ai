@@ -7,7 +7,7 @@ export default function HomePage() {
 
   const gameUrl = sessionId 
     ? `/game?session_id=${encodeURIComponent(sessionId)}&script_id=${scriptId}`
-    : '/game';
+    : `/game?script_id=${scriptId}`;
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
@@ -21,7 +21,7 @@ export default function HomePage() {
         
         {/* 游戏设置区域 */}
         <div className="mb-8 p-6 bg-gray-800 rounded-lg shadow-lg">
-          <h2 className="text-2xl font-semibold mb-4 text-purple-400">游戏设置</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-purple-400">快速开始</h2>
           <div className="space-y-4">
             <div>
               <label htmlFor="sessionId" className="block text-sm font-medium text-gray-300 mb-2">
@@ -32,23 +32,18 @@ export default function HomePage() {
                 type="text"
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
-                placeholder="输入房间ID，留空则自动分配"
+                placeholder="输入房间ID加入现有游戏，留空则创建新游戏"
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
             </div>
-            <div>
-              <label htmlFor="scriptId" className="block text-sm font-medium text-gray-300 mb-2">
-                剧本选择
-              </label>
-              <select
-                id="scriptId"
-                value={scriptId}
-                onChange={(e) => setScriptId(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            <div className="text-center">
+              <p className="text-sm text-gray-400 mb-2">默认剧本: <span className="text-purple-400 font-medium">{scriptId === '1' ? '商业谋杀案' : '豪宅谜案'}</span></p>
+              <button
+                onClick={() => setScriptId(scriptId === '1' ? '2' : '1')}
+                className="text-sm text-purple-400 hover:text-purple-300 underline"
               >
-                <option value="1">商业谋杀案</option>
-                <option value="2">豪宅谜案</option>
-              </select>
+                切换到{scriptId === '1' ? '豪宅谜案' : '商业谋杀案'}
+              </button>
             </div>
           </div>
         </div>

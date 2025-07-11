@@ -58,6 +58,7 @@ interface WebSocketState {
   // 辅助方法
   loadVoiceMapping: () => Promise<void>;
   handleMessage: (message: WebSocketMessage) => void;
+  generateRoomId: () => string;
 }
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
@@ -189,13 +190,27 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     }
   },
 
+  // 生成唯一的房间ID
+  generateRoomId: () => {
+    const timestamp = Date.now().toString(36);
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    return `room_${timestamp}_${randomStr}`;
+  },
+
   // 连接WebSocket
   connect: (sessionId?: string, scriptId?: number) => {
     const state = get();
 
-    // 如果传入了sessionId，更新当前sessionId
-    if (sessionId && sessionId !== state.currentSessionId) {
-      set({ currentSessionId: sessionId });
+    // 如果没有传入sessionId且当前也没有sessionId，自动生成一个
+    let finalSessionId = sessionId;
+    if (!finalSessionId && !state.currentSessionId) {
+      finalSessionId = get().generateRoomId();
+      console.log('自动生成房间ID:', finalSessionId);
+    }
+
+    // 如果传入了sessionId或生成了新的sessionId，更新当前sessionId
+    if (finalSessionId && finalSessionId !== state.currentSessionId) {
+      set({ currentSessionId: finalSessionId });
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -206,7 +221,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
     // 构建WebSocket URL，包含session_id和script_id参数
     const params = new URLSearchParams();
-    const currentSessionId = sessionId || state.currentSessionId;
+    const currentSessionId = finalSessionId || state.currentSessionId;
     if (currentSessionId) {
       params.append('session_id', currentSessionId);
     }

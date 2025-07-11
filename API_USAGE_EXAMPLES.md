@@ -189,6 +189,272 @@ const sceneFile = // File 对象
 const result = await uploadSceneImage(sceneFile);
 ```
 
+## MinIO 文件管理 API
+
+### 1. 通用文件上传
+
+```bash
+# 使用 curl 上传文件
+curl -X POST "http://localhost:8000/api/files/upload" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@/path/to/your/file.jpg" \
+  -F "category=covers"
+
+# 支持的分类: covers, avatars, evidence, scenes, general
+```
+
+```javascript
+// 使用 JavaScript/TypeScript
+const uploadFile = async (file, category = 'general') => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('category', category);
+  
+  const response = await fetch('/api/files/upload', {
+    method: 'POST',
+    body: formData
+  });
+  
+  return await response.json();
+};
+
+// 使用示例
+const fileInput = document.getElementById('fileInput');
+const file = fileInput.files[0];
+const result = await uploadFile(file, 'covers');
+console.log('上传结果:', result.data.file_url);
+```
+
+### 2. 获取文件列表
+
+```bash
+# 获取所有文件
+curl "http://localhost:8000/api/files/list"
+
+# 按分类过滤
+curl "http://localhost:8000/api/files/list?category=covers"
+```
+
+```javascript
+// JavaScript/TypeScript
+const getFileList = async (category = null) => {
+  const url = category 
+    ? `/api/files/list?category=${category}`
+    : '/api/files/list';
+  
+  const response = await fetch(url);
+  return await response.json();
+};
+
+// 使用示例
+const allFiles = await getFileList();
+const coverImages = await getFileList('covers');
+```
+
+### 3. 删除文件
+
+```bash
+# 删除指定文件
+curl -X DELETE "http://localhost:8000/api/files/delete" \
+  -H "Content-Type: application/json" \
+  -d '{"file_url": "http://localhost:9000/jubensha-assets/covers/abc123.jpg"}'
+```
+
+```javascript
+// JavaScript/TypeScript
+const deleteFile = async (fileUrl) => {
+  const response = await fetch('/api/files/delete', {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ file_url: fileUrl })
+  });
+  
+  return await response.json();
+};
+
+// 使用示例
+const result = await deleteFile('http://localhost:9000/jubensha-assets/covers/abc123.jpg');
+```
+
+### 4. 文件下载
+
+```bash
+# 直接下载文件
+curl "http://localhost:8000/api/files/download/covers/abc123.jpg" \
+  -o downloaded_file.jpg
+```
+
+```javascript
+// JavaScript/TypeScript - 在浏览器中触发下载
+const downloadFile = (filePath) => {
+  const downloadUrl = `/api/files/download/${filePath}`;
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = filePath.split('/').pop(); // 使用文件名
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// 使用示例
+downloadFile('covers/abc123.jpg');
+```
+
+### 5. 获取存储统计信息
+
+```bash
+# 获取存储统计
+curl "http://localhost:8000/api/files/stats"
+```
+
+```javascript
+// JavaScript/TypeScript
+const getStorageStats = async () => {
+  const response = await fetch('/api/files/stats');
+  return await response.json();
+};
+
+// 使用示例
+const stats = await getStorageStats();
+console.log('存储统计:', stats.data.stats);
+// 输出示例: { covers: 5, avatars: 10, evidence: 3, scenes: 2, total: 20 }
+```
+
+### 6. 完整的文件管理组件示例
+
+```typescript
+import React, { useState, useEffect } from 'react';
+
+interface FileItem {
+  name: string;
+  size: number;
+  last_modified: string;
+  url: string;
+}
+
+const FileManager: React.FC = () => {
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('general');
+
+  // 加载文件列表
+  const loadFiles = async (category?: string) => {
+    try {
+      const response = await fetch(
+        category ? `/api/files/list?category=${category}` : '/api/files/list'
+      );
+      const result = await response.json();
+      if (result.success) {
+        setFiles(result.data.files);
+      }
+    } catch (error) {
+      console.error('加载文件列表失败:', error);
+    }
+  };
+
+  // 上传文件
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', selectedCategory);
+
+      const response = await fetch('/api/files/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('文件上传成功!');
+        loadFiles(selectedCategory);
+      } else {
+        alert('上传失败: ' + result.message);
+      }
+    } catch (error) {
+      alert('上传失败: ' + error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 删除文件
+  const handleFileDelete = async (fileUrl: string) => {
+    if (!confirm('确定要删除这个文件吗？')) return;
+
+    try {
+      const response = await fetch('/api/files/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_url: fileUrl })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('文件删除成功!');
+        loadFiles(selectedCategory);
+      } else {
+        alert('删除失败: ' + result.message);
+      }
+    } catch (error) {
+      alert('删除失败: ' + error);
+    }
+  };
+
+  useEffect(() => {
+    loadFiles(selectedCategory);
+  }, [selectedCategory]);
+
+  return (
+    <div className="file-manager">
+      <div className="upload-section">
+        <select 
+          value={selectedCategory} 
+          onChange={(e) => setSelectedCategory(e.target.value)}
+        >
+          <option value="general">通用</option>
+          <option value="covers">封面</option>
+          <option value="avatars">头像</option>
+          <option value="evidence">证据</option>
+          <option value="scenes">场景</option>
+        </select>
+        
+        <input 
+          type="file" 
+          onChange={handleFileUpload} 
+          disabled={uploading}
+        />
+        
+        {uploading && <span>上传中...</span>}
+      </div>
+
+      <div className="file-list">
+        {files.map((file, index) => (
+          <div key={index} className="file-item">
+            <img src={file.url} alt={file.name} width="100" />
+            <div>
+              <p>{file.name}</p>
+              <p>大小: {(file.size / 1024).toFixed(2)} KB</p>
+              <button onClick={() => handleFileDelete(file.url)}>
+                删除
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default FileManager;
+```
+
 ## 错误处理
 
 ```typescript
