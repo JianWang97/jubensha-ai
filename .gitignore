@@ -14,3 +14,10 @@ wheels/
 *.log
 
 ai_agent.log
+
+frontend/.env
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.production.local

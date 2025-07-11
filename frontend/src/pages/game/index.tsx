@@ -4,7 +4,7 @@ import CharacterList from '@/components/CharacterList';
 import GameLog from '@/components/GameLog';
 import ScriptSelection from '@/components/ScriptSelection';
 import { useGameState } from '@/hooks/useGameState';
-import { useTTSService } from '@/services/ttsService';
+import { useTTSService } from '@/stores/ttsStore';
 
 const Header = ({ scriptTitle, isConnected, sessionId }: { scriptTitle?: string; isConnected: boolean; sessionId?: string }) => (
   <header className="text-center mb-8 text-white">

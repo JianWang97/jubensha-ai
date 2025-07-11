@@ -1,12 +1,12 @@
 import uvicorn
-from server import app
+from src.core.server import app
 from dotenv import load_dotenv
 import os
 import logging
 
 def main():
     """启动AI剧本杀游戏服务器"""
-    load_dotenv()
+
     
     # 配置日志
     logging.basicConfig(
@@ -45,5 +45,9 @@ def main():
     except KeyboardInterrupt:
         print("\n👋 服务器已停止")
 
+def run_next():
+    os.system("cd frontend && npm run dev")
 if __name__ == "__main__":
+    load_dotenv()
+    # run_next()
     main()

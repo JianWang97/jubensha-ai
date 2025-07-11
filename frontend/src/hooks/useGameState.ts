@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useWebSocket, GameState } from '@/services/websocketService';
-import { Script, getCharacters, Character } from '@/services/apiClient';
+import { useWebSocket, GameState } from '@/stores/websocketStore';
+import { Script, Character, useApiClient } from '@/hooks/useApiClient';
 
 export interface GameLogEntry {
   character: string;
@@ -22,6 +22,7 @@ export interface GameResult {
 
 export const useGameState = (sessionId?: string, scriptId?: number) => {
   const { isConnected, gameState, voiceMapping, currentSessionId, sendMessage, startGame, nextPhase, resetGame } = useWebSocket(sessionId, scriptId);
+  const { getCharacters, getScript } = useApiClient();
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [gameLog, setGameLog] = useState<GameLogEntry[]>([
@@ -69,7 +70,7 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
     } catch (error) {
       console.error('加载角色信息失败:', error);
     }
-  }, []);
+  }, [getCharacters]);
 
   // 处理剧本选择
   const handleSelectScript = useCallback((script: Script) => {
@@ -121,10 +122,33 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
     processedEventsCountRef.current = 0; // 重置已处理事件计数
   }, [resetGame]);
 
+  // 自动加载URL参数中指定的剧本
+  useEffect(() => {
+    if (scriptId && !selectedScript) {
+      const loadScriptFromUrl = async () => {
+        try {
+          const script = await getScript(scriptId);
+          setSelectedScript(script);
+          loadCharacters(scriptId);
+          setGameLog([
+            {
+              character: '系统',
+              content: `已自动选择剧本: ${script.title}`,
+              timestamp: new Date()
+            }
+          ]);
+        } catch (error) {
+          console.error('自动加载剧本失败:', error);
+          addLogEntry('系统', '自动加载剧本失败，请手动选择剧本。');
+        }
+      };
+      loadScriptFromUrl();
+    }
+  }, [scriptId, selectedScript, getScript, loadCharacters, addLogEntry]);
+
   // 监听WebSocket消息并更新状态
   useEffect(() => {
     if (gameState) {
-      console.log('gameState', gameState);
       setCurrentPhase(getPhaseDisplayName(gameState.phase));
       
       // 处理游戏事件 - 使用ref跟踪已处理的事件数量

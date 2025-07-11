@@ -335,6 +335,17 @@ class GameWebSocketServer:
                     }, session_id)
                     
                     await session.game_engine.next_phase()  # 进入结束阶段
+                    
+                    # 发送游戏结束播报
+                    await self.broadcast({
+                        "type": "game_ended",
+                        "data": {
+                            "message": "游戏已结束，感谢各位玩家的参与！",
+                            "final_result": result
+                        },
+                        "session_id": session_id
+                    }, session_id)
+                    
                     break
                     
         except Exception as e:

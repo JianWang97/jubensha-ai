@@ -21,7 +21,7 @@ from src.core.script_repository import script_repository
 
 load_dotenv()
 
-app = FastAPI(title="AI剧本杀游戏")
+app = FastAPI(title="AI剧本杀游戏",docs_url="/docs",redoc_url="/redoc")
 
 # 添加CORS中间件
 app.add_middleware(
@@ -35,6 +35,7 @@ app.add_middleware(
 class TTSRequest(BaseModel):
     text: str
     character: str = "default"
+
 
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -81,12 +82,13 @@ async def get_game_status(session_id: str = None):
             await game_server._initialize_game(session)
         
         return {
-            "status": "success",
+            "success": True,
+            "message": "获取游戏状态成功",
             "data": session.game_engine.game_state
         }
     except Exception as e:
         return {
-            "status": "error",
+            "success": False,
             "message": f"Failed to get game status: {str(e)}"
         }
 
@@ -99,9 +101,9 @@ async def start_game(session_id: str = None, script_id: int = 1):
             session_id = "default"
         
         await game_server.start_game(session_id, script_id)
-        return {"status": "success", "message": "游戏启动中..."}
+        return create_response(True, "游戏启动中...")
     except Exception as e:
-        return {"status": "error", "message": f"Failed to start game: {str(e)}"}
+        return create_response(False, f"Failed to start game: {str(e)}")
 
 @app.post("/api/game/reset")
 async def reset_game(session_id: str = None):
@@ -112,36 +114,36 @@ async def reset_game(session_id: str = None):
             session_id = "default"
         
         await game_server.reset_game(session_id)
-        return {"status": "success", "message": "游戏已重置"}
+        return create_response(True, "游戏已重置")
     except Exception as e:
-        return {"status": "error", "message": f"Failed to reset game: {str(e)}"}
+        return create_response(False, f"Failed to reset game: {str(e)}")
 
 @app.get("/api/scripts")
 async def get_scripts():
     """获取剧本列表API"""
     try:
         scripts = await script_repository.get_all_scripts()
-        return {"status": "success", "data": scripts}
+        return create_response(True, "获取剧本列表成功", scripts)
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return create_response(False, f"Failed to get scripts: {str(e)}")
 
 @app.get("/api/characters/{script_id}")
 async def get_characters(script_id: int):
     """获取指定剧本的角色信息API"""
     try:
         characters = await script_repository.get_script_characters(script_id)
-        return {"status": "success", "data": characters}
+        return create_response(True, "获取角色列表成功", characters)
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return create_response(False, f"Failed to get characters: {str(e)}")
 
 @app.get("/api/background/{script_id}")
 async def get_background_by_script(script_id: int):
     """获取指定剧本的背景故事API"""
     try:
         background = await script_repository.get_script_background(script_id)
-        return {"status": "success", "data": background}
+        return create_response(True, "获取背景故事成功", background)
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return create_response(False, f"Failed to get background: {str(e)}")
 
 @app.get("/api/background")
 async def get_background():
@@ -151,7 +153,7 @@ async def get_background():
         scripts = await script_repository.get_all_scripts()
         if scripts:
             background = await script_repository.get_script_background(scripts[0]['id'])
-            return {"status": "success", "data": background}
+            return create_response(True, "获取背景故事成功", background)
         else:
             # 如果数据库中没有剧本，使用游戏引擎的默认背景
             try:
@@ -159,9 +161,9 @@ async def get_background():
                 if not session._game_initialized:
                     await game_server._initialize_game(session)
                 background = session.game_engine.get_background_story()
-                return {"status": "success", "data": background}
+                return create_response(True, "获取背景故事成功", background)
             except Exception as engine_error:
-                return {"status": "error", "message": f"Failed to get background: {str(engine_error)}"}
+                return create_response(False, f"Failed to get background: {str(engine_error)}")
     except Exception as e:
         # 出错时回退到游戏引擎的默认背景
         try:
@@ -169,9 +171,9 @@ async def get_background():
             if not session._game_initialized:
                 await game_server._initialize_game(session)
             background = session.game_engine.get_background_story()
-            return {"status": "success", "data": background}
+            return create_response(True, "获取背景故事成功", background)
         except Exception as engine_error:
-            return {"status": "error", "message": f"Failed to get background: {str(engine_error)}"}
+            return create_response(False, f"Failed to get background: {str(engine_error)}")
 
 @app.get("/api/voices")
 async def get_voice_assignments(session_id: str = None):
@@ -192,7 +194,8 @@ async def get_voice_assignments(session_id: str = None):
         voice_info = session.game_engine.get_voice_assignment_info()
         
         return {
-            "status": "success", 
+            "success": True,
+            "message": "获取声音分配成功",
             "data": {
                 "mapping": voice_mapping,
                 "details": voice_info
@@ -200,7 +203,7 @@ async def get_voice_assignments(session_id: str = None):
         }
     except Exception as e:
         return {
-            "status": "error",
+            "success": False,
             "message": f"Failed to get voice assignments: {str(e)}"
         }
 
@@ -305,6 +308,13 @@ async def shutdown_event():
         print("数据库连接已关闭")
     except Exception as e:
         print(f"数据库关闭失败: {e}")
+
+def create_response(success: bool, message: str, data=None):
+    return {
+        "success": success,
+        "message": message,
+        "data": data
+    }
 
 if __name__ == "__main__":
     import uvicorn

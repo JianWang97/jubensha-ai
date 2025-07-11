@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { config } from '@/config';
+import { useEffect } from 'react';
+import { useConfigStore } from './configStore';
 
 interface TTSQueueItem {
   character: string;
@@ -284,6 +285,7 @@ export const useTTSStore = create<TTSState>((set, get) => ({
       const voiceToUse = currentState.voiceMapping[item.character] || item.character;
       console.log(`角色 ${item.character} 使用声音: ${voiceToUse}`);
       
+      const config = useConfigStore.getState();
       const response = await fetch(`${config.api.baseUrl}/tts/stream`, {
         method: 'POST',
         headers: {
@@ -395,3 +397,33 @@ export const useTTSStore = create<TTSState>((set, get) => ({
     }
   }
 }));
+
+// TTS Service Hook - 合并自 ttsService.ts
+export const useTTSService = (voiceMapping: Record<string, string>) => {
+  const {
+    ttsEnabled,
+    isPlaying,
+    audioStatus,
+    audioInitialized,
+    queueTTS,
+    stopAllAudio,
+    toggleTTS,
+    initializeAudio
+  } = useTTSStore();
+
+  // 使用传入的voiceMapping更新store中的voiceMapping
+  useEffect(() => {
+    useTTSStore.getState().setVoiceMapping(voiceMapping);
+  }, [voiceMapping]);
+
+  return {
+    ttsEnabled,
+    isPlaying,
+    audioStatus,
+    audioInitialized,
+    queueTTS: (character: string, text: string) => queueTTS(character, text),
+    stopAllAudio,
+    toggleTTS,
+    initializeAudio
+  };
+};

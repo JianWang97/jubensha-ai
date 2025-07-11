@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getScripts, Script, ApiError } from '@/services/apiClient';
+import { Script, ApiError, useApiClient } from '@/hooks/useApiClient';
 
 interface ScriptSelectionProps {
   onSelectScript: (script: Script) => void;
@@ -7,26 +7,18 @@ interface ScriptSelectionProps {
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({ onSelectScript }) => {
   const [scripts, setScripts] = useState<Script[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const { loading, error, getScripts, clearError } = useApiClient();
 
   const fetchScripts = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      clearError();
       const fetchedScripts = await getScripts();
       setScripts(fetchedScripts);
       setRetryCount(0);
     } catch (e) {
-      const errorMessage = e instanceof ApiError 
-        ? `加载失败 (${e.status || '网络错误'}): ${e.message}`
-        : e instanceof Error 
-        ? e.message 
-        : '未知错误';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
+      // 错误处理已经在useApiClient中完成
+      console.error('获取剧本失败:', e);
     }
   };
 

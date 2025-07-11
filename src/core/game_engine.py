@@ -184,8 +184,21 @@ class GameEngine:
             self.current_phase = phases[current_index + 1]
             self.game_state["phase"] = self.current_phase.value
             
+            # 阶段中文名称映射
+            phase_names = {
+                "background": "背景介绍",
+                "introduction": "自我介绍",
+                "evidence_collection": "搜证阶段",
+                "investigation": "调查取证",
+                "discussion": "自由讨论",
+                "voting": "投票表决",
+                "revelation": "真相揭晓",
+                "ended": "游戏结束"
+            }
+            
             # 添加阶段转换事件
-            self.add_event("系统", f"游戏进入{self.current_phase.value}阶段")
+            phase_display_name = phase_names.get(self.current_phase.value, self.current_phase.value)
+            self.add_event("系统", f"游戏进入{phase_display_name}阶段")
     
     def add_event(self, character: str, content: str):
         """添加游戏事件"""
