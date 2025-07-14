@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
@@ -14,6 +14,8 @@ from datetime import timedelta
 
 # 导入剧本管理API路由
 from src.api.script_routes import router as script_router
+# 导入图像生成API路由
+from src.api.routes.image_routes import router as image_router
 # 导入新的服务抽象层
 from src.services import TTSService
 from src.services.tts_service import TTSRequest as ServiceTTSRequest
@@ -51,6 +53,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 注册剧本管理API路由
 app.include_router(script_router)
+# 注册图像生成API路由
+app.include_router(image_router)
 
 @app.get("/")
 async def get_index():
@@ -61,6 +65,37 @@ async def get_index():
 async def get_script_manager():
     """返回剧本管理页面"""
     return HTMLResponse(content=open("static/script_manager.html", "r", encoding="utf-8").read())
+
+@app.get("/jubensha-assets/{path:path}")
+async def get_assets(path: str):
+    """通过storage接口获取MinIO文件"""
+    try:
+        # 检查存储服务是否可用
+        if not storage_manager.is_available:
+            raise HTTPException(status_code=503, detail="存储服务不可用")
+        
+        # 通过storage接口获取文件
+        result = await storage_manager.get_file(path)
+        
+        if result is None:
+            raise HTTPException(status_code=404, detail="文件未找到")
+        
+        file_content, content_type = result
+        
+        # 返回文件内容
+        return Response(
+            content=file_content,
+            media_type=content_type,
+            headers={
+                "Cache-Control": "public, max-age=3600",  # 缓存1小时
+                "Content-Length": str(len(file_content))
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文件访问失败: {str(e)}")
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, session_id: str = None, script_id: int = 1):

@@ -16,7 +16,7 @@ type TabType = 'basic' | 'evidence' | 'characters' | 'locations' | 'background';
 const ScriptEditPage = () => {
   const router = useRouter();
   const { id } = router.query;
-  const { loading, error, getScript, updateScript, getScriptWithDetail, uploadEvidenceImage } = useApiClient();
+  const { loading, error, getScript, updateScript, getScriptWithDetail, generateEvidenceImage } = useApiClient();
   const [script, setScript] = useState<Script | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   
@@ -31,11 +31,7 @@ const ScriptEditPage = () => {
     tags: [] as string[],
     status: ''
   });
-  
-  // 各模块数据状态
-  const [evidence, setEvidence] = useState<Evidence[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [locations, setLocations] = useState<Locations[]>([]);
+
   const [backgroundStory, setBackgroundStory] = useState({
     main_story: '',
     timeline: '',
@@ -64,9 +60,6 @@ const ScriptEditPage = () => {
             status: scriptData.info.status || ''
           });
 
-          setEvidence(scriptData.evidence);
-
-          setCharacters(scriptData.characters);
         } catch (err) {
           console.error('获取脚本详情失败:', err);
         }
@@ -290,17 +283,13 @@ const ScriptEditPage = () => {
     </Card>
   );
 
-  // 处理证据变更
-  const handleEvidenceChange = (updatedEvidence: Evidence[]) => {
-    setEvidence(updatedEvidence);
-  };
+
 
   // 证据管理Tab内容
   const EvidenceTab = () => (
     <EvidenceManager 
-      evidence={evidence}
-      onEvidenceChange={handleEvidenceChange}
-      uploadEvidenceImage={uploadEvidenceImage}
+      generateEvidenceImage={generateEvidenceImage}
+      scriptId={id as string}
     />
   );
 

@@ -307,6 +307,54 @@ class ScriptRepository:
             print(f"更新剧本失败: {e}")
             return False
     
+    async def update_cover_image_url(self, script_id: int, image_url: str) -> bool:
+        """更新剧本封面图片URL"""
+        try:
+            await db_manager.execute_command(
+                "UPDATE scripts SET cover_image_url = $2 WHERE id = $1",
+                script_id, image_url
+            )
+            return True
+        except Exception as e:
+            print(f"更新封面图片URL失败: {e}")
+            return False
+    
+    async def update_character_avatar_url(self, character_id: int, avatar_url: str) -> bool:
+        """更新角色头像URL"""
+        try:
+            await db_manager.execute_command(
+                "UPDATE characters SET avatar_url = $2 WHERE id = $1",
+                character_id, avatar_url
+            )
+            return True
+        except Exception as e:
+            print(f"更新角色头像URL失败: {e}")
+            return False
+    
+    async def update_evidence_image_url(self, evidence_id: int, image_url: str) -> bool:
+        """更新证据图片URL"""
+        try:
+            await db_manager.execute_command(
+                "UPDATE evidence SET image_url = $2 WHERE id = $1",
+                evidence_id, image_url
+            )
+            return True
+        except Exception as e:
+            print(f"更新证据图片URL失败: {e}")
+            return False
+    
+    async def update_location_background_url(self, location_id: int, background_url: str) -> bool:
+        """更新场景背景图片URL"""
+        try:
+            await db_manager.execute_command(
+                "UPDATE locations SET background_image_url = $2 WHERE id = $1",
+                location_id, background_url
+            )
+            return True
+        except Exception as e:
+            print(f"更新场景背景图片URL失败: {e}")
+            return False
+
     async def delete_script(self, script_id: int) -> bool:
         """删除剧本"""
         try:
@@ -508,22 +556,75 @@ class ScriptRepository:
             character_data.get('personality_traits', [])
         )
     
-    async def create_evidence(self, evidence_data: Dict) -> None:
+    async def create_evidence(self, evidence_data: Dict) -> int:
         """创建证据"""
         query = """
         INSERT INTO evidence (script_id, name, description, evidence_type, location, 
-                            significance)
-        VALUES ($1, $2, $3, $4, $5, $6)
+                            significance, related_to, importance, is_hidden)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id
         """
-        await db_manager.execute_command(
+        result = await db_manager.execute_query(
             query,
             evidence_data['script_id'],
             evidence_data['name'],
             evidence_data['description'],
-            evidence_data['type'],
-            evidence_data.get('location'),
-            evidence_data.get('significance')
+            evidence_data.get('evidence_type', 'physical'),
+            evidence_data.get('location', ''),
+            evidence_data.get('significance', ''),
+            evidence_data.get('related_to', ''),
+            evidence_data.get('importance', '重要证据'),
+            evidence_data.get('is_hidden', False)
         )
+        return result[0]['id']
+    
+    async def update_evidence(self, evidence_id: int, evidence_data: Dict) -> bool:
+        """更新证据"""
+        try:
+            query = """
+        UPDATE evidence 
+        SET name = $2, description = $3, evidence_type = $4, location = $5,
+            significance = $6, related_to = $7, importance = $8, is_hidden = $9
+        WHERE id = $1
+        """
+            await db_manager.execute_command(
+                query,
+                evidence_id,
+                evidence_data['name'],
+                evidence_data['description'],
+                evidence_data.get('evidence_type', 'physical'),
+                evidence_data.get('location', ''),
+                evidence_data.get('significance', ''),
+                evidence_data.get('related_to', ''),
+                evidence_data.get('importance', '重要证据'),
+                evidence_data.get('is_hidden', False)
+            )
+            return True
+        except Exception as e:
+            print(f"更新证据失败: {e}")
+            return False
+    
+    async def delete_evidence(self, evidence_id: int) -> bool:
+        """删除证据"""
+        try:
+            # 先获取证据信息，用于删除关联的图片文件
+            evidence_row = await db_manager.execute_query(
+                "SELECT image_url FROM evidence WHERE id = $1", evidence_id
+            )
+            
+            # 删除证据记录
+            await db_manager.execute_command(
+                "DELETE FROM evidence WHERE id = $1", evidence_id
+            )
+            
+            # 如果有图片文件，返回图片URL供调用者删除
+            if evidence_row and evidence_row[0]['image_url']:
+                return evidence_row[0]['image_url']
+            
+            return True
+        except Exception as e:
+            print(f"删除证据失败: {e}")
+            return False
     
     async def create_location(self, location_data: Dict) -> None:
         """创建场景"""

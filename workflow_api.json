@@ -1,0 +1,109 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 480446762880100,
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "4": {
+    "inputs": {
+      "ckpt_name": "AWPainting_v1.5.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器(简易)"
+    }
+  },
+  "5": {
+    "inputs": {
+      "width": 512,
+      "height": 720,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": "Canon RF 85mm f/1.2,1girl,solo,realistic,long hair,black hair,by artist Aliza Razell,Absolute field,sky,today,simple background,women's clothing,V-neck,realistic,(full body:1.4),standing,BIG BOOBS,sexy,pantyhose,black pantyhose,indoors,midriff,navel,short shorts,plaid skirt,brunette,long hair,lingerie,outdoor,",
+      "speak_and_recognation": true,
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码器"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "EasyNegative,blood on face,injury on face,long neck,bright,(monochrome:1.3),(oversaturated:1.3),bad hands,lowers,3d render,cartoon,long body,((blurry)),duplicate,((duplicate body parts)),(disfigured),(poorly drawn),(extra limbs),fused fingers,extra fingers,(twisted),contorted,conjoined,((missing limbs)),logo,signature,text,words,low res,boring,mutated,artifacts,bad art,gross,ugly,poor quality,low quality,nsfw,(EasyNegative:1.2),ng_deepnegative_v1_75t,paintings,sketches,(worst quality:2),(low quality:2),(normal quality:2),lowres,normal quality,((monochrome)),((grayscale)),bad anatomy,(long hair:1.4),DeepNegative,(fat:1.2),facing away,looking away,tilted head,lowres,bad anatomy,bad hands,text,error,missing fingers,extra digit,fewer digits,cropped,worstquality,low quality,normal quality,jpegartifacts,signature,watermark,username,blurry,bad feet,cropped,poorly drawn hands,poorly drawn face,mutation,deformed,worst quality,low quality,normal quality,jpeg artifacts,signature,watermark,extra fingers,fewer digits,extra limbs,extra arms,extra legs,malformed limbs,fused fingers,too many fingers,long neck,cross-eyed,mutated hands,polar lowres,bad body,bad proportions,gross proportions,text,error,missing fingers,missing arms,missing legs,extra digi,",
+      "speak_and_recognation": true,
+      "clip": [
+        "4",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码器"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  }
+}

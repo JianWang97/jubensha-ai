@@ -13,6 +13,8 @@ wheels/
 
 *.log
 
+comfyui_outputs/
+
 ai_agent.log
 log/*
 

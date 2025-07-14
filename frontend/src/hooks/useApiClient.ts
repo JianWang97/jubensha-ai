@@ -142,6 +142,18 @@ interface ApiResponse<T> {
   data?: T;
 }
 
+export interface ImageGenerationRequest {
+  positive_prompt: string;
+  negative_prompt?: string;
+  script_id: number;
+  target_id: number;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg?: number;
+  seed?: number;
+}
+
 // API错误类
 export class ApiError extends Error {
   constructor(
@@ -430,21 +442,16 @@ export const useApiClient = () => {
   }, []);
 
   /**
-   * 上传封面图片
+   * 生成封面图片
    */
-  const uploadCoverImage = useCallback(async (file: File): Promise<any> => {
+  const generateCoverImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      return await apiRequest<any>('/scripts/upload/cover/', {
+      return await apiRequest<any>('/scripts/generate/cover/', {
         method: 'POST',
-        body: formData,
-        isFormData: true,
-        headers: {}
+        body: request
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -456,21 +463,16 @@ export const useApiClient = () => {
   }, []);
 
   /**
-   * 上传角色头像
+   * 生成角色头像
    */
-  const uploadAvatarImage = useCallback(async (file: File): Promise<any> => {
+  const generateAvatarImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      return await apiRequest<any>('/scripts/upload/avatar/', {
+      return await apiRequest<any>('/scripts/generate/avatar/', {
         method: 'POST',
-        body: formData,
-        isFormData: true,
-        headers: {}
+        body: request
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -482,21 +484,16 @@ export const useApiClient = () => {
   }, []);
 
   /**
-   * 上传证据图片
+   * 生成证据图片
    */
-  const uploadEvidenceImage = useCallback(async (file: File): Promise<any> => {
+  const generateEvidenceImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      return await apiRequest<any>('/scripts/upload/evidence/', {
+      return await apiRequest<any>('/scripts/generate/evidence/', {
         method: 'POST',
-        body: formData,
-        isFormData: true,
-        headers: {}
+        body: request
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -508,21 +505,16 @@ export const useApiClient = () => {
   }, []);
 
   /**
-   * 上传场景背景图
+   * 生成场景背景图
    */
-  const uploadSceneImage = useCallback(async (file: File): Promise<any> => {
+  const generateSceneImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      return await apiRequest<any>('/scripts/upload/scene/', {
+      return await apiRequest<any>('/scripts/generate/scene/', {
         method: 'POST',
-        body: formData,
-        isFormData: true,
-        headers: {}
+        body: request
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -724,6 +716,133 @@ export const useApiClient = () => {
     }
   }, []);
 
+  /**
+   * 创建证据
+   */
+  const createEvidence = useCallback(async (evidenceData: {
+    script_id: number;
+    name: string;
+    description?: string;
+    evidence_type?: string;
+    location?: string;
+    significance?: string;
+    related_to?: string | null;
+    importance?: string;
+    is_hidden?: boolean;
+  }): Promise<{ evidence_id: number }> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<{ evidence_id: number }>('/scripts/evidence', {
+        method: 'POST',
+        body: evidenceData
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 更新证据
+   */
+  const updateEvidence = useCallback(async (evidenceId: number, evidenceData: {
+    name?: string;
+    description?: string;
+    evidence_type?: string;
+    location?: string;
+    significance?: string;
+    related_to?: string | null;
+    importance?: string;
+    is_hidden?: boolean;
+  }): Promise<any> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<any>(`/scripts/evidence/${evidenceId}`, {
+        method: 'PUT',
+        body: evidenceData
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 删除证据
+   */
+  const deleteEvidence = useCallback(async (evidenceId: number): Promise<any> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<any>(`/scripts/evidence/${evidenceId}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 生成证据图片提示词
+   */
+  const generateEvidencePrompt = useCallback(async (data: {
+    evidence_name: string;
+    evidence_description: string;
+    evidence_type: string;
+    location?: string;
+    related_to?: string;
+    script_context?: string;
+  }): Promise<{
+    positive_prompt: string;
+    negative_prompt: string;
+    subject: string;
+    details: string;
+    atmosphere: string;
+    style: string;
+    technical: string;
+    keywords: string[];
+  }> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<{
+        positive_prompt: string;
+        negative_prompt: string;
+        subject: string;
+        details: string;
+        atmosphere: string;
+        style: string;
+        technical: string;
+        keywords: string[];
+      }>('/scripts/evidence/generate-prompt', {
+        method: 'POST',
+        body: data
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -739,6 +858,11 @@ export const useApiClient = () => {
     getScriptWithDetail,
     // 角色相关API
     getCharacters,
+    // 证据相关API
+    createEvidence,
+    updateEvidence,
+    deleteEvidence,
+    generateEvidencePrompt,
     // 游戏相关API
     getGameStatus,
     startGame,
@@ -749,11 +873,11 @@ export const useApiClient = () => {
     // 声音相关API
     getVoiceAssignments,
     streamTTS,
-    // 文件上传API
-    uploadCoverImage,
-    uploadAvatarImage,
-    uploadEvidenceImage,
-    uploadSceneImage,
+    // 图片生成API
+    generateCoverImage,
+    generateAvatarImage,
+    generateEvidenceImage,
+    generateSceneImage,
     // 工具方法
     clearError: () => setError(null)
   };

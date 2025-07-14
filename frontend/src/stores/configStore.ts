@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 // 默认配置常量
 const DEFAULT_CONFIG = {
   api: {
-    timeout: 10000,
+    timeout: 100000,
     retries: 1,
   },
   app: {

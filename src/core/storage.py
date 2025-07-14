@@ -116,6 +116,39 @@ class StorageManager:
         """获取文件的公开访问URL"""
         return urljoin(self.config.public_url, f"/{self.config.bucket_name}/{object_name}")
     
+    async def get_file(self, object_name: str) -> Optional[tuple]:
+        """获取文件内容
+        
+        Args:
+            object_name: 文件在存储中的路径
+            
+        Returns:
+            (文件内容, 内容类型) 或 None
+        """
+        if not self.is_available:
+            print(f"⚠️ 存储服务不可用，无法获取文件: {object_name}")
+            return None
+            
+        try:
+            # 获取文件对象
+            response = self.client.get_object(self.config.bucket_name, object_name)
+            
+            # 读取文件内容
+            file_content = response.read()
+            
+            # 获取内容类型
+            content_type = self._get_content_type(object_name)
+            
+            return file_content, content_type
+            
+        except S3Error as e:
+            print(f"❌ 文件获取失败: {e}")
+            return None
+        finally:
+            if 'response' in locals():
+                response.close()
+                response.release_conn()
+    
     async def delete_file(self, object_name: str) -> bool:
         """删除文件"""
         if not self.is_available:

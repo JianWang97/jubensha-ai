@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI图像生成测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        .row {
+            display: flex;
+            gap: 15px;
+        }
+        .col {
+            flex: 1;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .image-result {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .generated-image {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .download-btn {
+            background: #28a745;
+            margin-top: 10px;
+            width: auto;
+            padding: 8px 20px;
+        }
+        .api-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 AI图像生成测试</h1>
+        
+        <div class="api-tabs">
+            <div class="tab active" onclick="switchTab('download')">下载图像</div>
+            <div class="tab" onclick="switchTab('base64')">Base64返回</div>
+            <div class="tab" onclick="switchTab('info')">仅返回信息</div>
+        </div>
+
+        <form id="imageForm">
+            <div class="form-group">
+                <label for="positivePrompt">正向提示词 *</label>
+                <textarea id="positivePrompt" placeholder="描述你想要生成的图像，例如：一个美丽的风景，夕阳西下，湖水倒影" required>a beautiful landscape, sunset over a lake, mountains in the background, peaceful atmosphere</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="negativePrompt">反向提示词</label>
+                <textarea id="negativePrompt" placeholder="描述你不想要的元素，例如：模糊，低质量，变形">blurry, low quality, distorted, ugly</textarea>
+            </div>
+            
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="width">宽度</label>
+                        <input type="number" id="width" value="512" min="64" max="2048" step="64">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label for="height">高度</label>
+                        <input type="number" id="height" value="720" min="64" max="2048" step="64">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="steps">采样步数</label>
+                        <input type="number" id="steps" value="20" min="1" max="100">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label for="cfg">CFG引导强度</label>
+                        <input type="number" id="cfg" value="8.0" min="1.0" max="30.0" step="0.1">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="sampler">采样器</label>
+                        <select id="sampler">
+                            <option value="euler">Euler</option>
+                            <option value="euler_ancestral">Euler Ancestral</option>
+                            <option value="dpm_2">DPM 2</option>
+                            <option value="dpm_2_ancestral">DPM 2 Ancestral</option>
+                            <option value="lms">LMS</option>
+                            <option value="ddim">DDIM</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label for="seed">随机种子 (可选)</label>
+                        <input type="number" id="seed" placeholder="留空使用随机种子">
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" id="generateBtn">🎨 生成图像</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在生成图像，请稍候...</p>
+        </div>
+        
+        <div class="result" id="result"></div>
+        
+        <div class="tab-content active" id="download-content">
+            <div class="image-result" id="imageResult"></div>
+        </div>
+        
+        <div class="tab-content" id="base64-content">
+            <div id="base64Result"></div>
+        </div>
+        
+        <div class="tab-content" id="info-content">
+            <div id="infoResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'download';
+        
+        function switchTab(tab) {
+            // 更新标签样式
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // 更新内容显示
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tab + '-content').classList.add('active');
+            
+            currentTab = tab;
+        }
+        
+        document.getElementById('imageForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const generateBtn = document.getElementById('generateBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            
+            // 禁用按钮并显示加载状态
+            generateBtn.disabled = true;
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // 清空之前的结果
+            document.getElementById('imageResult').innerHTML = '';
+            document.getElementById('base64Result').innerHTML = '';
+            document.getElementById('infoResult').innerHTML = '';
+            
+            try {
+                // 收集表单数据
+                const formData = {
+                    positive_prompt: document.getElementById('positivePrompt').value,
+                    negative_prompt: document.getElementById('negativePrompt').value,
+                    width: parseInt(document.getElementById('width').value),
+                    height: parseInt(document.getElementById('height').value),
+                    steps: parseInt(document.getElementById('steps').value),
+                    cfg: parseFloat(document.getElementById('cfg').value),
+                    sampler_name: document.getElementById('sampler').value
+                };
+                
+                // 如果设置了种子，添加到请求中
+                const seedValue = document.getElementById('seed').value;
+                if (seedValue) {
+                    formData.seed = parseInt(seedValue);
+                }
+                
+                // 根据当前标签选择API端点
+                let endpoint;
+                switch(currentTab) {
+                    case 'download':
+                        endpoint = '/api/image/generate/download';
+                        break;
+                    case 'base64':
+                        endpoint = '/api/image/generate/base64';
+                        break;
+                    case 'info':
+                        endpoint = '/api/image/generate';
+                        break;
+                }
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (currentTab === 'download') {
+                    // 处理图像下载
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const imageUrl = URL.createObjectURL(blob);
+                        
+                        const filename = response.headers.get('Content-Disposition')?.match(/filename=(.+)/)?.[1] || 'generated_image.png';
+                        const generationTime = response.headers.get('X-Generation-Time');
+                        const promptId = response.headers.get('X-Prompt-ID');
+                        
+                        document.getElementById('imageResult').innerHTML = `
+                            <img src="${imageUrl}" alt="Generated Image" class="generated-image">
+                            <br>
+                            <button class="download-btn" onclick="downloadImage('${imageUrl}', '${filename}')">📥 下载图像</button>
+                            <p><strong>文件名:</strong> ${filename}</p>
+                            <p><strong>生成时间:</strong> ${generationTime}秒</p>
+                            <p><strong>任务ID:</strong> ${promptId}</p>
+                        `;
+                        
+                        showResult('success', '图像生成成功！');
+                    } else {
+                        const errorData = await response.json();
+                        showResult('error', `生成失败: ${errorData.detail}`);
+                    }
+                } else {
+                    // 处理JSON响应
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        if (currentTab === 'base64') {
+                            document.getElementById('base64Result').innerHTML = `
+                                <img src="data:${data.media_type};base64,${data.image_base64}" alt="Generated Image" class="generated-image">
+                                <p><strong>文件名:</strong> ${data.filename}</p>
+                                <p><strong>生成时间:</strong> ${data.generation_time}秒</p>
+                                <p><strong>任务ID:</strong> ${data.prompt_id}</p>
+                                <p><strong>Base64长度:</strong> ${data.image_base64.length} 字符</p>
+                            `;
+                        } else if (currentTab === 'info') {
+                            document.getElementById('infoResult').innerHTML = `
+                                <p><strong>生成状态:</strong> ${data.success ? '成功' : '失败'}</p>
+                                <p><strong>文件名:</strong> ${data.filename}</p>
+                                <p><strong>生成时间:</strong> ${data.generation_time}秒</p>
+                                <p><strong>任务ID:</strong> ${data.prompt_id}</p>
+                            `;
+                        }
+                        
+                        showResult('success', '图像生成成功！');
+                    } else {
+                        showResult('error', `生成失败: ${data.detail}`);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showResult('error', `请求失败: ${error.message}`);
+            } finally {
+                // 恢复按钮状态
+                generateBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+        
+        function showResult(type, message) {
+            const result = document.getElementById('result');
+            result.className = `result ${type}`;
+            result.textContent = message;
+            result.style.display = 'block';
+        }
+        
+        function downloadImage(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        // 健康检查
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/image/health');
+                const data = await response.json();
+                
+                if (data.comfyui_available) {
+                    console.log('✅ ComfyUI服务可用');
+                } else {
+                    console.warn('⚠️ ComfyUI服务不可用');
+                    showResult('error', 'ComfyUI服务不可用，请检查服务器状态');
+                }
+            } catch (error) {
+                console.error('健康检查失败:', error);
+            }
+        }
+        
+        // 页面加载时进行健康检查
+        window.addEventListener('load', checkHealth);
+    </script>
+</body>
+</html>

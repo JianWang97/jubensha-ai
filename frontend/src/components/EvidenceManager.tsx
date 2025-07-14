@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Evidence } from '@/hooks/useApiClient';
+import React, { useEffect, useState } from 'react';
+import { Evidence, ImageGenerationRequest } from '@/hooks/useApiClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,22 +7,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import toast from 'react-hot-toast';
+import { useApiClient } from '@/hooks/useApiClient';
 
 interface EvidenceManagerProps {
-  evidence: Evidence[];
-  onEvidenceChange: (evidence: Evidence[]) => void;
-  uploadEvidenceImage?: (file: File) => Promise<{ url: string }>;
+  generateEvidenceImage?: (request: ImageGenerationRequest) => Promise<{ url: string }>;
+  scriptId: string;
 }
 
 const EvidenceManager: React.FC<EvidenceManagerProps> = ({
-  evidence,
-  onEvidenceChange,
-  uploadEvidenceImage
+  generateEvidenceImage,
+  scriptId
 }) => {
   // 证据相关状态
+  const [evidences, setEvidences] = useState<Evidence[]>([]);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
   const [isEvidenceFormFullscreen, setIsEvidenceFormFullscreen] = useState(true);
+
+  const {getScriptWithDetail, generateEvidencePrompt, createEvidence, updateEvidence, deleteEvidence } = useApiClient();
   const [evidenceForm, setEvidenceForm] = useState<Partial<Evidence>>({
     name: '',
     description: '',
@@ -34,6 +37,31 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     location: '',
     related_to: ''
   });
+  
+  useEffect(() => {
+    initEvidenceForm();
+  }, [scriptId]);
+
+  const initEvidenceForm = async () => {
+    if(scriptId){
+      const { evidence: evidences } = await getScriptWithDetail(Number(scriptId));
+      if(evidences){
+        setEvidences(evidences);
+      }
+    }
+  };
+  // 图片生成相关状态
+  const [imageGeneration, setImageGeneration] = useState({
+    positive_prompt: '',
+    negative_prompt: '',
+    width: 512,
+    height: 512,
+    steps: 20,
+    cfg_scale: 7,
+    seed: 1
+  });
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
   // 处理证据表单变化
   const handleEvidenceFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -45,21 +73,46 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   };
 
   // 添加或编辑证据
-  const handleSaveEvidence = () => {
-    if (editingEvidence) {
-      // 编辑模式
-      const updatedEvidence = evidence.map(ev => 
-        ev.id === editingEvidence.id ? { ...evidenceForm, id: editingEvidence.id } as Evidence : ev
-      );
-      onEvidenceChange(updatedEvidence);
-    } else {
-      // 添加模式
-      const newEvidence = { ...evidenceForm, id: Date.now() } as Evidence;
-      onEvidenceChange([...evidence, newEvidence]);
+  const handleSaveEvidence = async () => {
+    try {
+      if (editingEvidence) {
+        // 编辑模式 - 调用更新API
+        await updateEvidence(editingEvidence.id, {
+          name: evidenceForm.name,
+          description: evidenceForm.description,
+          evidence_type: evidenceForm.evidence_type,
+          location: evidenceForm.location,
+          significance: evidenceForm.significance,
+          related_to: evidenceForm.related_to,
+          importance: evidenceForm.importance,
+          is_hidden: evidenceForm.is_hidden
+        });
+        toast('证据更新成功！');
+      } else {
+        // 添加模式 - 调用创建API
+        await createEvidence({
+          script_id: Number(scriptId),
+          name: evidenceForm.name || '',
+          description: evidenceForm.description,
+          evidence_type: evidenceForm.evidence_type,
+          location: evidenceForm.location,
+          significance: evidenceForm.significance,
+          related_to: evidenceForm.related_to,
+          importance: evidenceForm.importance,
+          is_hidden: evidenceForm.is_hidden
+        });
+        toast('证据创建成功！');
+      }
+      
+      // 重新加载证据列表
+      await initEvidenceForm();
+      
+      // 重置表单
+      resetForm();
+    } catch (error) {
+      console.error('保存证据失败:', error);
+      toast('保存证据失败，请重试。');
     }
-    
-    // 重置表单
-    resetForm();
   };
 
   // 重置表单
@@ -87,29 +140,95 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   };
 
   // 删除证据
-  const handleDeleteEvidence = (id: number) => {
+  const handleDeleteEvidence = async (id: number) => {
     if (confirm('确定要删除这个证据吗？')) {
-      const updatedEvidence = evidence.filter(ev => ev.id !== id);
-      onEvidenceChange(updatedEvidence);
+      try {
+        await deleteEvidence(id);
+        toast('证据删除成功！');
+        
+        // 重新加载证据列表
+        await initEvidenceForm();
+      } catch (error) {
+        console.error('删除证据失败:', error);
+        toast('删除证据失败，请重试。');
+      }
     }
   };
 
-  // 上传图片
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !uploadEvidenceImage) return;
+  // 生成提示词
+  const handlePromptGeneration = async () => {
+    if (!evidenceForm.name || !evidenceForm.description) {
+      toast('请先填写证据名称和描述');
+      return;
+    }
 
+    setIsGeneratingPrompt(true);
     try {
-      const result = await uploadEvidenceImage(file);
-      if (result && result.url) {
-        setEvidenceForm(prev => ({ ...prev, image_url: result.url }));
-        alert('图片上传成功！');
-      } else {
-        throw new Error('上传结果无效');
+      const result = await generateEvidencePrompt({
+        evidence_name: evidenceForm.name,
+        evidence_description: evidenceForm.description,
+        evidence_type: evidenceForm.evidence_type || 'physical',
+        location: evidenceForm.location || '',
+        related_to: evidenceForm.related_to || '',
+        script_context: '' // 可以从剧本信息中获取
+      });
+
+      if (result) {
+        // 更新图片生成参数
+        setImageGeneration(prev => ({
+          ...prev,
+          positive_prompt: result.positive_prompt,
+          negative_prompt: result.negative_prompt
+        }));
+        toast('提示词生成成功！');
       }
     } catch (error) {
-      console.error('图片上传失败:', error);
-      alert('图片上传失败，请重试。');
+      console.error('提示词生成失败:', error);
+      toast('提示词生成失败，请重试。');
+    } finally {
+      setIsGeneratingPrompt(false);
+    }
+  };
+
+  // 生成图片
+  const handleImageGeneration = async () => {
+    if (!generateEvidenceImage || !imageGeneration.positive_prompt.trim()) {
+      toast('请输入正向提示词');
+      return;
+    }
+
+    if (!editingEvidence?.id) {
+      toast('请先保存证据后再生成图片');
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      const request: ImageGenerationRequest = {
+        positive_prompt: imageGeneration.positive_prompt,
+        negative_prompt: imageGeneration.negative_prompt,
+        script_id: Number(scriptId),
+        target_id: editingEvidence.id,
+        width: imageGeneration.width,
+        height: imageGeneration.height,
+        steps: imageGeneration.steps,
+        cfg: imageGeneration.cfg_scale,
+        seed: imageGeneration.seed
+      };
+      
+      const result = await generateEvidenceImage(request);
+      if (result && result.url) {
+        setEvidenceForm(prev => ({ ...prev, image_url: result.url }));
+        initEvidenceForm();
+        toast('图片生成成功！');
+      } else {
+        throw new Error('生成结果无效');
+      }
+    } catch (error) {
+      console.error('图片生成失败:', error);
+      toast('图片生成失败，请重试。');
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -131,7 +250,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
       <CardContent>
         {/* 证据卡片网格 */}
         <div className="mb-6">
-          {evidence.length === 0 ? (
+          {evidences.length === 0 ? (
             <div className="text-purple-300 text-center py-12 bg-slate-700/30 rounded-xl border-2 border-dashed border-purple-500/30">
               <div className="text-4xl mb-4">🔍</div>
               <div className="text-lg">暂无证据</div>
@@ -139,7 +258,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {evidence.map((ev) => (
+              {evidences.map((ev) => (
                 <div key={ev.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-xl p-6 border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10 group">
                   {/* 卡片头部 */}
                   <div className="flex items-start justify-between mb-4">
@@ -358,36 +477,109 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   
                   <div>
                     <label className="block text-sm font-medium text-purple-200 mb-2">图片URL</label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="text"
-                        name="image_url"
-                        value={evidenceForm.image_url || ''}
-                        onChange={handleEvidenceFormChange}
-                        placeholder="输入图片URL或上传图片"
-                        className="flex-1 bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                      />
-                      {uploadEvidenceImage && (
+                    <Input
+                      type="text"
+                      name="image_url"
+                      value={evidenceForm.image_url || ''}
+                      onChange={handleEvidenceFormChange}
+                      placeholder="图片URL（可通过下方生成功能获取）"
+                      className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                    />
+                  </div>
+                  
+                  {/* 图片生成区域 */}
+                  {generateEvidenceImage && (
+                    <div className="col-span-full border border-purple-500/30 rounded-lg p-4 bg-slate-700/50">
+                      <h4 className="text-lg font-semibold text-purple-200 mb-4">🎨 AI图片生成</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-purple-200 mb-2">正向提示词 *</label>
+                          <Textarea
+                            value={imageGeneration.positive_prompt}
+                            onChange={(e) => setImageGeneration(prev => ({ ...prev, positive_prompt: e.target.value }))}
+                            placeholder="描述你想要生成的图片内容..."
+                            rows={3}
+                            className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-purple-200 mb-2">反向提示词</label>
+                          <Textarea
+                            value={imageGeneration.negative_prompt}
+                            onChange={(e) => setImageGeneration(prev => ({ ...prev, negative_prompt: e.target.value }))}
+                            placeholder="描述你不想要的内容..."
+                            rows={3}
+                            className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-purple-200 mb-2">图片尺寸</label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              value={imageGeneration.width}
+                              onChange={(e) => setImageGeneration(prev => ({ ...prev, width: parseInt(e.target.value) || 512 }))}
+                              placeholder="宽度"
+                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                            />
+                            <span className="text-purple-300 self-center">×</span>
+                            <Input
+                              type="number"
+                              value={imageGeneration.height}
+                              onChange={(e) => setImageGeneration(prev => ({ ...prev, height: parseInt(e.target.value) || 512 }))}
+                              placeholder="高度"
+                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-purple-200 mb-2">生成参数</label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Input
+                              type="number"
+                              value={imageGeneration.steps}
+                              onChange={(e) => setImageGeneration(prev => ({ ...prev, steps: parseInt(e.target.value) || 20 }))}
+                              placeholder="步数"
+                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                            />
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={imageGeneration.cfg_scale}
+                              onChange={(e) => setImageGeneration(prev => ({ ...prev, cfg_scale: parseFloat(e.target.value) || 7 }))}
+                              placeholder="CFG"
+                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                            />
+                            <Input
+                              type="number"
+                              value={imageGeneration.seed}
+                              onChange={(e) => setImageGeneration(prev => ({ ...prev, seed: parseInt(e.target.value) || -1 }))}
+                              placeholder="种子"
+                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex gap-3">
                         <Button
                           type="button"
-                          variant="default"
-                          size="sm"
-                          className="bg-purple-600 hover:bg-purple-500 text-white"
-                          asChild
+                          onClick={handlePromptGeneration}
+                          disabled={isGeneratingPrompt || !evidenceForm.name || !evidenceForm.description}
+                          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white"
                         >
-                          <label className="cursor-pointer">
-                            📁
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImageUpload}
-                              className="hidden"
-                            />
-                          </label>
+                          {isGeneratingPrompt ? '🤖 生成中...' : '🤖 AI生成提示词'}
                         </Button>
-                      )}
+                        <Button
+                          type="button"
+                          onClick={handleImageGeneration}
+                          disabled={isGeneratingImage || !imageGeneration.positive_prompt.trim()}
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
+                        >
+                          {isGeneratingImage ? '🎨 生成中...' : '🎨 生成图片'}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 
                 <div>
