@@ -15,9 +15,10 @@ interface Character {
 
 interface CharacterListProps {
   characters: Character[];
+  compact?: boolean; // 紧凑模式，用于游戏进行时
 }
 
-const CharacterList = ({ characters = [] }: CharacterListProps) => {
+const CharacterList = ({ characters = [], compact = false }: CharacterListProps) => {
   const getCharacterIcon = (character: Character) => {
     if (character.is_victim) return '💀';
     if (character.is_murderer) return '🔪';
@@ -30,6 +31,40 @@ const CharacterList = ({ characters = [] }: CharacterListProps) => {
     return 'border-purple-400';
   };
 
+  if (compact) {
+    // 紧凑模式：只显示基本信息
+    return (
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-4 shadow-2xl border border-white/20">
+        <h3 className="text-lg font-bold text-white mb-3">角色信息</h3>
+        {characters.length === 0 ? (
+          <div className="text-center text-gray-300 py-4">
+            <p className="text-sm">暂无角色信息</p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {characters.map((character) => (
+              <li 
+                key={character.id} 
+                className={`bg-white/10 rounded-lg p-3 border-l-4 ${getCharacterBorderColor(character)} transition-all duration-300 hover:bg-white/20`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-sm text-white flex items-center gap-2">
+                    <span className="text-lg">{getCharacterIcon(character)}</span>
+                    {character.name}
+                  </p>
+                  <div className="text-xs text-gray-300">
+                    {character.profession}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  // 完整模式：显示详细信息
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
       <h3 className="text-2xl font-bold text-white mb-5">角色列表 ({characters.length})</h3>

@@ -71,6 +71,7 @@ export interface Script {
 export interface Character {
   id: number;
   name: string;
+  personality_traits: string[];
   background: string;
   gender: string;
   age: number;
@@ -79,6 +80,7 @@ export interface Character {
   objective: string;
   is_victim: boolean;
   is_murderer: boolean;
+  avatar_url?: string;
 }
 
 // 定义游戏状态数据结构
@@ -243,7 +245,7 @@ const apiRequest = async <T>(
       requestOptions.body = isFormData ? body : JSON.stringify(body);
     }
     
-    const response = await fetchWithRetry(`${config.api.baseUrl}${endpoint}`, requestOptions);
+    const response = await fetch(`${config.api.baseUrl}${endpoint}`, requestOptions);
     const result: ApiResponse<T> = await response.json();
     
     if (!result.success) {
@@ -325,6 +327,92 @@ export const useApiClient = () => {
       }
       
       return data;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 创建角色
+   */
+  const createCharacter = useCallback(async (characterData: {
+    script_id: number;
+    name: string;
+    age?: number;
+    profession?: string;
+    background?: string;
+    secret?: string;
+    objective?: string;
+    gender?: string;
+    is_murderer?: boolean;
+    is_victim?: boolean;
+    personality_traits?: string[];
+  }): Promise<any> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<any>('/scripts/characters', {
+        method: 'POST',
+        body: characterData
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 更新角色
+   */
+  const updateCharacter = useCallback(async (characterId: number, characterData: {
+    name?: string;
+    age?: number;
+    profession?: string;
+    background?: string;
+    secret?: string;
+    objective?: string;
+    gender?: string;
+    is_murderer?: boolean;
+    is_victim?: boolean;
+    personality_traits?: string[];
+    avatar_url?: string;
+  }): Promise<any> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<any>(`/scripts/characters/${characterId}`, {
+        method: 'PUT',
+        body: characterData
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 删除角色
+   */
+  const deleteCharacter = useCallback(async (characterId: number): Promise<any> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<any>(`/scripts/characters/${characterId}`, {
+        method: 'DELETE'
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
@@ -843,6 +931,41 @@ export const useApiClient = () => {
     }
   }, []);
 
+  /**
+   * 生成角色头像提示词
+   */
+  const generateCharacterPrompt = useCallback(async (data: {
+    character_name: string;
+    character_description: string;
+    profession?: string;
+    age?: number;
+    gender?: string;
+    personality_traits?: string[];
+    script_context?: string;
+  }): Promise<{
+    positive_prompt: string;
+    negative_prompt: string;
+  }> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      return await apiRequest<{
+        positive_prompt: string;
+        negative_prompt: string;
+      }>('/scripts/characters/generate-prompt', {
+        method: 'POST',
+        body: data
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -858,6 +981,10 @@ export const useApiClient = () => {
     getScriptWithDetail,
     // 角色相关API
     getCharacters,
+    createCharacter,
+    updateCharacter,
+    deleteCharacter,
+    generateCharacterPrompt,
     // 证据相关API
     createEvidence,
     updateEvidence,

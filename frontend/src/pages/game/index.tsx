@@ -1,121 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import Layout from '@/components/Layout';
-import CharacterList from '@/components/CharacterList';
+import CharacterAvatars from '@/components/CharacterAvatars';
 import GameLog from '@/components/GameLog';
 import ScriptSelection from '@/components/ScriptSelection';
 import { useGameState } from '@/hooks/useGameState';
 import { useTTSService } from '@/stores/ttsStore';
-
-const Header = ({ scriptTitle, isConnected, sessionId }: { scriptTitle?: string; isConnected: boolean; sessionId?: string }) => (
-  <header className="text-center mb-8 text-white">
-    <h1 className="text-4xl font-bold mb-2 text-shadow-lg">{scriptTitle ? `进行中: ${scriptTitle}` : 'AI剧本杀游戏'}</h1>
-    <div className="flex justify-center items-center gap-3 mb-2">
-      <div className={`inline-block px-3 py-1 rounded-full text-sm ${
-        isConnected ? 'bg-green-500' : 'bg-red-500'
-      }`}>
-        {isConnected ? '已连接' : '连接断开'}
-      </div>
-      {sessionId && (
-        <div className="inline-block px-3 py-1 rounded-full text-sm bg-blue-500">
-          房间: {sessionId}
-        </div>
-      )}
-    </div>
-  </header>
-);
-
-interface GameControlsProps {
-  onBack: () => void;
-  onStartGame: () => void;
-  onNextPhase: () => void;
-  onResetGame: () => void;
-  isGameStarted: boolean;
-  selectedScript: any;
-}
-
-const GameControls = ({ 
-  onBack, 
-  onStartGame, 
-  onNextPhase, 
-  onResetGame, 
-  isGameStarted, 
-  selectedScript 
-}: GameControlsProps) => (
-  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 mb-5 text-center shadow-lg flex justify-center items-center gap-4">
-    <button 
-      onClick={onBack} 
-      className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300"
-    >
-      返回选择
-    </button>
-    <button 
-      onClick={onStartGame}
-      disabled={!selectedScript || isGameStarted}
-      className="bg-gradient-to-r from-green-400 to-blue-500 hover:from-pink-500 hover:to-yellow-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {isGameStarted ? '游戏进行中' : '开始游戏'}
-    </button>
-    <button 
-      onClick={onNextPhase}
-      disabled={!isGameStarted}
-      className="bg-gradient-to-r from-blue-400 to-purple-500 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      下一阶段
-    </button>
-    <button 
-      onClick={onResetGame}
-      className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold py-3 px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300"
-    >
-      重置游戏
-    </button>
-  </div>
-);
-
-interface AudioControlsProps {
-  ttsEnabled: boolean;
-  isPlaying: boolean;
-  audioStatus: string;
-  audioInitialized: boolean;
-  onToggleTTS: () => void;
-  onStopAudio: () => void;
-  onInitializeAudio: () => void;
-}
-
-const AudioControls = ({ ttsEnabled, isPlaying, audioStatus, audioInitialized, onToggleTTS, onStopAudio, onInitializeAudio }: AudioControlsProps) => (
-  <div className={`bg-white/20 backdrop-blur-sm rounded-xl p-4 mb-5 text-center shadow-lg ${
-    ttsEnabled && audioInitialized ? 'border-2 border-green-400' : 'border-2 border-gray-400'
-  }`}>
-    <div className="flex justify-center items-center gap-3 mb-2">
-      {!audioInitialized && (
-        <button 
-          onClick={onInitializeAudio}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300"
-        >
-          🎵 初始化音频
-        </button>
-      )}
-      <button 
-        onClick={onToggleTTS}
-        disabled={!audioInitialized}
-        className={`font-bold py-2 px-4 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-          ttsEnabled 
-            ? 'bg-green-500 hover:bg-green-600 text-white' 
-            : 'bg-gray-500 hover:bg-gray-600 text-white'
-        }`}
-      >
-        {ttsEnabled ? '🔊 禁用语音' : '🔇 启用语音'}
-      </button>
-      <button 
-        onClick={onStopAudio}
-        disabled={!isPlaying}
-        className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        ⏹️ 停止播放
-      </button>
-    </div>
-    <div className="text-white text-sm">{audioStatus}</div>
-  </div>
-);
 
 const GamePage = () => {
   // 从URL参数获取session_id和script_id
@@ -133,109 +22,188 @@ const GamePage = () => {
   const { sessionId, scriptId } = getUrlParams();
 
   const {
-    isConnected,
     selectedScript,
     characters,
     gameLog,
-    currentPhase,
     isGameStarted,
-    voiceMapping,
-    currentSessionId,
     handleSelectScript,
     handleStartGame,
-    handleNextPhase,
-    handleResetGame,
-    addLogEntry
+    voiceMapping
   } = useGameState(sessionId, scriptId);
 
-  const {
-    ttsEnabled,
-    isPlaying,
-    audioStatus,
-    audioInitialized,
-    queueTTS,
-    stopAllAudio,
+  // 初始化TTS服务
+  const { 
+    queueTTS, 
+    initializeAudio, 
+    ttsEnabled, 
+    audioInitialized, 
     toggleTTS,
-    initializeAudio
-  } = useTTSService(voiceMapping);
+    startQueueProcessor,
+    stopQueueProcessor,
+    currentSpeakingCharacter,
+    currentSpeechText
+  } = useTTSService(voiceMapping || {});
 
-  const playedLogCountRef = useRef<number>(0);
-
-  const handleBackToSelection = () => {
-    handleSelectScript(null as any);
-    playedLogCountRef.current = 0; // 重置已播放计数
+  // 增强的开始游戏函数，包含语音播报
+  const handleStartGameWithTTS = async () => {
+    try {
+      // 如果TTS未启用，先启用它
+      if (!ttsEnabled) {
+        toggleTTS();
+      }
+      
+      // 初始化音频（如果还未初始化）
+      if (!audioInitialized) {
+        console.log('正在初始化音频...');
+        await initializeAudio();
+      }
+      
+      // 启动队列处理器
+      startQueueProcessor();
+      
+      // 调用原始的开始游戏函数
+      handleStartGame();
+      
+      // 添加欢迎语音到队列
+      setTimeout(() => {
+        queueTTS('系统', '游戏开始！欢迎来到剧本杀的世界，请各位玩家准备好开始这场精彩的推理之旅！');
+      }, 500); // 延迟500ms确保游戏状态已更新
+    } catch (error) {
+      console.error('启动游戏时出错:', error);
+      // 即使音频初始化失败，也要启动游戏
+      handleStartGame();
+    }
   };
 
-  // 监听音频初始化状态，自动启用TTS
-  useEffect(() => {
-    if (audioInitialized && !ttsEnabled && isGameStarted) {
-      toggleTTS();
-    }
-  }, [audioInitialized, ttsEnabled, isGameStarted]);
+  // 获取场景背景图片
+  const getSceneBackground = () => {
+    // 使用默认的背景图片
+    return '/background.png';
+  };
 
-  // 监听游戏日志变化，自动播放TTS
+  // 游戏结束时停止队列处理器
   useEffect(() => {
-    if (gameLog.length > playedLogCountRef.current && ttsEnabled && audioInitialized) {
-      // 播放所有新增的日志条目
-      const newEntries = gameLog.slice(playedLogCountRef.current);
-      
-      newEntries.forEach(entry => {
-        queueTTS(entry.character, entry.content);
-      });
-      playedLogCountRef.current = gameLog.length;
+    return () => {
+      // 组件卸载时停止队列处理器
+      stopQueueProcessor();
+    };
+  }, [stopQueueProcessor]);
+  
+  // 游戏状态变化时管理队列处理器
+  useEffect(() => {
+    if (isGameStarted && ttsEnabled) {
+      startQueueProcessor();
+    } else {
+      stopQueueProcessor();
     }
-  }, [gameLog, ttsEnabled, audioInitialized]); // 添加audioInitialized依赖
+  }, [isGameStarted, ttsEnabled, startQueueProcessor, stopQueueProcessor]);
 
   return (
-    <Layout>
+    <Layout backgroundImage={getSceneBackground()}>
       {!selectedScript ? (
         <ScriptSelection onSelectScript={handleSelectScript} />
       ) : (
         <>
-          <Header scriptTitle={selectedScript.title} isConnected={isConnected} sessionId={currentSessionId || undefined} />
-          
-          <GameControls 
-            onBack={handleBackToSelection}
-            onStartGame={() => {
-              handleStartGame();
-              // 自动初始化音频并启用TTS
-              if (!audioInitialized) {
-                initializeAudio();
-              }
-            }}
-            onNextPhase={handleNextPhase}
-            onResetGame={() => {
-              handleResetGame();
-              playedLogCountRef.current = 0; // 重置已播放计数
-            }}
-            isGameStarted={isGameStarted}
-            selectedScript={selectedScript}
+          {/* 角色头像悬浮显示 */}
+          <CharacterAvatars 
+            characters={characters.map(char => ({
+              ...char,
+              avatar_url: char.avatar_url === null ? undefined : char.avatar_url
+            }))} 
+            gameLog={gameLog} 
           />
           
-          <AudioControls 
-            ttsEnabled={ttsEnabled}
-            isPlaying={isPlaying}
-            audioStatus={audioStatus}
-            audioInitialized={audioInitialized}
-            onToggleTTS={toggleTTS}
-            onStopAudio={stopAllAudio}
-            onInitializeAudio={initializeAudio}
-          />
+          {/* 音频权限请求 - 在游戏开始前且音频未初始化时显示 */}
+          {!isGameStarted && !audioInitialized && (
+            <div className="fixed top-4 right-4 z-30">
+              <div className="bg-yellow-500/90 backdrop-blur-sm rounded-lg p-4 border border-yellow-400 shadow-lg max-w-sm">
+                <div className="flex items-center space-x-3">
+                  <div className="text-2xl">🔊</div>
+                  <div>
+                    <p className="text-black font-medium text-sm">
+                      需要音频权限以启用语音播报
+                    </p>
+                    <button
+                      onClick={initializeAudio}
+                      className="mt-2 bg-black text-white px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors"
+                    >
+                      启用音频
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 mb-5 text-center shadow-lg">
-            <div className="text-white font-bold text-lg">
-              当前阶段: {currentPhase}
+          {/* 开始游戏按钮 - 仅在游戏未开始时显示 */}
+          {!isGameStarted && (
+            <div className="fixed inset-0 flex items-center justify-center z-20">
+              <div className="bg-black/60 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+                <div className="text-center">
+                  <div className="text-6xl mb-6">🎭</div>
+                  <h2 className="text-3xl font-bold text-white mb-4">
+                    {selectedScript?.title || '剧本杀'}
+                  </h2>
+                  <p className="text-gray-300 mb-4 max-w-md">
+                    所有角色已就位，准备开始这场精彩的推理之旅
+                  </p>
+                  {!audioInitialized && (
+                    <p className="text-yellow-300 mb-6 text-sm">
+                      💡 提示：点击右上角启用音频以获得更好的游戏体验
+                    </p>
+                  )}
+                  <button
+                    onClick={handleStartGameWithTTS}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-2xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  >
+                    🚀 开始游戏
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
           
-          <div className="grid md:grid-cols-3 gap-5">
-            <div className="md:col-span-1">
-              <CharacterList characters={characters} />
+          {/* TTS控制面板 - 游戏进行中显示 */}
+          {isGameStarted && (
+            <div className="fixed top-4 left-4 z-30">
+              <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="text-lg">{ttsEnabled ? '🔊' : '🔇'}</div>
+                  <div className="text-white text-sm">
+                    <div className="font-medium">
+                      语音播报: {ttsEnabled ? '已启用' : '已禁用'}
+                    </div>
+                    <div className="text-xs text-gray-300 mt-1">
+                      {audioInitialized ? '音频已就绪' : '音频未初始化'}
+                    </div>
+                  </div>
+                  <div className="flex flex-col space-y-1">
+                    {!audioInitialized && (
+                      <button
+                        onClick={initializeAudio}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                      >
+                        初始化音频
+                      </button>
+                    )}
+                    <button
+                      onClick={toggleTTS}
+                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                        ttsEnabled 
+                          ? 'bg-red-600 hover:bg-red-700 text-white' 
+                          : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
+                    >
+                      {ttsEnabled ? '禁用' : '启用'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="md:col-span-2">
-              <GameLog gameLog={gameLog} />
-            </div>
-          </div>
+          )}
+          
+          {/* 游戏日志右侧抽屉 */}
+          <GameLog gameLog={gameLog} />
         </>
       )}
     </Layout>

@@ -838,3 +838,210 @@ async def generate_evidence_prompt(request: PromptGenerationRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成提示词失败: {str(e)}")
+
+# 角色管理相关路由
+class CharacterCreateRequest(BaseModel):
+    script_id: int
+    name: str
+    age: Optional[int] = None
+    profession: str = ""
+    background: str = ""
+    secret: str = ""
+    objective: str = ""
+    gender: str = "中性"
+    is_murderer: bool = False
+    is_victim: bool = False
+    personality_traits: List[str] = []
+    avatar_url: str = ""
+
+class CharacterUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = None
+    profession: Optional[str] = None
+    background: Optional[str] = None
+    secret: Optional[str] = None
+    objective: Optional[str] = None
+    gender: Optional[str] = None
+    is_murderer: Optional[bool] = None
+    is_victim: Optional[bool] = None
+    personality_traits: Optional[List[str]] = None
+
+@router.post("/characters", summary="创建角色")
+async def create_character(request: CharacterCreateRequest):
+    """创建新角色"""
+    try:
+        # 检查剧本是否存在
+        script = await script_repository.get_script_by_id(request.script_id)
+        if not script:
+            raise HTTPException(status_code=404, detail="剧本不存在")
+        
+        # 创建角色
+        character_data = {
+            "script_id": request.script_id,
+            "name": request.name,
+            "background_story": request.background,
+            "gender": request.gender,
+            "age": request.age,
+            "occupation": request.profession,
+            "secret": request.secret,
+            "motivation": request.objective,
+            "is_victim": request.is_victim,
+            "is_murderer": request.is_murderer,
+            "personality_traits": request.personality_traits,
+            "avatar_url": request.avatar_url
+        }
+        
+        await script_repository.create_character(character_data)
+        
+        return ScriptResponse(
+            success=True,
+            message="角色创建成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建角色失败: {str(e)}")
+
+@router.put("/characters/{character_id}", summary="更新角色")
+async def update_character(character_id: int, request: CharacterUpdateRequest):
+    """更新角色信息"""
+    try:
+        # 构建更新数据（只包含非None的字段）
+        update_data = {}
+        if request.name is not None:
+            update_data["name"] = request.name
+        if request.age is not None:
+            update_data["age"] = request.age
+        if request.profession is not None:
+            update_data["profession"] = request.profession
+        if request.background is not None:
+            update_data["background"] = request.background
+        if request.secret is not None:
+            update_data["secret"] = request.secret
+        if request.objective is not None:
+            update_data["objective"] = request.objective
+        if request.gender is not None:
+            update_data["gender"] = request.gender
+        if request.is_murderer is not None:
+            update_data["is_murderer"] = request.is_murderer
+        if request.is_victim is not None:
+            update_data["is_victim"] = request.is_victim
+        if request.personality_traits is not None:
+            update_data["personality_traits"] = request.personality_traits
+        if request.avatar_url is not None:
+            update_data["avatar_url"] = request.avatar_url
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="没有提供要更新的字段")
+        
+        # 更新角色
+        success = await script_repository.update_character(character_id, update_data)
+        if not success:
+            raise HTTPException(status_code=404, detail="角色不存在或更新失败")
+        
+        return ScriptResponse(
+            success=True,
+            message="角色更新成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新角色失败: {str(e)}")
+
+@router.delete("/characters/{character_id}", summary="删除角色")
+async def delete_character(character_id: int):
+    """删除角色"""
+    try:
+        # 删除角色
+        success = await script_repository.delete_character(character_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="角色不存在或删除失败")
+        
+        return ScriptResponse(
+            success=True,
+            message="角色删除成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除角色失败: {str(e)}")
+
+class CharacterPromptRequest(BaseModel):
+    character_name: str
+    character_description: str
+    profession: Optional[str] = ""
+    age: Optional[int] = None
+    gender: Optional[str] = "中性"
+    personality_traits: Optional[List[str]] = []
+    script_context: Optional[str] = ""
+
+@router.post("/characters/generate-prompt", summary="生成角色头像提示词")
+async def generate_character_prompt(request: CharacterPromptRequest):
+    """使用LLM生成角色头像的提示词"""
+    try:
+        # 创建LLM服务实例
+        llm_service = LLMService.from_config(config.llm_config)
+        
+        # 构建系统提示词
+        system_prompt = """
+你是一个专业的图片生成提示词专家，专门为剧本杀游戏生成角色头像的提示词。
+请根据提供的角色信息，生成高质量的英文图片提示词。
+
+要求：
+1. 生成的提示词必须是英文
+2. 提示词要具体、生动，能够准确描述角色的外貌特征
+3. 考虑角色的职业、年龄、性别和性格特征
+4. 适合用于AI图片生成，风格应该是写实的人物肖像
+5. 避免过于具体的面部特征，保持一定的通用性
+
+请以JSON格式返回结果，包含以下字段：
+- positive_prompt: 正向提示词（英文）
+- negative_prompt: 负向提示词（英文）
+"""
+        
+        # 构建用户提示词
+        personality_str = ", ".join(request.personality_traits) if request.personality_traits else "无特殊性格特征"
+        user_prompt = f"""
+角色信息：
+- 姓名：{request.character_name}
+- 描述：{request.character_description}
+- 职业：{request.profession}
+- 年龄：{request.age}岁
+- 性别：{request.gender}
+- 性格特征：{personality_str}
+- 剧本背景：{request.script_context}
+
+请为这个角色生成头像图片提示词。
+"""
+        
+        # 调用LLM生成提示词
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt)
+        ]
+        
+        response = await llm_service.chat_completion(
+            messages=messages,
+            temperature=0.7,
+            max_tokens=800
+        )
+        
+        # 尝试解析JSON响应
+        try:
+            import json
+            result_data = json.loads(response.content)
+        except json.JSONDecodeError:
+            # 如果无法解析JSON，返回原始内容作为正向提示词
+            result_data = {
+                "positive_prompt": response.content,
+                "negative_prompt": "blurry, low quality, distorted, unrealistic, cartoon, anime, multiple faces, deformed"
+            }
+        
+        return PromptGenerationResponse(
+            success=True,
+            message="角色提示词生成成功",
+            data=result_data
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成角色提示词失败: {str(e)}")

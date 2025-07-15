@@ -433,7 +433,7 @@ class ScriptRepository:
                 'author': row['author'],
                 'player_count': row['player_count'],
                 'difficulty': row['difficulty'],
-                'status': row['status']
+                'status': row['status'],
             })
         return scripts
     
@@ -454,7 +454,9 @@ class ScriptRepository:
                 'secret': row['secret'],
                 'objective': row['objective'],
                 'is_victim': row['is_victim'],
-                'is_murderer': row['is_murderer']
+                'is_murderer': row['is_murderer'],
+                'personality_traits': row['personality_traits'],
+                'avatar_url': row['avatar_url']
             })
         return characters
     
@@ -555,6 +557,62 @@ class ScriptRepository:
             character_data['is_murderer'],
             character_data.get('personality_traits', [])
         )
+    
+    async def update_character(self, character_id: int, character_data: Dict) -> bool:
+        """更新角色"""
+        try:
+            # 构建动态更新查询
+            set_clauses = []
+            params = [character_id]
+            param_index = 2
+            
+            for field, value in character_data.items():
+                if field == 'name':
+                    set_clauses.append(f"name = ${param_index}")
+                elif field == 'age':
+                    set_clauses.append(f"age = ${param_index}")
+                elif field == 'profession':
+                    set_clauses.append(f"profession = ${param_index}")
+                elif field == 'background':
+                    set_clauses.append(f"background = ${param_index}")
+                elif field == 'secret':
+                    set_clauses.append(f"secret = ${param_index}")
+                elif field == 'objective':
+                    set_clauses.append(f"objective = ${param_index}")
+                elif field == 'gender':
+                    set_clauses.append(f"gender = ${param_index}")
+                elif field == 'is_murderer':
+                    set_clauses.append(f"is_murderer = ${param_index}")
+                elif field == 'is_victim':
+                    set_clauses.append(f"is_victim = ${param_index}")
+                elif field == 'personality_traits':
+                    set_clauses.append(f"personality_traits = ${param_index}")
+                else:
+                    continue  # 跳过不支持的字段
+                
+                params.append(value)
+                param_index += 1
+            
+            if not set_clauses:
+                return False
+            
+            query = f"UPDATE characters SET {', '.join(set_clauses)} WHERE id = $1"
+            await db_manager.execute_command(query, *params)
+            return True
+        except Exception as e:
+            print(f"更新角色失败: {e}")
+            return False
+    
+    async def delete_character(self, character_id: int) -> bool:
+        """删除角色"""
+        try:
+            await db_manager.execute_command(
+                "DELETE FROM characters WHERE id = $1", character_id
+            )
+            return True
+        except Exception as e:
+            print(f"删除角色失败: {e}")
+            return False
     
     async def create_evidence(self, evidence_data: Dict) -> int:
         """创建证据"""

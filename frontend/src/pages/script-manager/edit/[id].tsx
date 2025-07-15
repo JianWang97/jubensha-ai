@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import EvidenceManager from '@/components/EvidenceManager';
+import CharacterManager from '@/components/CharacterManager';
 import { useApiClient, Script, Evidence, Character, Locations } from '@/hooks/useApiClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -285,32 +286,7 @@ const ScriptEditPage = () => {
 
 
 
-  // 证据管理Tab内容
-  const EvidenceTab = () => (
-    <EvidenceManager 
-      generateEvidenceImage={generateEvidenceImage}
-      scriptId={id as string}
-    />
-  );
 
-  // 角色管理Tab内容
-  const CharactersTab = () => (
-    <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <h3 className="text-xl font-bold text-purple-200 flex items-center gap-2">
-          👥 角色管理
-        </h3>
-        <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white">
-          ➕ 添加角色
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div className="text-purple-300 text-center py-8">
-          👥 角色管理功能开发中...
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   // 场景管理Tab内容
   const LocationsTab = () => (
@@ -425,25 +401,22 @@ const ScriptEditPage = () => {
           ))}
         </TabsList>
         
-        <TabsContent value="basic" className="mt-6">
-          <BasicInfoTab />
-        </TabsContent>
-        
-        <TabsContent value="evidence" className="mt-6">
-          <EvidenceTab />
-        </TabsContent>
-        
-        <TabsContent value="characters" className="mt-6">
-          <CharactersTab />
-        </TabsContent>
-        
-        <TabsContent value="locations" className="mt-6">
-          <LocationsTab />
-        </TabsContent>
-        
-        <TabsContent value="background" className="mt-6">
-          <BackgroundTab />
-        </TabsContent>
+        <div className="mt-6">
+          {activeTab === 'basic' && <BasicInfoTab />}
+          {activeTab === 'evidence' && (
+            <EvidenceManager 
+              generateEvidenceImage={generateEvidenceImage}
+              scriptId={id as string}
+            />
+          )}
+          {activeTab === 'characters' && (
+            <CharacterManager 
+              scriptId={id as string}
+            />
+          )}
+          {activeTab === 'locations' && <LocationsTab />}
+          {activeTab === 'background' && <BackgroundTab />}
+        </div>
       </Tabs>
     </Layout>
   );

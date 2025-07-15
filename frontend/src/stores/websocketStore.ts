@@ -82,11 +82,21 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   loadVoiceMapping: async () => {
     try {
       const config = useConfigStore.getState();
-      const response = await fetch(`${config.api.baseUrl}/voices`);
+      const state = get();
+      
+      // 构建URL，如果有session_id则传递
+      let url = `${config.api.baseUrl}/voices`;
+      if (state.currentSessionId) {
+        url += `?session_id=${encodeURIComponent(state.currentSessionId)}`;
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
-      if (data.status === 'success') {
+      if (data.success) {
         set({ voiceMapping: data.data.mapping });
         console.log('声音映射已加载:', data.data.mapping);
+      } else {
+        console.error('加载声音映射失败:', data.message);
       }
     } catch (error) {
       console.error('加载声音映射失败:', error);
@@ -141,6 +151,10 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
             // 添加到现有事件列表中
             const updatedEvents = [...(state.gameState.events || []), newEvent];
+
+            // 添加到TTS队列（不触发播放）
+            const ttsStore = useTTSStore.getState();
+            ttsStore.queueTTS(message.data.character, message.data.action);
 
             return {
               ...state,
