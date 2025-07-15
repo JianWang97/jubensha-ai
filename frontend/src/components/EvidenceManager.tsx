@@ -177,8 +177,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
         // 更新图片生成参数
         setImageGeneration(prev => ({
           ...prev,
-          positive_prompt: result.positive_prompt,
-          negative_prompt: result.negative_prompt
+          positive_prompt: result.prompt,
         }));
         toast('提示词生成成功！');
       }

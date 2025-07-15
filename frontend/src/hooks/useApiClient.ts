@@ -896,28 +896,16 @@ export const useApiClient = () => {
     related_to?: string;
     script_context?: string;
   }): Promise<{
-    positive_prompt: string;
-    negative_prompt: string;
-    subject: string;
-    details: string;
-    atmosphere: string;
-    style: string;
-    technical: string;
-    keywords: string[];
+    prompt: string,
+    evidence_name: string
   }> => {
     setLoading(true);
     setError(null);
     
     try {
       return await apiRequest<{
-        positive_prompt: string;
-        negative_prompt: string;
-        subject: string;
-        details: string;
-        atmosphere: string;
-        style: string;
-        technical: string;
-        keywords: string[];
+        prompt: string;
+        evidence_name: string;
       }>('/scripts/evidence/generate-prompt', {
         method: 'POST',
         body: data
@@ -943,16 +931,16 @@ export const useApiClient = () => {
     personality_traits?: string[];
     script_context?: string;
   }): Promise<{
-    positive_prompt: string;
-    negative_prompt: string;
+    prompt: string;
+    character_name: string;
   }> => {
     setLoading(true);
     setError(null);
     
     try {
       return await apiRequest<{
-        positive_prompt: string;
-        negative_prompt: string;
+        prompt: string;
+        character_name: string;
       }>('/scripts/characters/generate-prompt', {
         method: 'POST',
         body: data

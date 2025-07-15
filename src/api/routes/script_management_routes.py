@@ -2,13 +2,13 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from typing import List, Optional
 from pydantic import BaseModel
-from ..models.script import Script, ScriptInfo, ScriptStatus
-from ..core.script_repository import script_repository
-from ..core.storage import storage_manager
+from ...models.script import Script, ScriptInfo, ScriptStatus
+from ...core.script_repository import script_repository
+from ...core.storage import storage_manager
 import json
 from io import BytesIO
 
-router = APIRouter(prefix="/api/scripts", tags=["剧本管理"])
+router = APIRouter(prefix="/api/scripts", tags=["剧本基础管理"])
 
 # Pydantic模型用于API请求/响应
 class ScriptCreateRequest(BaseModel):
@@ -34,12 +34,6 @@ class ScriptResponse(BaseModel):
     success: bool
     message: str
     data: Optional[dict] = None
-
-# 已迁移的功能说明：
-# - 图片生成功能已迁移到 src/api/routes/script_image_generation_routes.py
-# - 证据管理功能已迁移到 src/api/routes/evidence_routes.py
-# - 角色管理功能已迁移到 src/api/routes/character_routes.py
-# - 场景管理功能已迁移到 src/api/routes/location_routes.py
 
 @router.get("/", summary="获取剧本列表")
 async def get_scripts(
@@ -361,8 +355,3 @@ async def get_script_stats():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
-
-# 图片生成相关路由已迁移到 src/api/routes/script_image_generation_routes.py
-# 证据管理相关路由已迁移到 src/api/routes/evidence_routes.py
-# 角色管理相关路由已迁移到 src/api/routes/character_routes.py
-# 场景管理相关路由已迁移到 src/api/routes/location_routes.py

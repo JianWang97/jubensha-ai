@@ -200,3 +200,20 @@ class LLMService:
             temperature=config.temperature,
             **(config.extra_params or {})
         )
+
+# 创建全局LLM服务实例
+def _create_llm_service() -> BaseLLMService:
+    """创建LLM服务实例"""
+    try:
+        from ..core.config import config
+        return LLMService.from_config(config.llm_config)
+    except Exception as e:
+        # 如果配置加载失败，返回一个默认的服务实例
+        print(f"Warning: Failed to load LLM config, using default: {e}")
+        return OpenAILLMService(
+            api_key="",
+            model="gpt-3.5-turbo"
+        )
+
+# 全局LLM服务实例
+llm_service = _create_llm_service()
