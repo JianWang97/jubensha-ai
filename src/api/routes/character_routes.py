@@ -10,31 +10,31 @@ router = APIRouter(prefix="/api/scripts", tags=["角色管理"])
 # Pydantic模型用于API请求/响应
 class CharacterCreateRequest(BaseModel):
     name: str
-    description: str
-    background_story: str
-    personality: str
+    background: Optional[str] = None
+    profession: Optional[str] = None
+    personality_traits: Optional[List[str]] = None
     avatar_url: Optional[str] = None
     voice_id: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None
-    occupation: Optional[str] = None
-    relationships: Optional[List[dict]] = None
-    secrets: Optional[List[str]] = None
-    goals: Optional[List[str]] = None
+    secret: Optional[str] = None
+    objective: Optional[str] = None
+    is_victim: Optional[bool] = False
+    is_murderer: Optional[bool] = False
 
 class CharacterUpdateRequest(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
-    background_story: Optional[str] = None
-    personality: Optional[str] = None
+    background: Optional[str] = None
+    profession: Optional[str] = None
+    personality_traits: Optional[List[str]] = None
     avatar_url: Optional[str] = None
     voice_id: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None
-    occupation: Optional[str] = None
-    relationships: Optional[List[dict]] = None
-    secrets: Optional[List[str]] = None
-    goals: Optional[List[str]] = None
+    secret: Optional[str] = None
+    objective: Optional[str] = None
+    is_victim: Optional[bool] = None
+    is_murderer: Optional[bool] = None
 
 class CharacterPromptRequest(BaseModel):
     character_name: str
@@ -60,21 +60,24 @@ async def create_character(script_id: int, request: CharacterCreateRequest):
             raise HTTPException(status_code=404, detail="剧本不存在")
         
         # 创建角色
-        character_id = await script_repository.create_character(
-            script_id=script_id,
-            name=request.name,
-            description=request.description,
-            background_story=request.background_story,
-            personality=request.personality,
-            avatar_url=request.avatar_url,
-            voice_id=request.voice_id,
-            age=request.age,
-            gender=request.gender,
-            occupation=request.occupation,
-            relationships=request.relationships or [],
-            secrets=request.secrets or [],
-            goals=request.goals or []
-        )
+        character_data = {
+            'script_id': script_id,
+            'name': request.name,
+            'background': request.background or '',
+            'gender': request.gender,
+            'age': request.age,
+            'profession': request.profession or '',
+            'secret': request.secret or '',
+            'objective': request.objective or '',
+            'is_victim': request.is_victim or False,
+            'is_murderer': request.is_murderer or False,
+            'personality_traits': request.personality_traits or [],
+            'avatar_url': request.avatar_url,
+            'voice_id': request.voice_id
+        }
+        
+        await script_repository.create_character(character_data)
+        character_id = True  # create_character doesn't return ID, just success
         
         if not character_id:
             raise HTTPException(status_code=500, detail="创建角色失败")
@@ -108,16 +111,16 @@ async def update_character(script_id: int, character_id: int, request: Character
         if not character:
             raise HTTPException(status_code=404, detail="角色不存在")
         
-        # 准备更新数据
+        # 准备更新数据 - 映射前端字段到数据库字段
         update_data = {}
         if request.name is not None:
             update_data['name'] = request.name
-        if request.description is not None:
-            update_data['description'] = request.description
-        if request.background_story is not None:
-            update_data['background_story'] = request.background_story
-        if request.personality is not None:
-            update_data['personality'] = request.personality
+        if request.background is not None:
+            update_data['background'] = request.background
+        if request.profession is not None:
+            update_data['profession'] = request.profession
+        if request.personality_traits is not None:
+            update_data['personality_traits'] = request.personality_traits
         if request.avatar_url is not None:
             update_data['avatar_url'] = request.avatar_url
         if request.voice_id is not None:
@@ -126,15 +129,14 @@ async def update_character(script_id: int, character_id: int, request: Character
             update_data['age'] = request.age
         if request.gender is not None:
             update_data['gender'] = request.gender
-        if request.occupation is not None:
-            update_data['occupation'] = request.occupation
-        if request.relationships is not None:
-            update_data['relationships'] = request.relationships
-        if request.secrets is not None:
-            update_data['secrets'] = request.secrets
-        if request.goals is not None:
-            update_data['goals'] = request.goals
-        
+        if request.secret is not None:
+            update_data['secret'] = request.secret
+        if request.objective is not None:
+            update_data['objective'] = request.objective
+        if request.is_victim is not None:
+            update_data['is_victim'] = request.is_victim
+        if request.is_murderer is not None:
+            update_data['is_murderer'] = request.is_murderer
         if not update_data:
             raise HTTPException(status_code=400, detail="没有提供更新数据")
         

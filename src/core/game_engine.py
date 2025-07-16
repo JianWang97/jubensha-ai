@@ -68,7 +68,8 @@ class GameEngine:
             'objective': char.objective,
             'is_victim': char.is_victim,
             'is_murderer': char.is_murderer,
-            'personality_traits': char.personality_traits
+            'personality_traits': char.personality_traits,
+            'voice_id': char.voice_id
         } for char in full_script.characters]
         
         evidence = [{
@@ -144,7 +145,8 @@ class GameEngine:
                 is_victim=char_data.get("is_victim", False),
                 personality_traits=char_data.get("personality_traits", []),
                 avatar_url=char_data.get("avatar_url"),
-                voice_preference=char_data.get("voice_preference")
+                voice_preference=char_data.get("voice_preference"),
+                voice_id=char_data.get("voice_id")
             )
             characters.append(character)
             
@@ -339,10 +341,18 @@ class GameEngine:
                         self.add_public_chat("系统", f"{agent_name}发现了证据：{discovered['name']}", "system")
                         self.game_state["discovered_evidence"] = self.evidence_manager.get_discovered_evidence()
                 
+                # 获取角色的voice_id
+                character_voice_id = None
+                for character in self.characters:
+                    if character.name == agent_name:
+                        character_voice_id = character.voice_id
+                        break
+                
                 actions.append({
                     "character": agent_name,
                     "action": action,
-                    "type": message_type
+                    "type": message_type,
+                    "voice_id": character_voice_id
                 })
                 
                 # 在行动之间添加短暂延迟，模拟真实对话

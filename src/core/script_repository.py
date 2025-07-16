@@ -165,7 +165,8 @@ class ScriptRepository:
                     is_victim=row["is_victim"],
                     personality_traits=row["personality_traits"] or [],
                     avatar_url=row["avatar_url"],
-                    voice_preference=row["voice_preference"]
+                    voice_preference=row["voice_preference"],
+                    voice_id=row["voice_id"]
                 )
                 characters.append(character)
             
@@ -547,12 +548,12 @@ class ScriptRepository:
             query,
             character_data['script_id'],
             character_data['name'],
-            character_data['background_story'],
+            character_data.get('background') or character_data.get('background_story', ''),
             character_data['gender'],
             character_data.get('age'),
-            character_data.get('occupation'),
+            character_data.get('profession') or character_data.get('occupation', ''),
             character_data.get('secret') or '',
-            character_data.get('motivation') or '',
+            character_data.get('objective') or character_data.get('motivation', ''),
             character_data['is_victim'],
             character_data['is_murderer'],
             character_data.get('personality_traits', [])
@@ -587,6 +588,10 @@ class ScriptRepository:
                     set_clauses.append(f"is_victim = ${param_index}")
                 elif field == 'personality_traits':
                     set_clauses.append(f"personality_traits = ${param_index}")
+                elif field == 'avatar_url':
+                    set_clauses.append(f"avatar_url = ${param_index}")
+                elif field == 'voice_id':
+                    set_clauses.append(f"voice_id = ${param_index}")
                 else:
                     continue  # 跳过不支持的字段
                 

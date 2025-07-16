@@ -11,6 +11,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import toast from 'react-hot-toast';
 import { useApiClient } from '@/hooks/useApiClient';
 
+// 声音选项接口
+interface VoiceOption {
+  voice_id: string;
+  voice_name: string;
+  description?: string[];
+  created_time: string;
+}
+
 interface CharacterManagerProps {
   scriptId: string;
 }
@@ -23,8 +31,12 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
   const [showCharacterForm, setShowCharacterForm] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [isCharacterFormFullscreen, setIsCharacterFormFullscreen] = useState(true);
+  
+  // 声音列表相关状态
+  const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
+  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
 
-  const { getCharacters, createCharacter, updateCharacter, deleteCharacter, generateCharacterPrompt, generateAvatarImage } = useApiClient();
+  const { getCharacters, createCharacter,getVoiceOptions, updateCharacter, deleteCharacter, generateCharacterPrompt, generateAvatarImage } = useApiClient();
 
   const [characterForm, setCharacterForm] = useState<Partial<Character>>({
     name: '',
@@ -37,14 +49,36 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     is_murderer: false,
     is_victim: false,
     personality_traits: [],
-    avatar_url: ''
+    avatar_url: '',
+    voice_id: undefined
   });
+  
+  // 获取声音列表
+
+  const fetchVoiceOptions = async () => {
+    setIsLoadingVoices(true);
+    try {
+      const options = await getVoiceOptions();
+      setVoiceOptions(options);
+    } finally {
+      setIsLoadingVoices(false);
+    }
+  };
   
   useEffect(() => {
     console.log('useEffect', scriptId);
     
     initCharacterForm();
+    fetchVoiceOptions();
   }, [scriptId]);
+  
+  // 当表单打开时获取声音列表
+  useEffect(() => {
+    if (showCharacterForm && voiceOptions.length === 0) {
+      fetchVoiceOptions();
+    }
+  }, [showCharacterForm]);
+
 
   const initCharacterForm = async () => {
     console.log('initCharacterForm', scriptId);
@@ -79,7 +113,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     try {
       if (editingCharacter) {
         // 编辑模式 - 调用更新API
-        await updateCharacter(editingCharacter.id, {
+        await updateCharacter(Number(scriptId), editingCharacter.id, {
           name: characterForm.name,
           age: characterForm.age,
           profession: characterForm.profession,
@@ -90,7 +124,8 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
           is_murderer: characterForm.is_murderer,
           is_victim: characterForm.is_victim,
           personality_traits: characterForm.personality_traits,
-          avatar_url: characterForm.avatar_url || ''
+          avatar_url: characterForm.avatar_url || '',
+          voice_id: characterForm.voice_id
         });
         toast('角色更新成功！');
       } else {
@@ -106,7 +141,8 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
           gender: characterForm.gender,
           is_murderer: characterForm.is_murderer,
           is_victim: characterForm.is_victim,
-          personality_traits: characterForm.personality_traits
+          personality_traits: characterForm.personality_traits,
+          voice_id: characterForm.voice_id
         });
         toast('角色创建成功！');
       }
@@ -137,7 +173,8 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
       is_murderer: false,
       is_victim: false,
       personality_traits: [],
-      avatar_url: ''
+      avatar_url: '',
+      voice_id: undefined
     });
     setEditingCharacter(null);
     setShowCharacterForm(false);
@@ -154,7 +191,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
   const handleDeleteCharacter = async (id: number) => {
     if (confirm('确定要删除这个角色吗？')) {
       try {
-        await deleteCharacter(id);
+        await deleteCharacter(Number(scriptId), id);
         toast('角色删除成功！');
         
         // 重新加载角色列表
@@ -377,6 +414,20 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                         </div>
                       </div>
                     )}
+                    
+                    {character.voice_id && (
+                      <div className="text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-purple-400">🎤</span>
+                          <span className="text-purple-200 font-medium">语音:</span>
+                        </div>
+                        <div className="pl-6">
+                          <Badge variant="outline" className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                            {voiceOptions.find(v => v.voice_id === character.voice_id)?.voice_name || character.voice_id}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* 操作按钮 */}
@@ -491,6 +542,27 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                       className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-400/50 focus:border-purple-400"
                       placeholder="输入职业"
                     />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="voice_id" className="text-purple-200 font-medium">语音声音</label>
+                    <Select 
+                      value={characterForm.voice_id || 'none'} 
+                      onValueChange={(value) => setCharacterForm({ ...characterForm, voice_id: value === 'none' ? undefined : value })}
+                      disabled={isLoadingVoices}
+                    >
+                      <SelectTrigger className="bg-slate-800/50 border-purple-500/30 text-purple-100 focus:border-purple-400">
+                        <SelectValue placeholder={isLoadingVoices ? "加载中..." : "选择语音声音"} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-purple-500/30">
+                        <SelectItem value="none" className="text-purple-100 hover:bg-purple-600/20">🔇 无声音</SelectItem>
+                        {voiceOptions.map((voice) => (
+                          <SelectItem key={voice.voice_id} value={voice.voice_id} className="text-purple-100 hover:bg-purple-600/20">
+                            🎤 {voice.voice_name}{voice.description ? ` - ${voice.description}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="space-y-2 md:col-span-2">

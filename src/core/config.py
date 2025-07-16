@@ -20,12 +20,15 @@ class LLMConfig:
 @dataclass
 class TTSConfig:
     """TTS配置"""
-    provider: str  # dashscope, openai, azure, etc.
+    provider: str  # dashscope, openai, azure, minimax, etc.
     api_key: str
-    base_url: Optional[str] = None
     model: str = "qwen-tts-latest"
     voice: str = "Ethan"
-    extra_params: Dict[str, Any] = None
+    extra_params: Optional[Dict[str, Any]] = None
+    
+    def __post_init__(self):
+        if self.extra_params is None:
+            self.extra_params = {}
 
 @dataclass
 class DatabaseConfig:
@@ -73,12 +76,22 @@ class ConfigManager:
     def tts_config(self) -> TTSConfig:
         """获取TTS配置"""
         if self._tts_config is None:
+            # 根据不同的TTS提供商设置不同的extra_params
+            provider = os.getenv("TTS_PROVIDER", "dashscope")
+            extra_params = {}
+            
+            if provider.lower() == "minimax":
+                # MiniMax需要group_id参数
+                group_id = os.getenv("MINIMAX_GROUP_ID", "")
+                if group_id:
+                    extra_params["group_id"] = group_id
+            
             self._tts_config = TTSConfig(
-                provider=os.getenv("TTS_PROVIDER", "dashscope"),
-                api_key=os.getenv("DASHSCOPE_API_KEY", ""),
-                base_url=os.getenv("TTS_BASE_URL"),
-                model=os.getenv("TTS_MODEL", "qwen-tts-latest"),
-                voice=os.getenv("TTS_DEFAULT_VOICE", "Ethan")
+                provider=provider,
+                api_key=os.getenv("TTS_API_KEY", ""),
+                model=os.getenv("TTS_MODEL", ""),
+                voice=os.getenv("TTS_DEFAULT_VOICE"),
+                extra_params=extra_params
             )
         return self._tts_config
     

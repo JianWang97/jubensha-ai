@@ -5,6 +5,7 @@ import GameLog from '@/components/GameLog';
 import ScriptSelection from '@/components/ScriptSelection';
 import { useGameState } from '@/hooks/useGameState';
 import { useTTSService } from '@/stores/ttsStore';
+import { useWebSocketStore } from '@/stores/websocketStore';
 
 const GamePage = () => {
   // 从URL参数获取session_id和script_id
@@ -27,9 +28,11 @@ const GamePage = () => {
     gameLog,
     isGameStarted,
     handleSelectScript,
-    handleStartGame,
-    voiceMapping
+    handleStartGame
   } = useGameState(sessionId, scriptId);
+
+  // WebSocket store for game control
+  const { nextPhase, gameState } = useWebSocketStore();
 
   // 初始化TTS服务
   const { 
@@ -42,7 +45,12 @@ const GamePage = () => {
     stopQueueProcessor,
     currentSpeakingCharacter,
     currentSpeechText
-  } = useTTSService(voiceMapping || {});
+  } = useTTSService();
+
+  // 手动推进到下一阶段
+  const handleNextPhase = () => {
+    nextPhase();
+  };
 
   // 增强的开始游戏函数，包含语音播报
   const handleStartGameWithTTS = async () => {
@@ -66,7 +74,7 @@ const GamePage = () => {
       
       // 添加欢迎语音到队列
       setTimeout(() => {
-        queueTTS('系统', '游戏开始！欢迎来到剧本杀的世界，请各位玩家准备好开始这场精彩的推理之旅！');
+        queueTTS('系统', '游戏开始！欢迎来到剧本杀的世界，请各位玩家准备好开始这场精彩的推理之旅！', 'female-shaonv');
       }, 500); // 延迟500ms确保游戏状态已更新
     } catch (error) {
       console.error('启动游戏时出错:', error);
@@ -197,6 +205,27 @@ const GamePage = () => {
                       {ttsEnabled ? '禁用' : '启用'}
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* 游戏控制面板 - 游戏进行中显示 */}
+          {isGameStarted && (
+            <div className="fixed top-4 right-4 z-30">
+              <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="text-white text-sm text-center">
+                    <div className="font-medium">
+                      当前阶段: {gameState?.phase || '未知'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleNextPhase}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  >
+                    ⏭️ 下一阶段
+                  </button>
                 </div>
               </div>
             </div>

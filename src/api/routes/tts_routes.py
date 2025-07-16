@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from typing import List, Dict, Any
 import json
 
 from ...core.websocket_server import game_server
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/api/tts", tags=["语音合成"])
 class TTSRequest(BaseModel):
     text: str
     character: str = "default"
+    voice: Optional[str] = None  
 
 @router.post("/stream")
 async def stream_tts(request: TTSRequest):
@@ -46,18 +48,9 @@ async def stream_tts(request: TTSRequest):
     if len(text) > 1000:
         text = text[:1000] + "..."
     
-    # 使用智能声音分配系统
-    try:
-        # 获取默认会话的声音映射
-        session = game_server.get_or_create_session("default")
-        if not session._game_initialized:
-            await game_server._initialize_game(session)
-        voice_mapping = session.game_engine.get_voice_mapping()
-        voice = voice_mapping.get(character, "Ethan")
-    except Exception as e:
-        print(f"Failed to get voice mapping: {e}, using default voice")
-        voice = "Ethan"
-    
+    # 确定使用的voice_id
+    voice = request.voice
+
     print(f"TTS Request - Character: {character}, Voice: {voice}, Text: {text[:50]}...")
     
     # 创建TTS服务实例
@@ -76,7 +69,8 @@ async def stream_tts(request: TTSRequest):
                 if chunk.get('audio'):
                     response_data = json.dumps({
                         "audio": chunk['audio'],
-                        "character": character
+                        "character": character,
+                        "encoding": chunk['encoding']
                     })
                     yield f"data: {response_data}\n\n".encode()
                     
@@ -97,3 +91,55 @@ async def stream_tts(request: TTSRequest):
             "Access-Control-Allow-Origin": "*"
         }
     )
+
+
+@router.get("/voices")
+async def get_available_voices() -> Dict[str, Any]:
+    """获取可用的TTS声音列表"""
+    try:
+        # 创建TTS服务实例
+        tts_service = TTSService.from_config(config.tts_config)
+        
+        # 根据不同的TTS提供商返回不同的声音列表
+        provider = config.tts_config.provider.lower()
+        
+        if provider == "dashscope":
+            # DashScope使用固定的声音列表
+            voices = [
+                {"voice_id": "Ethan", "name": "Ethan", "gender": "male", "language": "en"},
+                {"voice_id": "Emma", "name": "Emma", "gender": "female", "language": "en"},
+                {"voice_id": "Liam", "name": "Liam", "gender": "male", "language": "en"},
+                {"voice_id": "Olivia", "name": "Olivia", "gender": "female", "language": "en"},
+                {"voice_id": "Noah", "name": "Noah", "gender": "male", "language": "en"},
+                {"voice_id": "Ava", "name": "Ava", "gender": "female", "language": "en"},
+                {"voice_id": "William", "name": "William", "gender": "male", "language": "en"},
+                {"voice_id": "Sophia", "name": "Sophia", "gender": "female", "language": "en"}
+            ]
+            return {
+                "success": True,
+                "provider": "dashscope",
+                "voices": voices
+            }
+        
+        elif provider == "minimax":
+            # MiniMax需要调用API获取声音列表
+            if hasattr(tts_service, 'get_voice_list'):
+                voice_response = await tts_service.get_voice_list()
+                if voice_response and voice_response.get('success'):
+                    data = voice_response.get('data', {})
+                    return {
+                        "success": True,
+                        "provider": "minimax",
+                        "data": data,
+                    }
+        else:
+            return {
+                "success": False,
+                "error": f"不支持的TTS提供商: {provider}"
+            }
+    
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"获取声音列表失败: {str(e)}"
+        }

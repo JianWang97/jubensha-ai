@@ -51,6 +51,7 @@ class ScriptCharacter:
     personality_traits: List[str] = field(default_factory=list)
     avatar_url: Optional[str] = None  # MinIO存储的角色头像URL
     voice_preference: Optional[str] = None  # 语音偏好
+    voice_id: Optional[str] = None  # TTS声音ID，用于语音合成
 
 @dataclass
 class ScriptEvidence:

@@ -5,6 +5,7 @@ import { useConfigStore } from './configStore';
 interface TTSQueueItem {
   character: string;
   text: string;
+  voice?: string;
 }
 
 interface TTSState {
@@ -18,18 +19,16 @@ interface TTSState {
   
   // 音频相关
   audioContext: AudioContext | null;
-  voiceMapping: Record<string, string>;
   queueTimer: NodeJS.Timeout | null;
   
   // 核心功能
   initializeAudio: () => Promise<void>;
   playNext: () => void;
-  queueTTS: (character: string, text: string) => void;
+  queueTTS: (character: string, text: string, voice?: string) => void;
   toggleTTS: () => void;
-  playAudioChunk: (audioData: string) => Promise<void>;
+  playAudioChunk: (audioData: string, encoding: string) => Promise<void>;
   startQueueProcessor: () => void;
   stopQueueProcessor: () => void;
-  setVoiceMapping: (mapping: Record<string, string>) => void;
 }
 
 export const useTTSStore = create<TTSState>((set, get) => ({
@@ -41,11 +40,8 @@ export const useTTSStore = create<TTSState>((set, get) => ({
   currentSpeakingCharacter: null,
   currentSpeechText: null,
   audioContext: null,
-  voiceMapping: {},
   queueTimer: null,
   
-  // 设置语音映射
-  setVoiceMapping: (mapping) => set({ voiceMapping: mapping }),
   
   // 初始化音频
   initializeAudio: async () => {
@@ -73,7 +69,7 @@ export const useTTSStore = create<TTSState>((set, get) => ({
   },
   
   // 添加到TTS队列
-  queueTTS: (character: string, text: string) => {
+  queueTTS: (character: string, text: string, voice?: string) => {
     const state = get();
     
     if (!state.ttsEnabled || !text.trim()) return;
@@ -89,32 +85,39 @@ export const useTTSStore = create<TTSState>((set, get) => ({
     const processedText = text.length > 500 ? text.substring(0, 500) + '...' : text;
     
     set(state => ({
-      audioQueue: [...state.audioQueue, { character, text: processedText }]
+      audioQueue: [...state.audioQueue, { character, text: processedText, voice }]
     }));
   },
   
   // 播放音频块
-  playAudioChunk: async (audioData: string) => {
+  playAudioChunk: async (audioData: string, encoding: string='base64') => {
     const state = get();
     if (!state.audioContext) return;
     
     try {
-      const binaryString = atob(audioData);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+      let bytes: Uint8Array;
+      
+      if (encoding === 'hex') {
+        // 处理十六进制编码的音频数据
+        const hexString = audioData.replace(/\s/g, ''); // 移除空格
+        bytes = new Uint8Array(hexString.length / 2);
+        for (let i = 0; i < hexString.length; i += 2) {
+          bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
+        }
+      } else {
+        // 处理base64编码的音频数据
+        const binaryString = atob(audioData);
+        bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
       }
       
-      const audioBuffer = new Int16Array(bytes.buffer);
-      const buffer = state.audioContext.createBuffer(1, audioBuffer.length, 24000);
-      const channelData = buffer.getChannelData(0);
-      
-      for (let i = 0; i < audioBuffer.length; i++) {
-        channelData[i] = audioBuffer[i] / 32768.0;
-      }
+      // 使用Web Audio API解码音频数据
+      const audioBuffer = await state.audioContext.decodeAudioData(bytes.buffer.slice(0) as ArrayBuffer);
       
       const source = state.audioContext.createBufferSource();
-      source.buffer = buffer;
+      source.buffer = audioBuffer;
       source.connect(state.audioContext.destination);
       source.start();
       
@@ -144,10 +147,13 @@ export const useTTSStore = create<TTSState>((set, get) => ({
     
     try {
       const config = useConfigStore.getState();
+      // 使用voice mapping获取正确的voice_id，优先使用传入的voice，否则使用character
+      console.log(item.character, item.voice);
+      const voiceId = item.voice;
       const response = await fetch(`${config.api.baseUrl}/tts/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: item.text, character: item.character })
+        body: JSON.stringify({ text: item.text, voice: voiceId })
       });
       
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -171,7 +177,8 @@ export const useTTSStore = create<TTSState>((set, get) => ({
             try {
               const jsonData = JSON.parse(line.startsWith('data: ') ? line.substring(6) : line);
               if (jsonData.audio) {
-                await get().playAudioChunk(jsonData.audio);
+                const encoding = jsonData.encoding || 'hex';
+                await get().playAudioChunk(jsonData.audio, encoding);
               }
             } catch (e) {
               // 忽略解析错误
@@ -232,7 +239,7 @@ export const useTTSStore = create<TTSState>((set, get) => ({
 }));
 
 // TTS Service Hook
-export const useTTSService = (voiceMapping: Record<string, string>) => {
+export const useTTSService = () => {
   const {
     ttsEnabled,
     isPlaying,
@@ -244,12 +251,9 @@ export const useTTSService = (voiceMapping: Record<string, string>) => {
     stopQueueProcessor,
     currentSpeakingCharacter,
     currentSpeechText,
-    setVoiceMapping
   } = useTTSStore();
 
-  useEffect(() => {
-    setVoiceMapping(voiceMapping);
-  }, [voiceMapping, setVoiceMapping]);
+
 
   return {
     ttsEnabled,

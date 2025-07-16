@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useConfigStore } from '@/stores/configStore';
 
-export interface ScriptWithDetail{
-  info:Script,
+export interface ScriptWithDetail {
+  info: Script,
   background_story: BackgroundStory;
   characters: Character[];
   evidence: Evidence[];
@@ -10,7 +10,7 @@ export interface ScriptWithDetail{
   game_phases: GamePhases[];
 }
 
-export interface BackgroundStory{
+export interface BackgroundStory {
   title: string;
   setting_description: string;
   incident_description: string;
@@ -36,7 +36,7 @@ export interface Evidence {
   is_hidden: boolean;
 }
 
-export interface Locations{
+export interface Locations {
   id: number;
   name: string;
   description: string;
@@ -45,7 +45,7 @@ export interface Locations{
   is_crime_scene: boolean;
 }
 
-export interface GamePhases{
+export interface GamePhases {
   phase: string;
   name: string;
   description: string;
@@ -81,6 +81,7 @@ export interface Character {
   is_victim: boolean;
   is_murderer: boolean;
   avatar_url?: string;
+  voice_id?: string;  // TTS声音ID，用于语音合成
 }
 
 // 定义游戏状态数据结构
@@ -207,7 +208,7 @@ const fetchWithRetry = async (
       } catch (error) {
         if (error instanceof ApiError) throw error;
         if (i === maxRetries - 1) throw error;
-        
+
         // 等待后重试
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       }
@@ -215,7 +216,7 @@ const fetchWithRetry = async (
   } finally {
     clearTimeout(timeoutId);
   }
-  
+
   throw new ApiError('Max retries exceeded');
 };
 
@@ -232,7 +233,7 @@ const apiRequest = async <T>(
   try {
     const config = useConfigStore.getState();
     const { method = 'GET', body, headers = {}, isFormData = false } = options;
-    
+
     const requestOptions: RequestInit = {
       method,
       headers: isFormData ? headers : {
@@ -240,18 +241,18 @@ const apiRequest = async <T>(
         ...headers,
       },
     };
-    
+
     if (body) {
       requestOptions.body = isFormData ? body : JSON.stringify(body);
     }
-    
+
     const response = await fetch(`${config.api.baseUrl}${endpoint}`, requestOptions);
     const result: ApiResponse<T> = await response.json();
-    
+
     if (!result.success) {
       throw new ApiError(result.message || 'API request failed');
     }
-    
+
     return result.data!;
   } catch (error) {
     const config = useConfigStore.getState();
@@ -272,16 +273,16 @@ export const useApiClient = () => {
   const getScripts = useCallback(async (): Promise<Script[]> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const data = await apiRequest<any>('/scripts/');
-      
+
       // 后端返回的数据结构包含scripts字段，需要提取
       const scripts = data.scripts;
       if (!Array.isArray(scripts)) {
         throw new ApiError('Invalid data format: expected an array of scripts');
       }
-      
+
       return scripts;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -298,7 +299,7 @@ export const useApiClient = () => {
   const getScript = useCallback(async (scriptId: number): Promise<Script> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const data = await apiRequest<any>(`/scripts/${scriptId}`);
       // 后端返回的数据结构包含info字段，需要提取
@@ -318,14 +319,14 @@ export const useApiClient = () => {
   const getCharacters = useCallback(async (scriptId: number): Promise<Character[]> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const data = await apiRequest<Character[]>(`/characters/${scriptId}`);
-      
+
       if (!Array.isArray(data)) {
         throw new ApiError('Invalid data format: expected an array of characters');
       }
-      
+
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -351,14 +352,16 @@ export const useApiClient = () => {
     is_murderer?: boolean;
     is_victim?: boolean;
     personality_traits?: string[];
+    voice_id?: string;
   }): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      return await apiRequest<any>('/scripts/characters', {
+      const { script_id, ...requestBody } = characterData;
+      return await apiRequest<any>(`/scripts/${script_id}/characters`, {
         method: 'POST',
-        body: characterData
+        body: requestBody
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -372,7 +375,7 @@ export const useApiClient = () => {
   /**
    * 更新角色
    */
-  const updateCharacter = useCallback(async (characterId: number, characterData: {
+  const updateCharacter = useCallback(async (scriptId: number, characterId: number, characterData: {
     name?: string;
     age?: number;
     profession?: string;
@@ -384,12 +387,13 @@ export const useApiClient = () => {
     is_victim?: boolean;
     personality_traits?: string[];
     avatar_url?: string;
+    voice_id?: string;
   }): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      return await apiRequest<any>(`/scripts/characters/${characterId}`, {
+      return await apiRequest<any>(`/scripts/${scriptId}/characters/${characterId}`, {
         method: 'PUT',
         body: characterData
       });
@@ -405,12 +409,12 @@ export const useApiClient = () => {
   /**
    * 删除角色
    */
-  const deleteCharacter = useCallback(async (characterId: number): Promise<any> => {
+  const deleteCharacter = useCallback(async (scriptId: number, characterId: number): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      return await apiRequest<any>(`/scripts/characters/${characterId}`, {
+      return await apiRequest<any>(`/scripts/${scriptId}/characters/${characterId}`, {
         method: 'DELETE'
       });
     } catch (err) {
@@ -428,14 +432,14 @@ export const useApiClient = () => {
   const createScript = useCallback(async (scriptData: ScriptCreateRequest): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const formData = new FormData();
       formData.append('script_data', scriptData.script_data);
       if (scriptData.cover_image) {
         formData.append('cover_image', scriptData.cover_image);
       }
-      
+
       return await apiRequest<any>('/scripts/', {
         method: 'POST',
         body: formData,
@@ -457,7 +461,7 @@ export const useApiClient = () => {
   const updateScript = useCallback(async (scriptId: number, updateData: ScriptUpdateRequest): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>(`/scripts/${scriptId}`, {
         method: 'PUT',
@@ -478,7 +482,7 @@ export const useApiClient = () => {
   const deleteScript = useCallback(async (scriptId: number): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>(`/scripts/${scriptId}`, {
         method: 'DELETE'
@@ -498,7 +502,7 @@ export const useApiClient = () => {
   const searchScripts = useCallback(async (keyword: string, limit: number = 20): Promise<Script[]> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const data = await apiRequest<any>(`/scripts/search/${encodeURIComponent(keyword)}/?limit=${limit}`);
       return data.scripts || data;
@@ -517,7 +521,7 @@ export const useApiClient = () => {
   const getScriptStats = useCallback(async (): Promise<ScriptStats> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<ScriptStats>('/scripts/stats/overview/');
     } catch (err) {
@@ -535,7 +539,7 @@ export const useApiClient = () => {
   const generateCoverImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>('/scripts/generate/cover/', {
         method: 'POST',
@@ -556,7 +560,7 @@ export const useApiClient = () => {
   const generateAvatarImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>('/scripts/generate/avatar/', {
         method: 'POST',
@@ -577,7 +581,7 @@ export const useApiClient = () => {
   const generateEvidenceImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>('/scripts/generate/evidence/', {
         method: 'POST',
@@ -598,7 +602,7 @@ export const useApiClient = () => {
   const generateSceneImage = useCallback(async (request: ImageGenerationRequest): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>('/scripts/generate/scene/', {
         method: 'POST',
@@ -619,7 +623,7 @@ export const useApiClient = () => {
   const getGameStatus = useCallback(async (sessionId?: string): Promise<GameStatus> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const queryParam = sessionId ? `?session_id=${sessionId}` : '';
       return await apiRequest<GameStatus>(`/game/status/${queryParam}`);
@@ -638,12 +642,12 @@ export const useApiClient = () => {
   const startGame = useCallback(async (sessionId?: string, scriptId: number = 1): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const queryParams = new URLSearchParams();
       if (sessionId) queryParams.append('session_id', sessionId);
       queryParams.append('script_id', scriptId.toString());
-      
+
       return await apiRequest<any>(`/game/start/?${queryParams.toString()}`, {
         method: 'POST'
       });
@@ -662,7 +666,7 @@ export const useApiClient = () => {
   const resetGame = useCallback(async (sessionId?: string): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const queryParam = sessionId ? `?session_id=${sessionId}` : '';
       return await apiRequest<any>(`/game/reset/${queryParam}`, {
@@ -683,7 +687,7 @@ export const useApiClient = () => {
   const getBackgroundByScript = useCallback(async (scriptId: number): Promise<Background> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<Background>(`/background/${scriptId}/`);
     } catch (err) {
@@ -701,7 +705,7 @@ export const useApiClient = () => {
   const getBackground = useCallback(async (): Promise<Background> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<Background>('/background/');
     } catch (err) {
@@ -719,10 +723,49 @@ export const useApiClient = () => {
   const getScriptWithDetail = useCallback(async (scriptId: number): Promise<ScriptWithDetail> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const scriptData = await apiRequest<ScriptWithDetail>(`/scripts/${scriptId}`);
       return scriptData;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * 获取可用的TTS声音列表
+   */
+  const getVoiceOptions = useCallback(async (): Promise<{
+    voice_id: string;
+    description: string[];
+    voice_name: string;
+    created_time: string;
+  }[]> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiRequest<{
+
+        system_voice: {
+          voice_id: string;
+          description: string[];
+          voice_name: string;
+          created_time: string;
+        }[];
+      }>('/tts/voices');
+
+      console.log(response);
+
+      if (!response?.system_voice) {
+        throw new ApiError('获取声音列表失败: 无数据返回');
+      }
+
+      return response.system_voice;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
@@ -738,7 +781,7 @@ export const useApiClient = () => {
   const getVoiceAssignments = useCallback(async (sessionId?: string): Promise<VoiceAssignment[]> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const queryParam = sessionId ? `?session_id=${sessionId}` : '';
       return await apiRequest<VoiceAssignment[]>(`/voices${queryParam}`);
@@ -757,7 +800,7 @@ export const useApiClient = () => {
   const streamTTS = useCallback(async (ttsRequest: TTSRequest): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>('/tts/stream/', {
         method: 'POST',
@@ -783,17 +826,17 @@ export const useApiClient = () => {
   } = {}): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const queryParams = new URLSearchParams();
       if (params.status) queryParams.append('status', params.status);
       if (params.author) queryParams.append('author', params.author);
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.page_size) queryParams.append('page_size', params.page_size.toString());
-      
+
       const queryString = queryParams.toString();
       const endpoint = queryString ? `/scripts/?${queryString}` : '/scripts/';
-      
+
       return await apiRequest<any>(endpoint);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -820,7 +863,7 @@ export const useApiClient = () => {
   }): Promise<{ evidence_id: number }> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<{ evidence_id: number }>('/scripts/evidence', {
         method: 'POST',
@@ -850,7 +893,7 @@ export const useApiClient = () => {
   }): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>(`/scripts/evidence/${evidenceId}`, {
         method: 'PUT',
@@ -871,7 +914,7 @@ export const useApiClient = () => {
   const deleteEvidence = useCallback(async (evidenceId: number): Promise<any> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<any>(`/scripts/evidence/${evidenceId}`, {
         method: 'DELETE'
@@ -901,7 +944,7 @@ export const useApiClient = () => {
   }> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<{
         prompt: string;
@@ -936,7 +979,7 @@ export const useApiClient = () => {
   }> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       return await apiRequest<{
         prompt: string;
@@ -986,7 +1029,7 @@ export const useApiClient = () => {
     getBackground,
     getBackgroundByScript,
     // 声音相关API
-    getVoiceAssignments,
+    getVoiceOptions,
     streamTTS,
     // 图片生成API
     generateCoverImage,

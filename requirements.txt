@@ -19,6 +19,7 @@ langchain-core>=0.1.0
 
 # TTS服务
 dashscope>=1.23.8
+aiohttp>=3.8.0  # MiniMax API客户端
 
 # 工具库
 python-dotenv>=1.0.0

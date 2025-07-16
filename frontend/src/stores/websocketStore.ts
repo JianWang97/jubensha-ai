@@ -30,7 +30,6 @@ interface WebSocketState {
   // 连接状态
   isConnected: boolean;
   gameState: GameState | null;
-  voiceMapping: VoiceMapping;
   currentSessionId: string | null;
 
   // WebSocket实例
@@ -40,7 +39,6 @@ interface WebSocketState {
   // Actions
   setIsConnected: (connected: boolean) => void;
   setGameState: (state: GameState | null) => void;
-  setVoiceMapping: (mapping: VoiceMapping) => void;
   setCurrentSessionId: (sessionId: string | null) => void;
   setWebSocket: (ws: WebSocket | null) => void;
   setReconnectTimeout: (timeout: NodeJS.Timeout | null) => void;
@@ -56,7 +54,6 @@ interface WebSocketState {
   resetGame: () => void;
 
   // 辅助方法
-  loadVoiceMapping: () => Promise<void>;
   handleMessage: (message: WebSocketMessage) => void;
   generateRoomId: () => string;
 }
@@ -73,35 +70,10 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   // 基础状态设置
   setIsConnected: (connected) => set({ isConnected: connected }),
   setGameState: (state) => set({ gameState: state }),
-  setVoiceMapping: (mapping) => set({ voiceMapping: mapping }),
   setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
   setWebSocket: (ws) => set({ ws }),
   setReconnectTimeout: (timeout) => set({ reconnectTimeout: timeout }),
 
-  // 加载声音映射
-  loadVoiceMapping: async () => {
-    try {
-      const config = useConfigStore.getState();
-      const state = get();
-      
-      // 构建URL，如果有session_id则传递
-      let url = `${config.api.baseUrl}/voices`;
-      if (state.currentSessionId) {
-        url += `?session_id=${encodeURIComponent(state.currentSessionId)}`;
-      }
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.success) {
-        set({ voiceMapping: data.data.mapping });
-        console.log('声音映射已加载:', data.data.mapping);
-      } else {
-        console.error('加载声音映射失败:', data.message);
-      }
-    } catch (error) {
-      console.error('加载声音映射失败:', error);
-    }
-  },
 
   // 处理WebSocket消息
   handleMessage: (message: WebSocketMessage) => {
@@ -131,31 +103,25 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
       case 'game_started':
         // 游戏开始处理
-        get().loadVoiceMapping();
         break;
 
       case 'ai_action':
         // AI行动处理 - 直接将action转换为事件格式
         if (message.data && message.data.character && message.data.action) {
           set((state) => {
-            console.log(state.gameState);
-
             if (!state.gameState) return state;
             console.log('收到AI行动:', message.data);
-
             // 创建新的事件
             const newEvent = {
               character: message.data.character,
               content: message.data.action
             };
-
             // 添加到现有事件列表中
             const updatedEvents = [...(state.gameState.events || []), newEvent];
-
-            // 添加到TTS队列（不触发播放）
+            // 添加到TTS队列，优先使用voice_id，如果没有则使用character
             const ttsStore = useTTSStore.getState();
-            ttsStore.queueTTS(message.data.character, message.data.action);
-
+            const voiceId = message.data.voice_id;
+            ttsStore.queueTTS(message.data.character, message.data.action, voiceId);
             return {
               ...state,
               gameState: {
@@ -187,7 +153,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         // 添加TTS语音播报
         if (message.data?.message) {
           const ttsStore = useTTSStore.getState();
-          ttsStore.queueTTS('系统', message.data.message);
+          ttsStore.queueTTS('系统', message.data.message, 'female-shaonv');
         }
         
         // 可以在这里添加游戏结束的UI提示或其他处理逻辑
@@ -250,7 +216,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     ws.onopen = () => {
       console.log('WebSocket连接已建立');
       set({ isConnected: true });
-      get().loadVoiceMapping();
     };
 
     ws.onmessage = (event) => {
@@ -326,7 +291,6 @@ export const useWebSocket = (sessionId?: string, scriptId?: number) => {
   const {
     isConnected,
     gameState,
-    voiceMapping,
     currentSessionId,
     connect,
     disconnect,
@@ -348,7 +312,6 @@ export const useWebSocket = (sessionId?: string, scriptId?: number) => {
   return {
     isConnected,
     gameState,
-    voiceMapping,
     currentSessionId,
     sendMessage,
     startGame,
