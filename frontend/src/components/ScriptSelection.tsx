@@ -1,24 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { Script, ApiError, useApiClient } from '@/hooks/useApiClient';
+import { Script_Output as Script, ApiError, ScriptInfo } from '@/client';
+import { ScriptsService } from '@/client';
 
 interface ScriptSelectionProps {
-  onSelectScript: (script: Script) => void;
+  onSelectScript: (script: ScriptInfo) => void;
 }
 
 const ScriptSelection: React.FC<ScriptSelectionProps> = ({ onSelectScript }) => {
-  const [scripts, setScripts] = useState<Script[]>([]);
+  const [scripts, setScripts] = useState<ScriptInfo[]>([]);
   const [retryCount, setRetryCount] = useState(0);
-  const { loading, error, getScripts, clearError } = useApiClient();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // 使用 client services 替代 useApiClient
+  const getScripts = async () => {
+    const response = await ScriptsService.getScriptsApiScriptsGet();
+    return response.items || [];
+  };
+  
+  const clearError = () => {
+    setError(null);
+  };
 
   const fetchScripts = async () => {
+    setLoading(true);
     try {
       clearError();
       const fetchedScripts = await getScripts();
       setScripts(fetchedScripts);
       setRetryCount(0);
     } catch (e) {
-      // 错误处理已经在useApiClient中完成
       console.error('获取剧本失败:', e);
+      setError('获取剧本失败，请重试');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,7 +85,6 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({ onSelectScript }) => 
               <p className="text-gray-300 mb-4 h-24 overflow-hidden">{script.description}</p>
               <div className="flex justify-between items-center text-gray-400 text-sm mb-6">
                 <span><i className="fas fa-users mr-2"></i>{script.player_count}人</span>
-                <span><i className="fas fa-clock mr-2"></i>{script.duration_minutes}分钟</span>
               </div>
               <button 
                 onClick={() => onSelectScript(script)} 

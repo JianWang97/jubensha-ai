@@ -1,37 +1,61 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 import os
+import logging
 from dotenv import load_dotenv
 from src.core.websocket_server import game_server
 
-# 导入剧本基础管理API路由
-from src.api.script_routes import router as script_router
 # 导入剧本管理相关路由
-from src.api.routes.script_management_routes import router as script_management_router
-from src.api.routes.script_image_generation_routes import router as script_image_generation_router
+from src.api.routes.script_routes import router as script_management_router
+from src.api.routes.image_generation_routes import router as image_generation_router
 from src.api.routes.evidence_routes import router as evidence_router
 from src.api.routes.character_routes import router as character_router
 from src.api.routes.location_routes import router as location_router
-# 导入图像生成API路由
-from src.api.routes.image_routes import router as image_router
+from src.api.routes.asset_routes import router as asset_router
 # 导入游戏管理API路由
 from src.api.routes.game_routes import router as game_router
 # 导入文件管理API路由
 from src.api.routes.file_routes import router as file_router
 # 导入TTS API路由
 from src.api.routes.tts_routes import router as tts_router
-# 导入基础数据API路由
-from src.api.routes.data_routes import router as data_router
-# 导入静态资源API路由
-from src.api.routes.asset_routes import router as asset_router
 # 导入数据库相关
 from src.core.database import db_manager
+from src.db.session import init_database
 
 load_dotenv()
 
 app = FastAPI(title="AI剧本杀游戏",docs_url="/docs",redoc_url="/redoc")
+
+# 添加全局验证错误处理器
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """处理请求验证错误，提供详细的错误信息"""
+    logger = logging.getLogger(__name__)
+    
+    # 记录详细的错误信息
+    error_details = []
+    for error in exc.errors():
+        error_details.append({
+            "field": ".".join(str(x) for x in error["loc"]),
+            "message": error["msg"],
+            "type": error["type"],
+            "input": error.get("input")
+        })
+    
+    logger.error(f"请求验证失败 - URL: {request.url}, 错误详情: {error_details}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "message": "请求数据验证失败",
+            "errors": error_details,
+            "detail": "请检查请求数据格式和字段类型"
+        }
+    )
 
 # 添加CORS中间件
 app.add_middleware(
@@ -48,27 +72,19 @@ app.add_middleware(
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 注册剧本基础管理API路由
-app.include_router(script_router)
 # 注册剧本管理相关路由
 app.include_router(script_management_router)
-app.include_router(script_image_generation_router)
+app.include_router(image_generation_router)
 app.include_router(evidence_router)
 app.include_router(character_router)
 app.include_router(location_router)
-# 注册图像生成API路由
-app.include_router(image_router)
 # 注册游戏管理API路由
 app.include_router(game_router)
 # 注册文件管理API路由
 app.include_router(file_router)
 # 注册TTS API路由
 app.include_router(tts_router)
-# 注册基础数据API路由
-app.include_router(data_router)
-# 注册静态资源API路由
 app.include_router(asset_router)
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, session_id: str = None, script_id: int = 1):
     """WebSocket端点"""
@@ -86,9 +102,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str = None, scrip
 async def startup_event():
     """应用启动时的初始化"""
     try:
-        # 初始化数据库
+        # 初始化异步数据库
         await db_manager.initialize()
-        print("数据库初始化完成")
+        print("异步数据库初始化完成")
+        
+        # 初始化SQLAlchemy数据库
+        init_database()
+        print("SQLAlchemy数据库初始化完成")
     except Exception as e:
         print(f"数据库初始化失败: {e}")
 

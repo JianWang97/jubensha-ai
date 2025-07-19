@@ -1,6 +1,6 @@
 """TTS服务基类模块"""
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Optional, Dict, Any
+from typing import AsyncGenerator, Optional, Dict, Any, Coroutine
 from dataclasses import dataclass
 
 

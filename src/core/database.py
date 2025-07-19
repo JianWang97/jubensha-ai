@@ -1,6 +1,6 @@
 """数据库连接和配置管理"""
 import os
-import asyncpg
+import asyncpg # type: ignore
 from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -147,7 +147,8 @@ CREATE TABLE IF NOT EXISTS characters (
     is_victim BOOLEAN DEFAULT FALSE,
     personality_traits TEXT[],
     avatar_url TEXT,
-    voice_preference VARCHAR(50)
+    voice_preference VARCHAR(50),
+    voice_id VARCHAR(100)
 );
 
 -- 创建证据表

@@ -1,10 +1,22 @@
 """场景管理API路由"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, List
 from pydantic import BaseModel
-from ...core.script_repository import script_repository
+from sqlalchemy.orm import Session
+from ...db.repositories import LocationRepository
+from ...db.repositories import ScriptRepository
+from ...services.llm_service import llm_service
+from ...schemas.script import ScriptLocation
+from ...db.session import get_db_session
+from datetime import datetime
 
-router = APIRouter(prefix="/api/scripts", tags=["场景管理"])
+router = APIRouter(prefix="/api/locations", tags=["场景管理"])
+
+def get_location_repository(db: Session = Depends(get_db_session)) -> LocationRepository:
+    return LocationRepository(db)
+
+def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
+    return ScriptRepository(db)
 
 # Pydantic模型用于API请求/响应
 class LocationCreateRequest(BaseModel):
@@ -33,26 +45,33 @@ class ScriptResponse(BaseModel):
     data: Optional[dict] = None
 
 @router.post("/{script_id}/locations", summary="创建场景")
-async def create_location(script_id: int, request: LocationCreateRequest):
+async def create_location(script_id: int, request: ScriptLocation, location_repository: LocationRepository = Depends(get_location_repository)):
     """为指定剧本创建新场景"""
     try:
-        # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
-        if not script:
-            raise HTTPException(status_code=404, detail="剧本不存在")
         
-        # 创建场景
-        location_id = await script_repository.create_location(
+        # 准备场景数据
+        location_data = {
+            "script_id": script_id,
+            "name": request.name,
+            "description": request.description,
+            "searchable_items": [],  # 默认为空列表
+            "background_image_url": request.background_image_url,
+            "is_crime_scene": False  # 默认为非案发现场
+        }
+        
+        # 添加场景
+        location = location_repository.add_location(ScriptLocation(
+            id = None,
             script_id=script_id,
             name=request.name,
             description=request.description,
-            background_url=request.background_url,
-            atmosphere=request.atmosphere,
-            available_actions=request.available_actions or [],
-            connected_locations=request.connected_locations or [],
-            hidden_clues=request.hidden_clues or [],
-            access_conditions=request.access_conditions
-        )
+            searchable_items=[],
+            background_image_url=request.background_image_url,
+            is_crime_scene=False,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        ))
+        location_id = location.id
         
         if not location_id:
             raise HTTPException(status_code=500, detail="创建场景失败")
@@ -68,49 +87,16 @@ async def create_location(script_id: int, request: LocationCreateRequest):
         raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
 
 @router.put("/{script_id}/locations/{location_id}", summary="更新场景")
-async def update_location(script_id: int, location_id: int, request: LocationUpdateRequest):
+async def update_location(script_id: int, location_id: int, request: ScriptLocation, location_repository: LocationRepository = Depends(get_location_repository)):
     """更新指定场景的信息"""
     try:
-        # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
-        if not script:
-            raise HTTPException(status_code=404, detail="剧本不存在")
-        
         # 检查场景是否存在
-        location = None
-        for loc in script.locations:
-            if loc.id == location_id:
-                location = loc
-                break
-        
+        location = location_repository.get_location_by_id(location_id)
         if not location:
             raise HTTPException(status_code=404, detail="场景不存在")
-        
-        # 准备更新数据
-        update_data = {}
-        if request.name is not None:
-            update_data['name'] = request.name
-        if request.description is not None:
-            update_data['description'] = request.description
-        if request.background_url is not None:
-            update_data['background_url'] = request.background_url
-        if request.atmosphere is not None:
-            update_data['atmosphere'] = request.atmosphere
-        if request.available_actions is not None:
-            update_data['available_actions'] = request.available_actions
-        if request.connected_locations is not None:
-            update_data['connected_locations'] = request.connected_locations
-        if request.hidden_clues is not None:
-            update_data['hidden_clues'] = request.hidden_clues
-        if request.access_conditions is not None:
-            update_data['access_conditions'] = request.access_conditions
-        
-        if not update_data:
-            raise HTTPException(status_code=400, detail="没有提供更新数据")
-        
+
         # 更新场景
-        success = await script_repository.update_location(location_id, update_data)
-        if not success:
+        if not location_repository.update_location(location_id, request):
             raise HTTPException(status_code=500, detail="更新场景失败")
         
         return ScriptResponse(
@@ -124,26 +110,18 @@ async def update_location(script_id: int, location_id: int, request: LocationUpd
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 @router.delete("/{script_id}/locations/{location_id}", summary="删除场景")
-async def delete_location(script_id: int, location_id: int):
+async def delete_location(script_id: int, location_id: int, location_repository: LocationRepository = Depends(get_location_repository)):
     """删除指定场景"""
     try:
-        # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
-        if not script:
-            raise HTTPException(status_code=404, detail="剧本不存在")
-        
+
         # 检查场景是否存在
-        location = None
-        for loc in script.locations:
-            if loc.id == location_id:
-                location = loc
-                break
+        location = location_repository.get_location_by_id(location_id)
         
         if not location:
             raise HTTPException(status_code=404, detail="场景不存在")
         
         # 删除场景
-        success = await script_repository.delete_location(location_id)
+        success = location_repository.delete_location(location_id)
         if not success:
             raise HTTPException(status_code=500, detail="删除场景失败")
         
@@ -158,27 +136,28 @@ async def delete_location(script_id: int, location_id: int):
         raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
 @router.get("/{script_id}/locations", summary="获取场景列表")
-async def get_locations(script_id: int):
+async def get_locations(script_id: int, 
+    location_repository: LocationRepository = Depends(get_location_repository),
+    script_repository: ScriptRepository = Depends(get_script_repository)):
     """获取指定剧本的所有场景"""
     try:
         # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
+        script = script_repository.get_script_by_id(script_id)
         if not script:
             raise HTTPException(status_code=404, detail="剧本不存在")
         
+        locations = location_repository.get_locations_by_script(script_id)
         # 返回场景列表
         locations_data = []
-        for location in script.locations:
+        for location in locations:
             locations_data.append({
                 "id": location.id,
+                "script_id": location.script_id,
                 "name": location.name,
                 "description": location.description,
-                "background_url": location.background_url,
-                "atmosphere": location.atmosphere,
-                "available_actions": location.available_actions,
-                "connected_locations": location.connected_locations,
-                "hidden_clues": location.hidden_clues,
-                "access_conditions": location.access_conditions
+                "searchable_items": location.searchable_items,
+                "background_image_url": location.background_image_url,
+                "is_crime_scene": location.is_crime_scene
             })
         
         return ScriptResponse(
@@ -195,37 +174,26 @@ async def get_locations(script_id: int):
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 @router.get("/{script_id}/locations/{location_id}", summary="获取场景详情")
-async def get_location_detail(script_id: int, location_id: int):
+async def get_location_detail(script_id: int, location_id: int,
+    location_repository: LocationRepository = Depends(get_location_repository),
+    script_repository: ScriptRepository = Depends(get_script_repository)):
     """获取指定场景的详细信息"""
     try:
-        # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
-        if not script:
-            raise HTTPException(status_code=404, detail="剧本不存在")
-        
-        # 查找场景
-        location = None
-        for loc in script.locations:
-            if loc.id == location_id:
-                location = loc
-                break
-        
+        # 检查场景是否存在
+        location = location_repository.get_location_by_id(location_id)
         if not location:
             raise HTTPException(status_code=404, detail="场景不存在")
         
         # 返回场景详情
         location_data = {
             "id": location.id,
+            "script_id": location.script_id,
             "name": location.name,
             "description": location.description,
-            "background_url": location.background_url,
-            "atmosphere": location.atmosphere,
-            "available_actions": location.available_actions,
-            "connected_locations": location.connected_locations,
-            "hidden_clues": location.hidden_clues,
-            "access_conditions": location.access_conditions
+            "searchable_items": location.searchable_items,
+            "background_image_url": location.background_image_url,
+            "is_crime_scene": location.is_crime_scene
         }
-        
         return ScriptResponse(
             success=True,
             message="获取场景详情成功",

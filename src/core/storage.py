@@ -182,7 +182,7 @@ class StorageManager:
         """上传场景背景图片"""
         return await self.upload_file(file_data, filename, "scenes")
     
-    def list_files(self, category: str = None) -> list:
+    def list_files(self, category: Optional[str] = None) -> list:
         """列出文件"""
         try:
             prefix = f"{category}/" if category else None

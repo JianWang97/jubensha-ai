@@ -1,0 +1,15 @@
+/* generated using openapi-typescript-codegen -- do not edit */
+/* istanbul ignore file */
+/* tslint:disable */
+/* eslint-disable */
+export type LocationCreateRequest = {
+    name: string;
+    description: string;
+    background_url?: (string | null);
+    atmosphere?: (string | null);
+    available_actions?: (Array<string> | null);
+    connected_locations?: (Array<number> | null);
+    hidden_clues?: (Array<string> | null);
+    access_conditions?: (string | null);
+};
+

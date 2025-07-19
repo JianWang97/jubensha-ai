@@ -1,25 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useApiClient, Script } from '@/hooks/useApiClient';
+import { ScriptInfo, ScriptsService, ScriptStatus, Service } from '@/client';
 
 const ScriptList = () => {
   const router = useRouter();
-  const { loading, error, getScripts, deleteScript } = useApiClient();
-  const [scripts, setScripts] = useState<Script[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // 使用 client services 替代 useApiClient
+  const getScripts = async () => {
+    const response = await ScriptsService.getScriptsApiScriptsGet();
+    return response.items || [];
+  };
+  
+  const deleteScript = async (scriptId: number) => {
+    const response = await ScriptsService.deleteScriptApiScriptsScriptIdDelete(scriptId);
+    return response.data;
+  };
+  const [scripts, setScripts] = useState<ScriptInfo[]>([]);
 
   // 获取脚本数据
   useEffect(() => {
     const fetchScripts = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const scriptData = await getScripts();
-        setScripts(scriptData);
+        setScripts(scriptData.map(script => ({
+          ...script
+        })));
       } catch (err) {
         console.error('获取脚本列表失败:', err);
+        setError('获取脚本列表失败');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchScripts();
-  }, [getScripts]);
+  }, []);
 
   // 编辑脚本处理
   const handleEdit = (scriptId: number) => {
@@ -36,6 +55,7 @@ const ScriptList = () => {
         setScripts(scriptData);
       } catch (err) {
         console.error('删除脚本失败:', err);
+        setError('删除脚本失败');
       }
     }
   };
@@ -71,8 +91,8 @@ const ScriptList = () => {
   };
 
   // 获取状态样式
-  const getStatusStyle = (status: string) => {
-    if (status === 'active' || status === 'published') {
+  const getStatusStyle = (status: ScriptStatus) => {
+    if (status === ScriptStatus.ARCHIVED || status === ScriptStatus.PUBLISHED) {
       return 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg shadow-green-500/25';
     }
     return 'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/25';
@@ -94,7 +114,7 @@ const ScriptList = () => {
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-              {scripts.filter(s => s.status === 'active' || s.status === 'published').length}
+              {scripts.filter(s => s.status === ScriptStatus.ARCHIVED || s.status === ScriptStatus.PUBLISHED).length}
             </div>
             <div className="text-sm text-purple-200">已发布</div>
           </div>
@@ -104,7 +124,6 @@ const ScriptList = () => {
       {/* 游戏化卡片网格 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {scripts.map((script) => {
-          const difficultyStyle = getDifficultyStyle(script.difficulty);
           return (
             <div 
               key={script.id} 
@@ -115,10 +134,10 @@ const ScriptList = () => {
               
               {/* 状态徽章 */}
               <div className="absolute -top-2 -right-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusStyle(script.status)} transform rotate-12`}>
-                  {script.status === 'active' ? '🚀 已发布' : 
-                   script.status === 'published' ? '🚀 已发布' :
-                   script.status === 'draft' ? '📝 草稿' : script.status}
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusStyle(script.status!)} transform rotate-12`}>
+                  {script.status === ScriptStatus.ARCHIVED ? '🚀 已发布' : 
+                   script.status === ScriptStatus.PUBLISHED ? '🚀 已发布' :
+                   script.status === ScriptStatus.DRAFT ? '📝 草稿' : script.status}
                 </span>
               </div>
 
@@ -143,34 +162,18 @@ const ScriptList = () => {
                     </div>
                     <span className="text-gray-300">{script.player_count} 人游戏</span>
                   </div>
-
-                  {/* 难度等级 */}
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-8 h-8 bg-gradient-to-r ${difficultyStyle.bg} rounded-lg flex items-center justify-center text-white font-bold shadow-lg ${difficultyStyle.glow}`}>
-                      {difficultyStyle.icon}
-                    </div>
-                    <span className="text-gray-300">{script.difficulty}</span>
-                  </div>
-
-                  {/* 游戏时长 */}
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
-                      ⏱️
-                    </div>
-                    <span className="text-gray-300">{script.duration_minutes || 0} 分钟</span>
-                  </div>
                 </div>
 
                 {/* 操作按钮 */}
                 <div className="flex space-x-3">
                   <button 
-                    onClick={() => handleEdit(script.id)}
+                    onClick={() => handleEdit(script.id!)}
                     className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-purple-500/25 transform hover:scale-105"
                   >
                     ✏️ 编辑
                   </button>
                   <button 
-                    onClick={() => handleDelete(script.id)}
+                    onClick={() => handleDelete(script.id!)}
                     className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
                   >
                     🗑️ 删除

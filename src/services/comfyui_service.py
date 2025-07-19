@@ -1,18 +1,13 @@
 """ComfyUI图像生成服务"""
 import json
-import requests
+import requests # type: ignore
 import random
 import uuid
 import time
 import os
 import asyncio
 from datetime import datetime
-try:
-    from websocket import create_connection
-except ImportError:
-    # 如果websocket-client未安装，提供一个简单的替代方案
-    def create_connection(*args, **kwargs):
-        raise ImportError("请安装websocket-client: pip install websocket-client")
+from websocket import create_connection
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from io import BytesIO

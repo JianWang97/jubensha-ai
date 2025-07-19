@@ -2,7 +2,7 @@ import asyncio
 import json
 from typing import Set, Union, Any, Dict
 from src.core import GameEngine
-from src.models import GamePhase
+from src.schemas.script import GamePhaseEnum as GamePhase
 import os
 from dotenv import load_dotenv
 import uuid
@@ -73,14 +73,32 @@ class GameWebSocketServer:
     async def send_to_client(self, websocket, message: dict):
         """发送消息给特定客户端"""
         try:
+            # 尝试序列化消息以检查是否有序列化问题
+            json_message = json.dumps(message, ensure_ascii=False, default=str)
+            
             # 检查是否是FastAPI WebSocket还是websockets库的WebSocket
             if hasattr(websocket, 'send_text'):
                 # FastAPI WebSocket
-                await websocket.send_text(json.dumps(message, ensure_ascii=False))
+                await websocket.send_text(json_message)
             else:
                 # websockets库的WebSocket
-                await websocket.send(json.dumps(message, ensure_ascii=False))
+                await websocket.send(json_message)
+        except json.JSONDecodeError as e:
+            print(f"JSON序列化错误: {e}, 消息内容: {message}")
+            # 发送错误消息给客户端
+            try:
+                error_message = json.dumps({
+                    "type": "error",
+                    "message": "服务器消息序列化失败"
+                }, ensure_ascii=False)
+                if hasattr(websocket, 'send_text'):
+                    await websocket.send_text(error_message)
+                else:
+                    await websocket.send(error_message)
+            except:
+                pass
         except Exception as e:
+            print(f"WebSocket发送消息失败: {e}")
             # 处理连接关闭异常
             await self.unregister_client(websocket)
     
@@ -207,16 +225,32 @@ class GameWebSocketServer:
             # 使用新的配置系统初始化AI代理
             await session.game_engine.initialize_agents()
             
+            # 发送游戏开始消息
             await self.broadcast({
                 "type": "game_started",
                 "data": session.game_engine.game_state,
                 "session_id": session_id
             }, session_id)
             
+            print(f"Game started for session {session_id}, broadcasting game_started message")
+            
+            # 发送初始阶段消息
+            await self.broadcast({
+                "type": "phase_changed",
+                "data": {
+                    "phase": session.game_engine.current_phase.value,
+                    "game_state": session.game_engine.game_state
+                },
+                "session_id": session_id
+            }, session_id)
+            
+            print(f"Broadcasting initial phase: {session.game_engine.current_phase.value}")
+            
             # 开始游戏循环
             asyncio.create_task(self.game_loop(session_id))
             
         except Exception as e:
+            print(f"Error starting game for session {session_id}: {e}")
             await self.broadcast({
                 "type": "error",
                 "message": f"游戏启动失败: {str(e)}",
@@ -265,96 +299,153 @@ class GameWebSocketServer:
         if not session:
             return
             
+        print(f"Starting game loop for session {session_id}")
+        
         try:
             while session.is_game_running and session.game_engine.current_phase != GamePhase.ENDED:
+                print(f"Running phase: {session.game_engine.current_phase.value}")
+                
                 # 运行当前阶段
-                actions = await session.game_engine.run_phase()
+                try:
+                    actions = await session.game_engine.run_phase()
+                    print(f"Phase {session.game_engine.current_phase.value} returned {len(actions)} actions")
+                except Exception as e:
+                    print(f"Error in run_phase: {e}")
+                    # 即使run_phase出错，也继续游戏循环
+                    actions = []
                 
                 # 广播AI行动
-                for action in actions:
-                    # 确保action中的数据是可序列化的字符串
-                    if isinstance(action, dict):
-                        # 确保action字段是字符串
-                        if 'action' in action and not isinstance(action['action'], str):
-                            # 如果action不是字符串，尝试转换或使用默认值
-                            if isinstance(action['action'], dict):
-                                action['action'] = "[系统信息格式错误]"
-                            else:
-                                action['action'] = str(action['action'])
-                    
-                    await self.broadcast({
-                        "type": "ai_action",
-                        "data": action,
-                        "session_id": session_id
-                    }, session_id)
-                    await asyncio.sleep(2)  # 每个行动之间的延迟
+                for i, action in enumerate(actions):
+                    try:
+                        # 确保action中的数据是可序列化的字符串
+                        if isinstance(action, dict):
+                            # 确保action字段是字符串
+                            if 'action' in action and not isinstance(action['action'], str):
+                                # 如果action不是字符串，尝试转换或使用默认值
+                                if isinstance(action['action'], dict):
+                                    action['action'] = "[系统信息格式错误]"
+                                else:
+                                    action['action'] = str(action['action'])
+                        
+                        print(f"Broadcasting action {i+1}/{len(actions)}: {action.get('character', 'Unknown')}: {action.get('action', '')[:50]}...")
+                        
+                        await self.broadcast({
+                            "type": "ai_action",
+                            "data": action,
+                            "session_id": session_id
+                        }, session_id)
+                        
+                        await asyncio.sleep(2)  # 每个行动之间的延迟
+                    except Exception as e:
+                        print(f"Error broadcasting action {i+1}: {e}")
+                        # 继续处理下一个action
                 
                 # 广播更新的游戏状态和公开聊天
-                await self.broadcast({
-                    "type": "game_state_update",
-                    "data": session.game_engine.game_state,
-                    "session_id": session_id
-                }, session_id)
+                try:
+                    print("Broadcasting game_state_update")
+                    await self.broadcast({
+                        "type": "game_state_update",
+                        "data": session.game_engine.game_state,
+                        "session_id": session_id
+                    }, session_id)
+                except Exception as e:
+                    print(f"Error broadcasting game_state_update: {e}")
                 
                 # 广播公开聊天更新
-                await self.broadcast({
-                    "type": "public_chat_update",
-                    "data": session.game_engine.get_recent_public_chat(),
-                    "session_id": session_id
-                }, session_id)
+                try:
+                    print("Broadcasting public_chat_update")
+                    await self.broadcast({
+                        "type": "public_chat_update",
+                        "data": session.game_engine.get_recent_public_chat(),
+                        "session_id": session_id
+                    }, session_id)
+                except Exception as e:
+                    print(f"Error broadcasting public_chat_update: {e}")
                 
                 # 特殊处理投票阶段
                 if session.game_engine.current_phase == GamePhase.VOTING:
-                    await session.game_engine.process_voting()
-                    await self.broadcast({
-                        "type": "voting_complete",
-                        "data": session.game_engine.voting_manager.votes,
-                        "session_id": session_id
-                    }, session_id)
+                    try:
+                        print("Processing voting phase")
+                        await session.game_engine.process_voting()
+                        await self.broadcast({
+                            "type": "voting_complete",
+                            "data": session.game_engine.voting_manager.votes if session.game_engine.voting_manager and hasattr(session.game_engine.voting_manager, 'votes') else {},
+                            "session_id": session_id
+                        }, session_id)
+                    except Exception as e:
+                        print(f"Error in voting phase: {e}")
+                
+                # 根据阶段设置不同的等待时间
+                phase_durations = {
+                    GamePhase.BACKGROUND: 10,  # 背景介绍10秒
+                    GamePhase.INTRODUCTION: 5,  # 自我介绍30秒
+                    GamePhase.EVIDENCE_COLLECTION: 5,  # 搜证60秒
+                    GamePhase.INVESTIGATION: 5,  # 调查120秒
+                    GamePhase.DISCUSSION: 5,  # 讨论180秒
+                    GamePhase.VOTING: 5,  # 投票60秒
+                }
                 
                 # 自动进入下一阶段（除了最后阶段）
                 if session.game_engine.current_phase != GamePhase.REVELATION:
-                    await asyncio.sleep(5)  # 阶段间延迟
-                    await session.game_engine.next_phase()
+                    wait_time = phase_durations.get(session.game_engine.current_phase, 30)
+                    print(f"Waiting {wait_time} seconds before next phase...")
+                    await asyncio.sleep(wait_time)  # 根据阶段设置不同的等待时间
                     
-                    await self.broadcast({
-                        "type": "phase_changed",
-                        "data": {
-                            "phase": session.game_engine.current_phase.value,
-                            "game_state": session.game_engine.game_state
-                        },
-                        "session_id": session_id
-                    }, session_id)
+                    try:
+                        await session.game_engine.next_phase()
+                        print(f"Advanced to next phase: {session.game_engine.current_phase.value}")
+                        
+                        await self.broadcast({
+                            "type": "phase_changed",
+                            "data": {
+                                "phase": session.game_engine.current_phase.value,
+                                "game_state": session.game_engine.game_state
+                            },
+                            "session_id": session_id
+                        }, session_id)
+                    except Exception as e:
+                        print(f"Error advancing to next phase: {e}")
                 else:
                     # 揭晓阶段后显示游戏结果
-                    result = session.game_engine.get_game_result()
-                    await self.broadcast({
-                        "type": "game_result",
-                        "data": result,
-                        "session_id": session_id
-                    }, session_id)
-                    
-                    await session.game_engine.next_phase()  # 进入结束阶段
-                    
-                    # 发送游戏结束播报
-                    await self.broadcast({
-                        "type": "game_ended",
-                        "data": {
-                            "message": "游戏已结束，感谢各位玩家的参与！",
-                            "final_result": result
-                        },
-                        "session_id": session_id
-                    }, session_id)
-                    
-                    break
+                    try:
+                        print("Processing revelation phase")
+                        result = session.game_engine.get_game_result()
+                        await self.broadcast({
+                            "type": "game_result",
+                            "data": result,
+                            "session_id": session_id
+                        }, session_id)
+                        
+                        await session.game_engine.next_phase()  # 进入结束阶段
+                        
+                        # 发送游戏结束播报
+                        await self.broadcast({
+                            "type": "game_ended",
+                            "data": {
+                                "message": "游戏已结束，感谢各位玩家的参与！",
+                                "final_result": result
+                            },
+                            "session_id": session_id
+                        }, session_id)
+                        
+                        print("Game ended successfully")
+                        break
+                    except Exception as e:
+                        print(f"Error in revelation phase: {e}")
+                        break
                     
         except Exception as e:
-            await self.broadcast({
-                "type": "error",
-                "message": f"游戏循环错误: {str(e)}",
-                "session_id": session_id
-            }, session_id)
+            print(f"Critical error in game loop for session {session_id}: {e}")
+            try:
+                await self.broadcast({
+                    "type": "error",
+                    "message": f"游戏循环错误: {str(e)}",
+                    "session_id": session_id
+                }, session_id)
+            except Exception as broadcast_error:
+                print(f"Failed to broadcast error message: {broadcast_error}")
         finally:
+            print(f"Game loop ended for session {session_id}")
             session.is_game_running = False
     
     async def handle_connection(self, websocket: Any, path: str):

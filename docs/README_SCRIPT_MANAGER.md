@@ -236,17 +236,20 @@ GET /api/scripts/stats/overview
 ### 文件上传API
 
 ```http
-# 上传剧本封面
-POST /api/scripts/upload/cover
+# 生成剧本封面
+POST /api/scripts/generate/cover
 
-# 上传角色头像
-POST /api/scripts/upload/avatar
+# 生成角色头像
+POST /api/scripts/generate/avatar
 
-# 上传证据图片
-POST /api/scripts/upload/evidence
+# 生成证据图片
+POST /api/scripts/generate/evidence
 
-# 上传场景背景
-POST /api/scripts/upload/scene
+# 生成场景背景
+POST /api/scripts/generate/scene
+
+# 通用文件上传
+POST /api/files/upload
 ```
 
 ## 🛠️ 开发指南
@@ -256,7 +259,11 @@ POST /api/scripts/upload/scene
 JUBENSHA_2/
 ├── src/
 │   ├── api/                 # API路由
-│   │   └── script_routes.py # 剧本管理API
+│   │   ├── routes/          # 路由模块
+│   │   │   ├── script_routes_unified.py # 统一剧本管理API
+│   │   │   ├── character_routes.py      # 角色管理API
+│   │   │   ├── evidence_routes.py       # 证据管理API
+│   │   │   └── location_routes.py       # 场景管理API
 │   ├── core/                # 核心模块
 │   │   ├── database.py      # 数据库管理
 │   │   ├── storage.py       # 存储管理
@@ -285,8 +292,8 @@ JUBENSHA_2/
    - 使用异步SQL操作
 
 3. **API接口**
-   - 在 `src/api/script_routes.py` 中添加新的路由
-   - 使用FastAPI的依赖注入
+   - 在 `src/api/routes/` 中的相应路由文件中添加新的路由
+   - 使用FastAPI的依赖注入和统一的数据模型
 
 4. **前端界面**
    - 修改 `static/script_manager.html`

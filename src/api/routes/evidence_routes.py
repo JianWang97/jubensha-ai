@@ -1,12 +1,17 @@
 """证据管理API路由"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, List
 from pydantic import BaseModel
-from ...core.script_repository import script_repository
+from sqlalchemy.orm import Session
+from ...db.repositories import EvidenceRepository
 from ...core.storage import storage_manager
 from ...services.llm_service import llm_service
+from ...db.session import get_db_session
+from ...schemas.script import ScriptEvidence
+router = APIRouter(prefix="/api/evidence", tags=["证据管理"])
 
-router = APIRouter(prefix="/api/scripts", tags=["证据管理"])
+def get_evidence_repository(db: Session = Depends(get_db_session)) -> EvidenceRepository:
+    return EvidenceRepository(db)
 
 # Pydantic模型用于API请求/响应
 class EvidenceCreateRequest(BaseModel):
@@ -24,6 +29,7 @@ class EvidenceUpdateRequest(BaseModel):
     is_public: Optional[bool] = None
     discovery_condition: Optional[str] = None
     related_characters: Optional[List[int]] = None
+    importance: Optional[str] = None
 
 class EvidencePromptRequest(BaseModel):
     evidence_name: str
@@ -37,24 +43,17 @@ class ScriptResponse(BaseModel):
     data: Optional[dict] = None
 
 @router.post("/{script_id}/evidence", summary="创建证据")
-async def create_evidence(script_id: int, request: EvidenceCreateRequest):
+async def create_evidence(script_id: int, request: ScriptEvidence, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
     """为指定剧本创建新证据"""
     try:
-        # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
-        if not script:
-            raise HTTPException(status_code=404, detail="剧本不存在")
+
+        # 创建证据对象
         
-        # 创建证据
-        evidence_id = await script_repository.create_evidence(
-            script_id=script_id,
-            name=request.name,
-            description=request.description,
-            image_url=request.image_url,
-            is_public=request.is_public,
-            discovery_condition=request.discovery_condition,
-            related_characters=request.related_characters or []
-        )
+        request.script_id = script_id
+        
+        # 添加证据
+        evidence = evidence_repository.add_evidence(request)
+        evidence_id = evidence.id
         
         if not evidence_id:
             raise HTTPException(status_code=500, detail="创建证据失败")
@@ -70,45 +69,18 @@ async def create_evidence(script_id: int, request: EvidenceCreateRequest):
         raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
 
 @router.put("/{script_id}/evidence/{evidence_id}", summary="更新证据")
-async def update_evidence(script_id: int, evidence_id: int, request: EvidenceUpdateRequest):
+async def update_evidence(script_id: int, evidence_id: int, request: EvidenceUpdateRequest, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
     """更新指定证据的信息"""
     try:
-        # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
-        if not script:
-            raise HTTPException(status_code=404, detail="剧本不存在")
-        
         # 检查证据是否存在
-        evidence = None
-        for ev in script.evidence:
-            if ev.id == evidence_id:
-                evidence = ev
-                break
-        
+        evidence = evidence_repository.get_evidence_by_id(evidence_id)
         if not evidence:
             raise HTTPException(status_code=404, detail="证据不存在")
         
-        # 准备更新数据
-        update_data = {}
-        if request.name is not None:
-            update_data['name'] = request.name
-        if request.description is not None:
-            update_data['description'] = request.description
-        if request.image_url is not None:
-            update_data['image_url'] = request.image_url
-        if request.is_public is not None:
-            update_data['is_public'] = request.is_public
-        if request.discovery_condition is not None:
-            update_data['discovery_condition'] = request.discovery_condition
-        if request.related_characters is not None:
-            update_data['related_characters'] = request.related_characters
-        
-        if not update_data:
-            raise HTTPException(status_code=400, detail="没有提供更新数据")
-        
-        # 更新证据
-        success = await script_repository.update_evidence(evidence_id, update_data)
-        if not success:
+        request_dict = request.dict(exclude_unset=True)
+        # 直接更新证据
+        updated_evidence = evidence_repository.update_evidence_fields(evidence_id, request_dict)
+        if not updated_evidence:
             raise HTTPException(status_code=500, detail="更新证据失败")
         
         return ScriptResponse(
@@ -122,34 +94,25 @@ async def update_evidence(script_id: int, evidence_id: int, request: EvidenceUpd
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 @router.delete("/{script_id}/evidence/{evidence_id}", summary="删除证据")
-async def delete_evidence(script_id: int, evidence_id: int):
+async def delete_evidence(script_id: int, evidence_id: int, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
     """删除指定证据"""
     try:
-        # 检查剧本是否存在
-        script = await script_repository.get_script_by_id(script_id)
-        if not script:
-            raise HTTPException(status_code=404, detail="剧本不存在")
-        
         # 检查证据是否存在
-        evidence = None
-        for ev in script.evidence:
-            if ev.id == evidence_id:
-                evidence = ev
-                break
-        
+        evidence = evidence_repository.get_evidence_by_id(evidence_id)
+
         if not evidence:
             raise HTTPException(status_code=404, detail="证据不存在")
         
         # 如果证据有关联的图片，先删除图片文件
         if evidence.image_url:
             try:
-                await storage_manager.delete_evidence_image(evidence.image_url)
+                await storage_manager.delete_file(evidence.image_url)
             except Exception as e:
                 # 图片删除失败不应该阻止证据删除
                 print(f"删除证据图片失败: {e}")
         
         # 删除证据
-        success = await script_repository.delete_evidence(evidence_id)
+        success = evidence_repository.delete_evidence(evidence_id)
         if not success:
             raise HTTPException(status_code=500, detail="删除证据失败")
         

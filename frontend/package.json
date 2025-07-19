@@ -6,7 +6,8 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-api": "npx openapi-typescript-codegen --input http://localhost:8010/openapi.json --output ./src/client --client axios"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -32,10 +33,13 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.21.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "node-fetch": "^3.3.2",
+    "openapi-typescript-codegen": "^0.29.0",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"

@@ -1,19 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTTSStore } from '@/stores/ttsStore';
-
-interface Character {
-  id: number;
-  name: string;
-  background: string;
-  gender: string;
-  age: number;
-  profession: string;
-  secret: string;
-  objective: string;
-  is_victim: boolean;
-  is_murderer: boolean;
-  avatar_url?: string;
-}
+import { ScriptCharacter } from '@/client';
 
 interface GameLogEntry {
   character: string;
@@ -23,7 +10,7 @@ interface GameLogEntry {
 }
 
 interface CharacterAvatarsProps {
-  characters: Character[];
+  characters: ScriptCharacter[];
   gameLog: GameLogEntry[];
 }
 
@@ -34,7 +21,7 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
   const speakingCharacter = currentSpeakingCharacter;
   const speechBubble = currentSpeechText || '';
 
-  const getCharacterAvatar = (character: Character) => {
+  const getCharacterAvatar = (character: ScriptCharacter) => {
     // 如果有头像URL，返回图片元素
     if (character.avatar_url) {
       return (
@@ -56,7 +43,7 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
     return getDefaultEmoji(character);
   };
   
-  const getDefaultEmoji = (character: Character) => {
+  const getDefaultEmoji = (character: ScriptCharacter) => {
     if (character.is_victim) return '💀';
     if (character.is_murderer) return '🔪';
     if (character.gender === '女') return '👩';
@@ -64,13 +51,13 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
     return '🕵️';
   };
 
-  const getCharacterBorderColor = (character: Character) => {
+  const getCharacterBorderColor = (character: ScriptCharacter) => {
     if (character.is_victim) return 'border-red-500';
     if (character.is_murderer) return 'border-orange-500';
     return 'border-blue-500';
   };
 
-  const getCharacterBgColor = (character: Character) => {
+  const getCharacterBgColor = (character: ScriptCharacter) => {
     if (character.is_victim) return 'bg-red-500/20';
     if (character.is_murderer) return 'bg-orange-500/20';
     return 'bg-blue-500/20';
@@ -85,7 +72,7 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
   const otherCharacters = characters.filter(char => char.name !== speakingCharacter);
   const isSystemSpeaking = speakingCharacter === '系统' || speakingCharacter === 'System';
 
-  const renderCharacter = (character: Character, isSpeaking: boolean, isCenter: boolean = false) => {
+  const renderCharacter = (character: ScriptCharacter, isSpeaking: boolean, isCenter: boolean = false) => {
     return (
       <div key={character.id} className={`relative flex flex-col items-center transition-all duration-500 ${
         isCenter ? 'transform scale-110' : ''

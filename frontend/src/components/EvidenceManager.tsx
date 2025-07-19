@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Evidence, ImageGenerationRequest } from '@/hooks/useApiClient';
+import { ScriptEvidence as Evidence, ImageGenerationRequestModel as ImageGenerationRequest } from '@/client';
+import { ScriptsService, Service } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import toast from 'react-hot-toast';
-import { useApiClient } from '@/hooks/useApiClient';
 
 interface EvidenceManagerProps {
   generateEvidenceImage?: (request: ImageGenerationRequest) => Promise<{ url: string }>;
@@ -25,7 +25,32 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
   const [isEvidenceFormFullscreen, setIsEvidenceFormFullscreen] = useState(true);
 
-  const {getScriptWithDetail, generateEvidencePrompt, createEvidence, updateEvidence, deleteEvidence } = useApiClient();
+  // 使用 client services 替代 useApiClient
+  const getScriptWithDetail = async (scriptId: number) => {
+    const response = await ScriptsService.getScriptApiScriptsScriptIdGet(scriptId);
+    return response.data;
+  };
+  
+  const generateEvidencePrompt = async (request: any) => {
+    const response = await Service.generateEvidencePromptApiEvidenceEvidenceGeneratePromptPost(request);
+    return response.data;
+  };
+  
+  const createEvidence = async (request: any) => {
+    const response = await Service.createEvidenceApiEvidenceScriptIdEvidencePost(request.script_id, request);
+    return response.data;
+  };
+  
+  const updateEvidence = async (evidenceId: number, request: any) => {
+    const response = await Service.updateEvidenceApiEvidenceScriptIdEvidenceEvidenceIdPut(Number(scriptId), evidenceId, request);
+    return response.data;
+  };
+  
+  const deleteEvidence = async (evidenceId: number) => {
+    const response = await Service.deleteEvidenceApiEvidenceScriptIdEvidenceEvidenceIdDelete(Number(scriptId), evidenceId);
+    return response.data;
+  };
+  
   const [evidenceForm, setEvidenceForm] = useState<Partial<Evidence>>({
     name: '',
     description: '',
@@ -44,7 +69,8 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
 
   const initEvidenceForm = async () => {
     if(scriptId){
-      const { evidence: evidences } = await getScriptWithDetail(Number(scriptId));
+      const script = await getScriptWithDetail(Number(scriptId));
+      const evidences = script?.evidence || [];
       if(evidences){
         setEvidences(evidences);
       }
@@ -77,7 +103,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     try {
       if (editingEvidence) {
         // 编辑模式 - 调用更新API
-        await updateEvidence(editingEvidence.id, {
+        await updateEvidence(editingEvidence.id!, {
           name: evidenceForm.name,
           description: evidenceForm.description,
           evidence_type: evidenceForm.evidence_type,

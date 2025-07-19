@@ -132,3 +132,7 @@ class ConfigManager:
 
 # 全局配置实例
 config = ConfigManager()
+
+def get_database_config() -> DatabaseConfig:
+    """获取数据库配置"""
+    return config.database_config

@@ -118,7 +118,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
             };
             // 添加到现有事件列表中
             const updatedEvents = [...(state.gameState.events || []), newEvent];
-            // 添加到TTS队列，优先使用voice_id，如果没有则使用character
             const ttsStore = useTTSStore.getState();
             const voiceId = message.data.voice_id;
             ttsStore.queueTTS(message.data.character, message.data.action, voiceId);
@@ -181,6 +180,17 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   connect: (sessionId?: string, scriptId?: number) => {
     const state = get();
 
+    // 如果已经有连接且状态正常，不重复连接
+    if (state.ws && (state.ws.readyState === WebSocket.CONNECTING || state.ws.readyState === WebSocket.OPEN)) {
+      console.log('WebSocket已连接或正在连接中，跳过重复连接');
+      return;
+    }
+
+    // 清理现有连接
+    if (state.ws) {
+      state.ws.close();
+    }
+
     // 如果没有传入sessionId且当前也没有sessionId，自动生成一个
     let finalSessionId = sessionId;
     if (!finalSessionId && !state.currentSessionId) {
@@ -210,6 +220,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     }
 
     const wsUrl = `${protocol}//${apiUrl.hostname}:${backendPort}/ws${params.toString() ? '?' + params.toString() : ''}`;
+    console.log('正在连接WebSocket:', wsUrl);
 
     const ws = new WebSocket(wsUrl);
 
@@ -226,9 +237,14 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     ws.onclose = () => {
       console.log('WebSocket连接已关闭');
       set({ isConnected: false });
-      // 尝试重连
-      const timeout = setTimeout(() => get().connect(sessionId, scriptId), 3000);
-      set({ reconnectTimeout: timeout });
+      // 只有在非主动断开的情况下才重连
+      if (get().ws === ws) {
+        const timeout = setTimeout(() => {
+          console.log('尝试重新连接WebSocket...');
+          get().connect(sessionId, scriptId);
+        }, 3000);
+        set({ reconnectTimeout: timeout });
+      }
     };
 
     ws.onerror = (error) => {
@@ -300,14 +316,17 @@ export const useWebSocket = (sessionId?: string, scriptId?: number) => {
     resetGame
   } = useWebSocketStore();
 
-  // 自动连接
+  // 连接WebSocket
   useEffect(() => {
     connect(sessionId, scriptId);
+  }, [sessionId, scriptId]);
 
+  // 组件卸载时断开连接
+  useEffect(() => {
     return () => {
       disconnect();
     };
-  }, [sessionId, scriptId, connect, disconnect]);
+  }, []); // 空依赖数组，只在组件卸载时执行
 
   return {
     isConnected,

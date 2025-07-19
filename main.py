@@ -1,3 +1,4 @@
+import asyncio
 import uvicorn
 from src.core.server import app
 from dotenv import load_dotenv
@@ -34,7 +35,7 @@ def main():
     print("="*50)
     
     host = os.getenv("HOST", "localhost")
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 8010))
     
     print(f"🌐 服务器地址: http://{host}:{port}")
     print(f"🎮 游戏页面: http://{host}:{port}")
@@ -47,7 +48,10 @@ def main():
 
 def run_next():
     os.system("cd frontend && npm run dev")
+
+
 if __name__ == "__main__":
     load_dotenv()
     # run_next()
     main()
+ 

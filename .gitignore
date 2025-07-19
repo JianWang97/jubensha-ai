@@ -14,7 +14,7 @@ wheels/
 *.log
 
 comfyui_outputs/
-
+.VSCodeCounter/
 ai_agent.log
 log/*
 

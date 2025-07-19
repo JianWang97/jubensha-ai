@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Character, ImageGenerationRequest } from '@/hooks/useApiClient';
+import { ScriptCharacter as Character, ImageGenerationRequestModel as ImageGenerationRequest } from '@/client';
+import { ScriptsService, Service } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import toast from 'react-hot-toast';
-import { useApiClient } from '@/hooks/useApiClient';
+
 
 // 声音选项接口
 interface VoiceOption {
@@ -36,7 +37,41 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
   const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
   const [isLoadingVoices, setIsLoadingVoices] = useState(false);
 
-  const { getCharacters, createCharacter,getVoiceOptions, updateCharacter, deleteCharacter, generateCharacterPrompt, generateAvatarImage } = useApiClient();
+  // 使用 client services 替代 useApiClient
+  const getCharacters = async (scriptId: number) => {
+    const response = await Service.getCharactersApiCharactersScriptIdCharactersGet(scriptId);
+    return response.data;
+  };
+  
+  const createCharacter = async (request: any) => {
+    const response = await Service.createCharacterApiCharactersScriptIdCharactersPost(Number(scriptId), request);
+    return response.data;
+  };
+  
+  const getVoiceOptions = async () => {
+    const response = await Service.getAvailableVoicesApiTtsVoicesGet();
+    return response.data.system_voice;
+  };
+  
+  const updateCharacter = async (scriptId: number, characterId: number, request: any) => {
+    const response = await Service.updateCharacterApiCharactersScriptIdCharactersCharacterIdPut(scriptId, characterId, request);
+    return response.data;
+  };
+  
+  const deleteCharacter = async (scriptId: number, characterId: number) => {
+    const response = await Service.deleteCharacterApiCharactersScriptIdCharactersCharacterIdDelete(scriptId, characterId);
+    return response.data;
+  };
+  
+  const generateCharacterPrompt = async (request: any) => {
+    const response = await Service.generateCharacterPromptApiCharactersCharactersGeneratePromptPost(request);
+    return response.data;
+  };
+  
+  const generateAvatarImage = async (request: any) => {
+    const response = await Service.generateAvatarImageApiScriptsGenerateAvatarPost(request);
+    return response.data;
+  };
 
   const [characterForm, setCharacterForm] = useState<Partial<Character>>({
     name: '',
@@ -113,7 +148,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     try {
       if (editingCharacter) {
         // 编辑模式 - 调用更新API
-        await updateCharacter(Number(scriptId), editingCharacter.id, {
+        await updateCharacter(Number(scriptId), editingCharacter.id!, {
           name: characterForm.name,
           age: characterForm.age,
           profession: characterForm.profession,

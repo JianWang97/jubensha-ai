@@ -3,7 +3,7 @@ from typing import Dict
 import os
 import logging
 
-from ..models import Character, GamePhase
+from ..schemas.script import ScriptCharacter as Character, GamePhaseEnum as GamePhase
 from ..services import LLMService
 from ..services.llm_service import LLMMessage
 from ..core.config import config
@@ -23,7 +23,7 @@ class AIAgent:
             os.environ["OPENAI_API_KEY"] = api_key
         
         self.llm_service = LLMService.from_config(config.llm_config)
-        self.memory = []
+        self.memory: list[dict[str, str]] = []
         
     async def think_and_act(self, game_state: Dict, phase: GamePhase) -> str:
         """根据当前游戏状态和阶段，AI角色进行思考和行动"""
@@ -82,7 +82,8 @@ class AIAgent:
 3. **避免内心独白**: 绝对不要说出角色的内心想法、计划或策略。只说角色会公开说出的话。
 4. **简洁有力**: 避免长篇大论，让语言简练、有重点。
 5. **情绪表达**: 根据当前情况和角色性格，自然地流露出情绪。
-6. **互动与回应**: 仔细听其他人的发言，并作出符合角色逻辑和动机的回应。
+6. **个性化表达**: 绝对不要直接重复或模仿其他人的话。要结合自己的性格和立场来表达观点。如果确实同意某人观点，可以说"我同意XXX的观点"，但要加上自己的理由或补充。
+7. **独立思考**: 每次发言都要体现你角色的独特视角和思考方式，避免千篇一律的表达。
 
 {'你是凶手，需要隐藏真相并误导其他人，但要表现得自然。' if self.character.is_murderer else ''}
 {'你是受害者，已经死亡，无法参与游戏。' if self.character.is_victim else ''}
@@ -93,12 +94,59 @@ class AIAgent:
         """构建游戏上下文，并将阶段任务指令放在最前面"""
         phase_prompts = {
             GamePhase.BACKGROUND: "现在是背景介绍阶段。你需要保持沉默，等待系统介绍完毕。",
-            GamePhase.INTRODUCTION: "现在是【自我介绍】阶段。请用自然的口吻介绍你的身份背景，不要透露秘密。",
-            GamePhase.EVIDENCE_COLLECTION: "现在是【搜证】阶段。请说出你想搜查的一个地点或物品。绝对不要说内心想法或策略。",
-            GamePhase.INVESTIGATION: "现在是【调查】阶段。请根据已有信息，向某位玩家提出一个具体问题，以推进调查。",
-            GamePhase.DISCUSSION: "现在是【讨论】阶段。请分享你的一个推理或反驳某人的观点，并给出证据支持。",
-            GamePhase.VOTING: "现在是【投票】阶段。请指认你认为是凶手的玩家，并说明你的核心理由。",
-            GamePhase.REVELATION: "现在是【真相揭晓】阶段。请根据你的结局，分享你的最终想法或秘密。"
+            GamePhase.INTRODUCTION: """
+现在是【自我介绍】阶段。
+你的任务：用1-2句话简洁介绍你的身份和基本情况。
+注意事项：
+- 只说公开的身份信息，绝对不要透露秘密
+- 体现你的性格特点
+- 不要说得太详细，为后续留下悬念
+""",
+            GamePhase.EVIDENCE_COLLECTION: """
+现在是【搜证】阶段。
+你的任务：选择一个具体的地点或物品进行搜查。
+指令要求：
+- 必须明确说出要搜查的地点名称（如"我要搜查书房"、"我检查一下花瓶"）
+- 不要解释为什么要搜查这里
+- 不要说内心想法或策略
+- 一次只能搜查一个地方
+""",
+            GamePhase.INVESTIGATION: """
+现在是【调查】阶段。
+你的任务：向其他角色提出一个具体的问题来获取信息。
+指令要求：
+- 必须直接向某个具体角色提问（如"张三，你昨晚在哪里？"）
+- 问题要有针对性，能推进案件调查
+- 根据已发现的证据来提问
+- 不要问太宽泛的问题
+""",
+            GamePhase.DISCUSSION: """
+现在是【讨论】阶段。
+你的任务：分享你的推理分析或对他人观点进行回应。
+指令要求：
+- 可以提出自己的推理和怀疑
+- 可以反驳或支持他人的观点，但要加上自己的理由
+- 要结合已发现的证据来论证
+- 避免直接重复他人的话，要有自己的独特观点
+""",
+            GamePhase.VOTING: """
+现在是【投票】阶段。
+你的任务：指认你认为是凶手的玩家。
+指令要求：
+- 必须明确说出你投票的对象（如"我投票给张三"）
+- 简要说明你的核心理由（1-2个最重要的证据或逻辑）
+- 要坚定表达你的判断
+- 不要犹豫不决或说"不知道"
+""",
+            GamePhase.REVELATION: """
+现在是【真相揭晓】阶段。
+你的任务：根据游戏结果分享你的最终想法。
+指令要求：
+- 如果你是凶手且被发现：承认罪行并解释动机
+- 如果你是凶手且未被发现：可以选择坦白或继续隐瞒
+- 如果你是无辜者：分享你的感受和对真相的看法
+- 可以透露之前隐藏的秘密（如果不是犯罪相关）
+"""
         }
 
         task_instruction = phase_prompts.get(phase, "请根据当前情况做出回应。")
@@ -121,12 +169,43 @@ class AIAgent:
             if searchable_locations:
                 for location in sorted(list(searchable_locations)):
                     context += f"- {location}\n"
+                context += "\n请从上述地点中选择一个进行搜查。直接说出你的选择，例如：'我要搜查书房'。\n"
             else:
-                context += "所有地点都已搜查完毕。\n"
+                context += "所有地点都已搜查完毕。请等待其他玩家行动。\n"
             context += "\n"
+        
+        # 调查阶段：提供其他角色信息
+        elif phase == GamePhase.INVESTIGATION:
+            characters_data = game_state.get("characters", [])
+            other_characters = []
+            for char_data in characters_data:
+                char_name = char_data.get('name') if isinstance(char_data, dict) else getattr(char_data, 'name', str(char_data))
+                is_victim = char_data.get('is_victim', False) if isinstance(char_data, dict) else getattr(char_data, 'is_victim', False)
+                if char_name != self.character.name and not is_victim:
+                    other_characters.append(char_name)
+            
+            if other_characters:
+                context += f"**【可询问角色】：**{', '.join(other_characters)}\n"
+                context += "请选择一个角色并提出具体问题，例如：'张三，你昨晚几点睡的？'\n\n"
+        
+        # 投票阶段：提供投票对象
+        elif phase == GamePhase.VOTING:
+            characters_data = game_state.get("characters", [])
+            voting_candidates = []
+            for char_data in characters_data:
+                char_name = char_data.get('name') if isinstance(char_data, dict) else getattr(char_data, 'name', str(char_data))
+                is_victim = char_data.get('is_victim', False) if isinstance(char_data, dict) else getattr(char_data, 'is_victim', False)
+                if char_name != self.character.name and not is_victim:
+                    voting_candidates.append(char_name)
+            
+            if voting_candidates:
+                context += f"**【投票对象】：**{', '.join(voting_candidates)}\n"
+                context += "请明确说出你的投票选择，例如：'我投票给张三，因为...'。\n\n"
+        
         else:
             # 在非搜证阶段，明确告知不能搜证
-            context += "**注意：当前不是搜证阶段，绝对禁止提出任何搜证要求。**\n\n"
+            if phase not in [GamePhase.BACKGROUND, GamePhase.REVELATION]:
+                context += "**注意：当前不是搜证阶段，绝对禁止提出任何搜证要求。**\n\n"
 
         # 显示已发现的证据
         if game_state.get("discovered_evidence"):

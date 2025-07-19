@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocket, GameState } from '@/stores/websocketStore';
-import { Script, Character, useApiClient } from '@/hooks/useApiClient';
+import { Script_Output as Script, ScriptCharacter, Service } from '@/client';
+import { ScriptsService } from '@/client';
 
 export interface GameLogEntry {
   character: string;
@@ -21,10 +22,25 @@ export interface GameResult {
 }
 
 export const useGameState = (sessionId?: string, scriptId?: number) => {
-  const { isConnected, gameState, voiceMapping, currentSessionId, sendMessage, startGame, nextPhase, resetGame } = useWebSocket(sessionId, scriptId);
-  const { getCharacters, getScript } = useApiClient();
+  const { isConnected, gameState, currentSessionId, sendMessage, startGame, nextPhase, resetGame } = useWebSocket(sessionId, scriptId);
+  // 使用 client services 替代 useApiClient
+  const getCharacters = async (scriptId: number) => {
+    const response = await Service.getCharactersApiCharactersScriptIdCharactersGet(scriptId);
+    if(!response.success){
+      throw new Error(response.message);
+    }
+    return response.data;
+  };
+  
+  const getScript = async (scriptId: number) => {
+    const response = await ScriptsService.getScriptApiScriptsScriptIdGet(scriptId);
+    if(!response.success){
+      throw new Error(response.message);
+    }
+    return response.data;
+  };
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
-  const [characters, setCharacters] = useState<Character[]>([]);
+  const [characters, setCharacters] = useState<ScriptCharacter[]>([]);
   const [gameLog, setGameLog] = useState<GameLogEntry[]>([
     {
       character: '系统',
@@ -66,7 +82,7 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
   const loadCharacters = useCallback(async (scriptId: number) => {
     try {
       const charactersData = await getCharacters(scriptId);
-      setCharacters(charactersData);
+      setCharacters(charactersData!);
     } catch (error) {
       console.error('加载角色信息失败:', error);
     }
@@ -75,12 +91,12 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
   // 处理剧本选择
   const handleSelectScript = useCallback((script: Script) => {
     setSelectedScript(script);
-    loadCharacters(script.id);
+    loadCharacters(script.id!);
     // 重置游戏状态
     setGameLog([
       {
         character: '系统',
-        content: `已选择剧本: ${script.title}`,
+        content: `已选择剧本: ${script.info.title}`,
         timestamp: new Date()
       }
     ]);
@@ -95,7 +111,7 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
       alert('请先选择一个剧本！');
       return;
     }
-    startGame(selectedScript.id.toString());
+    startGame(selectedScript.info.id!.toString());
     setIsGameStarted(true);
     addLogEntry('系统', '游戏开始！');
   }, [selectedScript, startGame, addLogEntry]);
@@ -128,12 +144,12 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
       const loadScriptFromUrl = async () => {
         try {
           const script = await getScript(scriptId);
-          setSelectedScript(script);
+          setSelectedScript(script!);
           loadCharacters(scriptId);
           setGameLog([
             {
               character: '系统',
-              content: `已自动选择剧本: ${script.title}`,
+              content: `已自动选择剧本: ${script!.info.title}`,
               timestamp: new Date()
             }
           ]);
@@ -177,7 +193,6 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
     gameResult,
     isGameStarted,
     gameState,
-    voiceMapping,
     currentSessionId,
     
     // 操作函数

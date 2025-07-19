@@ -150,7 +150,7 @@ export const useTTSStore = create<TTSState>((set, get) => ({
       // 使用voice mapping获取正确的voice_id，优先使用传入的voice，否则使用character
       console.log(item.character, item.voice);
       const voiceId = item.voice;
-      const response = await fetch(`${config.api.baseUrl}/tts/stream`, {
+      const response = await fetch(`${config.api.baseUrl}/api/tts/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: item.text, voice: voiceId })

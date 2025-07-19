@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import Layout from '@/components/Layout';
 import CharacterAvatars from '@/components/CharacterAvatars';
 import GameLog from '@/components/GameLog';
-import ScriptSelection from '@/components/ScriptSelection';
 import { useGameState } from '@/hooks/useGameState';
 import { useTTSService } from '@/stores/ttsStore';
 import { useWebSocketStore } from '@/stores/websocketStore';
@@ -108,9 +107,7 @@ const GamePage = () => {
 
   return (
     <Layout backgroundImage={getSceneBackground()}>
-      {!selectedScript ? (
-        <ScriptSelection onSelectScript={handleSelectScript} />
-      ) : (
+      {(
         <>
           {/* 角色头像悬浮显示 */}
           <CharacterAvatars 
@@ -121,28 +118,6 @@ const GamePage = () => {
             gameLog={gameLog} 
           />
           
-          {/* 音频权限请求 - 在游戏开始前且音频未初始化时显示 */}
-          {!isGameStarted && !audioInitialized && (
-            <div className="fixed top-4 right-4 z-30">
-              <div className="bg-yellow-500/90 backdrop-blur-sm rounded-lg p-4 border border-yellow-400 shadow-lg max-w-sm">
-                <div className="flex items-center space-x-3">
-                  <div className="text-2xl">🔊</div>
-                  <div>
-                    <p className="text-black font-medium text-sm">
-                      需要音频权限以启用语音播报
-                    </p>
-                    <button
-                      onClick={initializeAudio}
-                      className="mt-2 bg-black text-white px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors"
-                    >
-                      启用音频
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
           {/* 开始游戏按钮 - 仅在游戏未开始时显示 */}
           {!isGameStarted && (
             <div className="fixed inset-0 flex items-center justify-center z-20">
@@ -150,7 +125,7 @@ const GamePage = () => {
                 <div className="text-center">
                   <div className="text-6xl mb-6">🎭</div>
                   <h2 className="text-3xl font-bold text-white mb-4">
-                    {selectedScript?.title || '剧本杀'}
+                    {selectedScript?.info.title || '剧本杀'}
                   </h2>
                   <p className="text-gray-300 mb-4 max-w-md">
                     所有角色已就位，准备开始这场精彩的推理之旅

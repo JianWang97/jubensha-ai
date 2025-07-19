@@ -80,7 +80,7 @@ class MiniMaxClient:
         self.api_key = api_key
         self.group_id = group_id
         self.base_url ="https://api.minimaxi.com"
-        self.session = None
+        self.session: Optional[aiohttp.ClientSession] = None
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """获取HTTP会话"""
@@ -249,7 +249,7 @@ class MiniMaxClient:
                     if not chunk:
                         continue
                     
-                    logger.debug(f"Received chunk: {chunk[:50]}...")
+                    logger.debug(f"Received chunk: {chunk[:50]!r}")
                     
                     # 按照官方示例处理数据块
                     if chunk[:5] == b'data:':
@@ -260,23 +260,25 @@ class MiniMaxClient:
                             if "data" in json_data and "extra_info" not in json_data:
                                 if "audio" in json_data["data"]:
                                     audio_hex = json_data["data"]["audio"]
-                                    if audio_hex and audio_hex.strip():
+                                    audio_base64 = base64.b64encode(bytes.fromhex(audio_hex)).decode('utf-8')
+                                    if audio_base64 and audio_base64.strip():
                                         yield {
-                                            "audio": audio_hex,
-                                            'encoding': 'hex',
+                                            "audio": audio_base64,
+                                            "encoding": "base64",
                                             "format": request.format or "mp3"
                                         }
                                         has_yielded_audio = True
-                                        logger.debug(f"Yielded audio chunk: {len(audio_hex)} chars")
+                                        logger.debug(f"Yielded audio chunk: {len(audio_base64)} chars")
                             
                             # 检查错误信息
                             elif "error" in json_data:
+                                print(json_data)
                                 logger.error(f"API error: {json_data['error']}")
                                 yield {"error": json_data["error"]}
                                 return
                                 
                         except json.JSONDecodeError as e:
-                            logger.warning(f"Failed to parse JSON: {e}, chunk: {chunk[:100]}")
+                            logger.warning(f"Failed to parse JSON: {e}, chunk: {chunk[:100]!r}")
                             continue
                     
                     # 检查结束标记
@@ -311,10 +313,10 @@ class MiniMaxClient:
         }
         
         if request.guidance_scale is not None:
-            data["guidance_scale"] = request.guidance_scale
+            data["guidance_scale"] = str(request.guidance_scale)
         
         if request.seed is not None:
-            data["seed"] = request.seed
+            data["seed"] = str(request.seed)
         
         if request.extra_params:
             data.update(request.extra_params)
@@ -479,7 +481,3 @@ class MiniMaxTTSService(BaseTTSService):
         """关闭服务"""
         logger.info("Closing MiniMaxTTSService")
         await self.client.close()
-
-
-if __name__ == "__main__":
-    asyncio.run(example_usage())

@@ -32,7 +32,7 @@ def test_imports():
         
         print("\n测试AI代理...")
         from src.agents.ai_agent import AIAgent
-        from src.models import Character
+        from src.schemas.script import ScriptCharacter as Character
         print("✓ AI代理模块导入成功")
         
         print("\n测试游戏引擎...")
@@ -75,7 +75,7 @@ def test_ai_agent_creation():
     try:
         print("\n测试AI代理创建...")
         from src.agents.ai_agent import AIAgent
-        from src.models import Character
+        from src.schemas.script import ScriptCharacter as Character
         
         # 创建测试角色
         character = Character(

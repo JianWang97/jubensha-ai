@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json
 
 from ...core.websocket_server import game_server
@@ -18,7 +18,7 @@ class TTSRequest(BaseModel):
     voice: Optional[str] = None  
 
 @router.post("/stream")
-async def stream_tts(request: TTSRequest):
+async def stream_tts(request: TTSRequest) -> StreamingResponse:
     """TTS流式音频生成API"""
     text = request.text
     character = request.character
@@ -132,12 +132,16 @@ async def get_available_voices() -> Dict[str, Any]:
                         "provider": "minimax",
                         "data": data,
                     }
+            return {
+                "success": False,
+                "error": "获取Minimax声音列表失败"
+            }
         else:
             return {
                 "success": False,
                 "error": f"不支持的TTS提供商: {provider}"
             }
-    
+
     except Exception as e:
         return {
             "success": False,

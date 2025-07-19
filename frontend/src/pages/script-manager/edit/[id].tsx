@@ -3,13 +3,15 @@ import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import EvidenceManager from '@/components/EvidenceManager';
 import CharacterManager from '@/components/CharacterManager';
-import { useApiClient, Script, Evidence, Character, Locations } from '@/hooks/useApiClient';
+import { ScriptsService, Service } from '@/client';
+import { Script_Output as Script, ScriptEvidence as Evidence, ScriptCharacter as Character, ScriptLocation as Locations } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import toast from 'react-hot-toast';
 
 // Tab类型定义
 type TabType = 'basic' | 'evidence' | 'characters' | 'locations' | 'background';
@@ -17,7 +19,23 @@ type TabType = 'basic' | 'evidence' | 'characters' | 'locations' | 'background';
 const ScriptEditPage = () => {
   const router = useRouter();
   const { id } = router.query;
-  const { loading, error, getScript, updateScript, getScriptWithDetail, generateEvidenceImage } = useApiClient();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const updateScript = async (scriptId: number, data: any) => {
+    const response = await ScriptsService.updateScriptInfoApiScriptsScriptIdInfoPut(scriptId, data);
+    return response.data;
+  };
+  
+  const getScriptWithDetail = async (scriptId: number) => {
+    const response = await ScriptsService.getScriptApiScriptsScriptIdGet(scriptId);
+    return response.data;
+  };
+  
+  const generateEvidenceImage = async (request: any) => {
+    const response = await Service.generateEvidenceImageApiScriptsGenerateEvidencePost(request);
+    return response.data;
+  };
   const [script, setScript] = useState<Script | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   
@@ -47,28 +65,37 @@ const ScriptEditPage = () => {
   useEffect(() => {
     if (id && typeof id === 'string') {
       const fetchScript = async () => {
+        setLoading(true);
+        setError(null);
         try {
           const scriptData = await getScriptWithDetail(parseInt(id));
-          setScript(scriptData.info);
+          if(!scriptData){
+            toast('剧本不存在');
+            return;
+          }
+          setScript(scriptData);
           setFormData({
             title: scriptData.info.title || '',
             description: scriptData.info.description || '',
             author: scriptData.info.author || '',
             player_count: scriptData.info.player_count || 0,
-            duration_minutes: scriptData.info.duration_minutes || 0,
-            difficulty: scriptData.info.difficulty || '',
+            duration_minutes: scriptData.info.estimated_duration || 0,
+            difficulty: scriptData.info.difficulty_level || '',
             tags: scriptData.info.tags || [],
             status: scriptData.info.status || ''
           });
 
         } catch (err) {
           console.error('获取脚本详情失败:', err);
+          setError('获取脚本详情失败');
+        } finally {
+          setLoading(false);
         }
       };
 
       fetchScript();
     }
-  }, [id, getScript]);
+  }, [id]);
 
 
   // 处理表单提交
@@ -373,7 +400,7 @@ const ScriptEditPage = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-purple-200">编辑剧本</h1>
-              <p className="text-purple-300/70 text-sm">{script?.title || '加载中...'}</p>
+              <p className="text-purple-300/70 text-sm">{script?.info.title || '加载中...'}</p>
             </div>
           </div>
           <Button 

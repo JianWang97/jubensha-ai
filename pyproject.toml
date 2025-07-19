@@ -22,4 +22,15 @@ dependencies = [
     "aiofiles>=23.2.0",
     "python-multipart>=0.0.6",
     "aiohttp>=3.12.13",
+    "alembic>=1.16.4",
+    "psycopg2-binary>=2.9.10",
+    "pytest>=8.4.1",
+]
+
+[mypy]
+disable-error-code = "assignment, arg-type"  # 忽略赋值
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.0",
 ]

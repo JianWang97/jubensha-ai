@@ -6,7 +6,7 @@ class EvidenceManager:
     
     def __init__(self, evidence_data: List[Dict]):
         self.evidence = evidence_data
-        self.discovered_evidence = []
+        self.discovered_evidence: list[Dict] = []
     
     def process_evidence_search(self, action: str, character: str) -> Optional[Dict]:
         """处理搜证行动，判断是否发现证据"""

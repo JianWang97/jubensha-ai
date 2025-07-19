@@ -14,8 +14,8 @@ router = APIRouter(prefix="/api/files", tags=["文件管理"])
 class FileUploadResponse(BaseModel):
     success: bool
     message: str
-    file_url: str = None
-    file_name: str = None
+    file_url: Optional[str] = None
+    file_name: Optional[str] = None
 
 def create_response(success: bool, message: str, data=None):
     """创建统一的响应格式"""
@@ -64,7 +64,7 @@ async def upload_file(file: UploadFile = File(...), category: str = "general"):
         # 上传文件
         minio_url = await storage_manager.upload_file(
             file_data=file_stream,
-            filename=file.filename,
+            filename=file.filename if file.filename else "untitled",
             category=category
         )
         
@@ -95,7 +95,7 @@ async def upload_file(file: UploadFile = File(...), category: str = "general"):
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 @router.get("/list")
-async def list_files(category: str = None):
+async def list_files(category: Optional[str] = None):
     """获取文件列表API
     
     Args:
