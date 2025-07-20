@@ -368,6 +368,11 @@ class GameEngine:
             self.current_phase = phases[current_index + 1]
             self.game_state["phase"] = self.current_phase.value  # 使用枚举的值
             
+            # 重置对话流控制器状态（重要：确保每个阶段的发言频率重新计算）
+            if self.conversation_flow_controller:
+                self.conversation_flow_controller.reset_for_new_phase(self.current_phase)
+                logger.info(f"已重置对话流控制器状态，进入{self.current_phase.value}阶段")
+            
             # 阶段中文名称映射
             phase_names = {
                 "background": "背景介绍",
@@ -413,8 +418,13 @@ class GameEngine:
         """获取最近的公开聊天记录"""
         return self.public_chat[-limit:] if self.public_chat else []
     
-    async def run_phase(self) -> List[Dict[str, Any]]:
-        """运行当前阶段，返回所有AI的行动"""
+    async def run_phase(self, max_turns: int = None, action_callback=None) -> List[Dict[str, Any]]:
+        """运行当前阶段，返回所有AI的行动
+        
+        Args:
+            max_turns: 最大发言轮数，如果为None则使用默认值
+            action_callback: 可选的回调函数，每个角色发言完成后立即调用
+        """
         actions: List[Dict[str, Any]] = []
         
         if self.current_phase == GamePhaseEnum.ENDED:
@@ -455,11 +465,19 @@ class GameEngine:
                     
                     # 添加到聊天记录和动作列表
                     self.add_public_chat("系统", message, "background")
-                    actions.append({
+                    action_data = {
                         "character": "系统",
                         "action": message,
                         "type": "background"
-                    })
+                    }
+                    actions.append(action_data)
+                    
+                    # 如果提供了回调函数，立即调用以实现流式返回
+                    if action_callback:
+                        try:
+                            await action_callback(action_data)
+                        except Exception as e:
+                            logger.error(f"背景介绍回调函数执行失败: {e}")
                     
                     await asyncio.sleep(2)  # 每部分之间的延迟
                     
@@ -467,29 +485,124 @@ class GameEngine:
                     logger.error(f"处理背景故事部分 {key} 失败: {e}")
                     error_msg = f"{default_name}：数据处理失败"
                     self.add_public_chat("系统", error_msg, "background")
-                    actions.append({
+                    error_action_data = {
                         "character": "系统",
                         "action": error_msg,
                         "type": "background"
-                    })
+                    }
+                    actions.append(error_action_data)
+                    
+                    # 如果提供了回调函数，立即调用以实现流式返回
+                    if action_callback:
+                        try:
+                            await action_callback(error_action_data)
+                        except Exception as callback_error:
+                            logger.error(f"错误消息回调函数执行失败: {callback_error}")
+                    
                     await asyncio.sleep(2)
             
             return actions
-            
-        # 使用对话流控制器管理发言顺序
-        if self.conversation_flow_controller:
-            speaking_order = await self.conversation_flow_controller.get_speaking_order(self.current_phase, self.public_chat)
-        else:
-            # 回退到原有的固定顺序
-            speaking_order = list(self.agents.keys())
         
-        # 让AI代理按照对话流控制器确定的顺序行动
-        for agent_name in speaking_order:
-            if agent_name not in self.agents:
-                continue
+        # 动态对话流：每次发言后重新评估下一个发言者
+        available_characters = list(self.agents.keys())
+        
+        # 根据标准剧本杀流程设置各阶段最大轮数
+        if max_turns is None:
+            phase_max_turns = {
+                GamePhaseEnum.INTRODUCTION: len(available_characters),  # 角色介绍：每人一次轮流发言
+                GamePhaseEnum.EVIDENCE_COLLECTION: len(available_characters) * 2,  # 搜证调查：每人最多搜证2次
+                GamePhaseEnum.INVESTIGATION: len(available_characters) * 4,  # 线索公开与调查：充分的信息交换
+                GamePhaseEnum.DISCUSSION: len(available_characters) * 5,  # 圆桌讨论：核心推理环节，需要更多轮次
+                GamePhaseEnum.VOTING: len(available_characters) + 3,  # 投票陈述：每人投票+可能的票后陈述
+            }
+            max_turns = phase_max_turns.get(self.current_phase, len(available_characters) * 2)
+        
+        logger.info(f"开始{self.current_phase.value}阶段，最大轮数: {max_turns}")
+        
+        # 动态发言循环
+        turn_count = 0
+        consecutive_same_speaker = 0
+        last_speaker = None
+        
+        # 对于DISCUSSION和VOTING阶段，确保每个角色都有机会发言
+        if self.current_phase in [GamePhaseEnum.DISCUSSION, GamePhaseEnum.VOTING]:
+            # 获取还没有发言的角色
+            unspoken_characters = []
+            if self.conversation_flow_controller:
+                unspoken_characters = [char for char in available_characters 
+                                     if self.conversation_flow_controller.speaking_frequency.get(char, 0) == 0]
+            
+            # 如果还有角色没发言，优先让他们发言
+            if unspoken_characters:
+                logger.info(f"{self.current_phase.value}阶段：优先安排未发言角色: {unspoken_characters}")
+        
+        while turn_count < max_turns and available_characters:
+            # 获取最近的聊天记录用于智能选择
+            recent_chat = self.get_recent_public_chat(limit=10)
+            
+            # 选择下一个发言者的逻辑
+            next_speaker = None
+            
+            # 对于DISCUSSION和VOTING阶段，确保公平发言
+            if self.current_phase in [GamePhaseEnum.DISCUSSION, GamePhaseEnum.VOTING] and self.conversation_flow_controller:
+                # 优先选择还没有发言的角色
+                unspoken = [char for char in available_characters 
+                           if self.conversation_flow_controller.speaking_frequency.get(char, 0) == 0]
                 
-            agent = self.agents[agent_name]
+                if unspoken:
+                    # 从未发言的角色中选择
+                    next_speaker = unspoken[0]
+                    logger.info(f"{self.current_phase.value}阶段：选择未发言角色 {next_speaker}")
+                else:
+                    # 所有角色都发言过，使用智能选择
+                    try:
+                        next_speaker = await self.conversation_flow_controller.select_next_speaker(
+                            available_characters, 
+                            self.game_state, 
+                            self.current_phase,
+                            recent_chat
+                        )
+                    except Exception as e:
+                        logger.error(f"智能选择发言者失败: {e}，使用轮流选择")
+                        next_speaker = available_characters[turn_count % len(available_characters)]
+            else:
+                # 其他阶段使用原有的智能选择逻辑
+                if self.conversation_flow_controller:
+                    try:
+                        next_speaker = await self.conversation_flow_controller.select_next_speaker(
+                            available_characters, 
+                            self.game_state, 
+                            self.current_phase,
+                            recent_chat
+                        )
+                        
+                        # 避免同一角色连续发言超过2次（紧急情况除外）
+                        if next_speaker == last_speaker:
+                            consecutive_same_speaker += 1
+                            if consecutive_same_speaker >= 2 and len(available_characters) > 1:
+                                # 强制选择其他角色
+                                other_characters = [char for char in available_characters if char != last_speaker]
+                                if other_characters:
+                                    next_speaker = other_characters[0]  # 选择第一个其他角色
+                                    logger.info(f"避免连续发言，强制切换到: {next_speaker}")
+                        else:
+                            consecutive_same_speaker = 0
+                            
+                    except Exception as e:
+                        logger.error(f"智能选择发言者失败: {e}，使用随机选择")
+                        next_speaker = available_characters[0] if available_characters else None
+                else:
+                    # 回退到简单的轮流发言
+                    next_speaker = available_characters[turn_count % len(available_characters)]
+            
+            if not next_speaker or next_speaker not in self.agents:
+                logger.warning(f"无效的发言者: {next_speaker}，跳过此轮")
+                turn_count += 1
+                continue
+            
+            agent = self.agents[next_speaker]
             try:
+                # AI思考并行动
                 action = await agent.think_and_act(self.game_state, self.current_phase)
                 
                 # 根据阶段确定消息类型
@@ -502,37 +615,115 @@ class GameEngine:
                     message_type = "vote"
                 
                 # 使用公开聊天系统记录
-                self.add_public_chat(agent_name, action, message_type)
+                self.add_public_chat(next_speaker, action, message_type)
+                
+                # 更新对话流控制器的发言频率
+                if self.conversation_flow_controller:
+                    if next_speaker not in self.conversation_flow_controller.speaking_frequency:
+                        self.conversation_flow_controller.speaking_frequency[next_speaker] = 0
+                    self.conversation_flow_controller.speaking_frequency[next_speaker] += 1
                 
                 # 搜证阶段处理证据发现
                 if self.current_phase == GamePhaseEnum.EVIDENCE_COLLECTION and self.evidence_manager:
-                    discovered = self.evidence_manager.process_evidence_search(action, agent_name)
+                    discovered = self.evidence_manager.process_evidence_search(action, next_speaker)
                     if discovered:
-                        self.add_public_chat("系统", f"{agent_name}发现了证据：{discovered['name']}", "system")
+                        self.add_public_chat("系统", f"{next_speaker}发现了证据：{discovered['name']}", "system")
                         self.game_state["discovered_evidence"] = self.evidence_manager.get_discovered_evidence()
                 
                 # 获取角色的voice_id
                 character_voice_id = None
                 for character in self.characters:
-                    if character.name == agent_name:
+                    if character.name == next_speaker:
                         character_voice_id = character.voice_id
                         break
                 
-                actions.append({
-                    "character": agent_name,
+                action_data = {
+                    "character": next_speaker,
                     "action": action,
                     "type": message_type,
-                    "voice_id": character_voice_id
-                })
+                    "voice_id": character_voice_id,
+                    "turn": turn_count + 1
+                }
+                
+                actions.append(action_data)
+                
+                # 如果提供了回调函数，立即调用以实现流式返回
+                if action_callback:
+                    try:
+                        await action_callback(action_data)
+                    except Exception as e:
+                        logger.error(f"回调函数执行失败: {e}")
+                
+                logger.info(f"轮次 {turn_count + 1}/{max_turns}: {next_speaker} 发言完成")
+                
+                # 检查是否满足阶段结束条件
+                if self._should_end_phase(turn_count + 1, max_turns):
+                    logger.info(f"{self.current_phase.value}阶段提前结束，满足结束条件")
+                    break
                 
                 # 在行动之间添加短暂延迟，模拟真实对话
                 await asyncio.sleep(1)
                 
+                last_speaker = next_speaker
+                turn_count += 1
+                
             except Exception as e:
-                logger.error(f"Agent {agent_name} 执行错误: {e}", exc_info=True)
-                self.add_public_chat(agent_name, "[思考中...]", "system")
+                logger.error(f"Agent {next_speaker} 执行错误: {e}", exc_info=True)
+                self.add_public_chat(next_speaker, "[思考中...]", "system")
+                turn_count += 1
         
+        logger.info(f"{self.current_phase.value}阶段结束，共进行了 {turn_count} 轮发言")
         return actions
+    
+    def _should_end_phase(self, current_turn: int, max_turns: int) -> bool:
+        """根据标准剧本杀流程判断当前阶段是否应该提前结束"""
+        
+        # 基本条件：达到最大轮数
+        if current_turn >= max_turns:
+            return True
+        
+        # 角色介绍阶段：每个角色都完成轮流发言后结束
+        if self.current_phase == GamePhaseEnum.INTRODUCTION:
+            if self.conversation_flow_controller:
+                introduced_count = sum(1 for freq in self.conversation_flow_controller.speaking_frequency.values() if freq > 0)
+                return introduced_count >= len(self.agents)
+        
+        # 搜证调查阶段：发现大部分重要证据后可以结束
+        elif self.current_phase == GamePhaseEnum.EVIDENCE_COLLECTION:
+            if self.evidence_manager:
+                discovered_evidence = self.evidence_manager.get_discovered_evidence()
+                total_evidence = len(self.script_data.get("evidence", []))
+                # 如果发现了75%以上的证据，可以考虑结束搜证
+                if total_evidence > 0 and len(discovered_evidence) / total_evidence >= 0.75:
+                    return True
+        
+        # 线索公开与调查阶段：确保充分的信息交换
+        elif self.current_phase == GamePhaseEnum.INVESTIGATION:
+            if self.conversation_flow_controller:
+                # 检查是否每个角色都有机会发言
+                spoken_count = sum(1 for freq in self.conversation_flow_controller.speaking_frequency.values() if freq > 0)
+                if spoken_count >= len(self.agents) and current_turn >= len(self.agents) * 2:
+                    # 每个角色都发言过，且进行了至少2轮交流
+                    return True
+        
+        # 圆桌讨论阶段：核心推理环节，需要充分讨论
+        elif self.current_phase == GamePhaseEnum.DISCUSSION:
+            if self.conversation_flow_controller:
+                # 检查讨论是否充分
+                spoken_count = sum(1 for freq in self.conversation_flow_controller.speaking_frequency.values() if freq > 0)
+                total_speeches = sum(self.conversation_flow_controller.speaking_frequency.values())
+                
+                # 每个角色都参与讨论，且总发言数达到一定数量
+                if spoken_count >= len(self.agents) and total_speeches >= len(self.agents) * 3:
+                    return True
+        
+        # 最终投票与陈述阶段：每个角色都完成投票后结束
+        elif self.current_phase == GamePhaseEnum.VOTING:
+            if self.conversation_flow_controller:
+                voted_count = sum(1 for freq in self.conversation_flow_controller.speaking_frequency.values() if freq > 0)
+                return voted_count >= len(self.agents)
+        
+        return False
     
     async def process_voting(self):
         """处理投票阶段"""

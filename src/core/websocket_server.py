@@ -305,17 +305,9 @@ class GameWebSocketServer:
             while session.is_game_running and session.game_engine.current_phase != GamePhase.ENDED:
                 print(f"Running phase: {session.game_engine.current_phase.value}")
                 
-                # 运行当前阶段
-                try:
-                    actions = await session.game_engine.run_phase()
-                    print(f"Phase {session.game_engine.current_phase.value} returned {len(actions)} actions")
-                except Exception as e:
-                    print(f"Error in run_phase: {e}")
-                    # 即使run_phase出错，也继续游戏循环
-                    actions = []
-                
-                # 广播AI行动
-                for i, action in enumerate(actions):
+                # 定义流式回调函数
+                async def action_callback(action):
+                    """每个角色发言完成后立即广播"""
                     try:
                         # 确保action中的数据是可序列化的字符串
                         if isinstance(action, dict):
@@ -327,7 +319,7 @@ class GameWebSocketServer:
                                 else:
                                     action['action'] = str(action['action'])
                         
-                        print(f"Broadcasting action {i+1}/{len(actions)}: {action.get('character', 'Unknown')}: {action.get('action', '')[:50]}...")
+                        print(f"Streaming action: {action.get('character', 'Unknown')}: {action.get('action', '')[:50]}...")
                         
                         await self.broadcast({
                             "type": "ai_action",
@@ -335,10 +327,18 @@ class GameWebSocketServer:
                             "session_id": session_id
                         }, session_id)
                         
-                        await asyncio.sleep(2)  # 每个行动之间的延迟
+                        await asyncio.sleep(1)  # 减少延迟，提高响应速度
                     except Exception as e:
-                        print(f"Error broadcasting action {i+1}: {e}")
-                        # 继续处理下一个action
+                        print(f"Error in action callback: {e}")
+                
+                # 运行当前阶段（使用流式回调）
+                try:
+                    actions = await session.game_engine.run_phase(action_callback=action_callback)
+                    print(f"Phase {session.game_engine.current_phase.value} completed with {len(actions)} total actions")
+                except Exception as e:
+                    print(f"Error in run_phase: {e}")
+                    # 即使run_phase出错，也继续游戏循环
+                    actions = []
                 
                 # 广播更新的游戏状态和公开聊天
                 try:

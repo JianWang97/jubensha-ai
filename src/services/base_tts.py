@@ -26,6 +26,6 @@ class BaseTTSService(ABC):
     """TTS服务基类"""
     
     @abstractmethod
-    async def synthesize_stream(self, request: TTSRequest) -> AsyncGenerator[Dict[str, Any], None]:
+    async def synthesize_stream(self, request: TTSRequest) ->Coroutine[Any, Any, AsyncGenerator[dict[str, Any], None]]:
         """流式合成语音"""
         pass

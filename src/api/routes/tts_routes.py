@@ -50,8 +50,6 @@ async def stream_tts(request: TTSRequest) -> StreamingResponse:
     
     # 确定使用的voice_id
     voice = request.voice
-
-    print(f"TTS Request - Character: {character}, Voice: {voice}, Text: {text[:50]}...")
     
     # 创建TTS服务实例
     tts_service = TTSService.from_config(config.tts_config)

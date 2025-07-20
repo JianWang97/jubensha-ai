@@ -8,6 +8,8 @@ from typing import Optional, Dict, Any, AsyncGenerator, List
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from .base_tts import BaseTTSService, TTSRequest
+from typing import Coroutine, Any, AsyncGenerator, Dict
+
 # 配置日志
 logger = logging.getLogger(__name__)
 
@@ -19,9 +21,13 @@ class MiniMaxConstants:
     DEFAULT_SAMPLE_RATE = 32000
     DEFAULT_BITRATE = 128000
     DEFAULT_CHANNEL = 1
-    CHUNK_SIZE = 8192
+    CHUNK_SIZE = 8192  # HTTP读取块大小
+    MAX_AUDIO_HEX_SIZE = 100000  # 单次处理的最大音频hex数据大小
+    AUDIO_CHUNK_SIZE = 50000  # 音频数据分块大小
     REQUEST_TIMEOUT = 30
     STREAM_TIMEOUT = 60
+    MAX_CONNECTIONS = 100  # 最大连接数
+    MAX_CONNECTIONS_PER_HOST = 30  # 每个主机最大连接数
 
 
 @dataclass
@@ -85,11 +91,26 @@ class MiniMaxClient:
     async def _get_session(self) -> aiohttp.ClientSession:
         """获取HTTP会话"""
         if self.session is None or self.session.closed:
+            # 创建连接器，增加限制以避免"Chunk too big"错误
+            connector = aiohttp.TCPConnector(
+                limit=MiniMaxConstants.MAX_CONNECTIONS,  # 总连接数限制
+                limit_per_host=MiniMaxConstants.MAX_CONNECTIONS_PER_HOST,  # 每个主机的连接数限制
+                ttl_dns_cache=300,  # DNS缓存时间
+                use_dns_cache=True,
+            )
+            
             self.session = aiohttp.ClientSession(
+                connector=connector,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json"
-                }
+                },
+                # 增加超时配置
+                timeout=aiohttp.ClientTimeout(
+                    total=MiniMaxConstants.STREAM_TIMEOUT,
+                    connect=10,
+                    sock_read=30
+                )
             )
         return self.session
     
@@ -245,46 +266,95 @@ class MiniMaxClient:
                 # 使用官方推荐的流式处理方式
                 logger.debug(f"Processing stream response, content-type: {content_type}")
                 
-                async for chunk in response.content:
+                # 缓冲区用于累积不完整的数据
+                buffer = b''
+                
+                # 使用较小的块大小读取，避免"Chunk too big"错误
+                async for chunk in response.content.iter_chunked(MiniMaxConstants.CHUNK_SIZE):
                     if not chunk:
                         continue
                     
-                    logger.debug(f"Received chunk: {chunk[:50]!r}")
+                    # 将新数据添加到缓冲区
+                    buffer += chunk
+                    logger.debug(f"Buffer size: {len(buffer)}, new chunk: {len(chunk)}")
                     
-                    # 按照官方示例处理数据块
-                    if chunk[:5] == b'data:':
-                        try:
-                            json_data = json.loads(chunk[5:])
-                            
-                            # 检查是否包含音频数据
-                            if "data" in json_data and "extra_info" not in json_data:
-                                if "audio" in json_data["data"]:
-                                    audio_hex = json_data["data"]["audio"]
-                                    audio_base64 = base64.b64encode(bytes.fromhex(audio_hex)).decode('utf-8')
-                                    if audio_base64 and audio_base64.strip():
-                                        yield {
-                                            "audio": audio_base64,
-                                            "encoding": "base64",
-                                            "format": request.format or "mp3"
-                                        }
-                                        has_yielded_audio = True
-                                        logger.debug(f"Yielded audio chunk: {len(audio_base64)} chars")
-                            
-                            # 检查错误信息
-                            elif "error" in json_data:
-                                print(json_data)
-                                logger.error(f"API error: {json_data['error']}")
-                                yield {"error": json_data["error"]}
-                                return
-                                
-                        except json.JSONDecodeError as e:
-                            logger.warning(f"Failed to parse JSON: {e}, chunk: {chunk[:100]!r}")
+                    # 处理缓冲区中的完整行
+                    while b'\n' in buffer:
+                        line, buffer = buffer.split(b'\n', 1)
+                        line = line.strip()
+                        
+                        if not line:
                             continue
-                    
-                    # 检查结束标记
-                    elif chunk.strip() in [b'data: [DONE]', b'[DONE]']:
-                        logger.debug("Received DONE signal")
-                        break
+                            
+                        logger.debug(f"Processing line: {line[:50]!r}")
+                        
+                        # 按照官方示例处理数据块
+                        if line.startswith(b'data:'):
+                            try:
+                                json_str = line[5:].strip()
+                                if not json_str:
+                                    continue
+                                    
+                                json_data = json.loads(json_str)
+                                
+                                # 检查是否包含音频数据
+                                if "data" in json_data and "extra_info" not in json_data:
+                                    if "audio" in json_data["data"]:
+                                        audio_hex = json_data["data"]["audio"]
+                                        # 限制单次处理的音频数据大小，避免内存问题
+                                        if len(audio_hex) > MiniMaxConstants.MAX_AUDIO_HEX_SIZE:  # 如果hex数据太大，分块处理
+                                            logger.warning(f"Large audio chunk detected: {len(audio_hex)} chars, splitting...")
+                                            # 分块处理大的音频数据
+                                            chunk_size = MiniMaxConstants.AUDIO_CHUNK_SIZE
+                                            for i in range(0, len(audio_hex), chunk_size):
+                                                hex_chunk = audio_hex[i:i+chunk_size]
+                                                try:
+                                                    audio_base64 = base64.b64encode(bytes.fromhex(hex_chunk)).decode('utf-8')
+                                                    if audio_base64 and audio_base64.strip():
+                                                        yield {
+                                                            "audio": audio_base64,
+                                                            "encoding": "base64",
+                                                            "format": request.format or "mp3",
+                                                            "chunk_index": i // chunk_size
+                                                        }
+                                                        has_yielded_audio = True
+                                                        logger.debug(f"Yielded audio chunk {i // chunk_size}: {len(audio_base64)} chars")
+                                                except ValueError as e:
+                                                    logger.error(f"Invalid hex data in chunk {i // chunk_size}: {e}")
+                                                    continue
+                                        else:
+                                            try:
+                                                audio_base64 = base64.b64encode(bytes.fromhex(audio_hex)).decode('utf-8')
+                                                if audio_base64 and audio_base64.strip():
+                                                    yield {
+                                                        "audio": audio_base64,
+                                                        "encoding": "base64",
+                                                        "format": request.format or "mp3"
+                                                    }
+                                                    has_yielded_audio = True
+                                                    logger.debug(f"Yielded audio chunk: {len(audio_base64)} chars")
+                                            except ValueError as e:
+                                                logger.error(f"Invalid hex data: {e}")
+                                                continue
+                                
+                                # 检查错误信息
+                                elif "error" in json_data:
+                                    print(json_data)
+                                    logger.error(f"API error: {json_data['error']}")
+                                    yield {"error": json_data["error"]}
+                                    return
+                                    
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"Failed to parse JSON: {e}, line: {line[:100]!r}")
+                                continue
+                            except Exception as e:
+                                logger.error(f"Error processing line: {e}")
+                                continue
+                        
+                        # 检查结束标记
+                        elif line.strip() in [b'data: [DONE]', b'[DONE]']:
+                            logger.debug("Received DONE signal")
+                            return
                             
         except asyncio.TimeoutError:
             logger.error("TTS stream request timeout")
@@ -302,6 +372,7 @@ class MiniMaxClient:
                 yield {"error": "No audio data received from MiniMax API"}
             # 发送结束标记
             logger.debug("Sending end marker")
+            await self.close()
             yield {"end": True}
     
     async def generate_image(self, request: MiniMaxImageRequest) -> MiniMaxResponse:
@@ -441,7 +512,7 @@ class MiniMaxTTSService(BaseTTSService):
                 raise ImportError("minimax_service module is required for MiniMax TTS service")
         return self._client
     
-    async def synthesize_stream(self, request: TTSRequest) -> AsyncGenerator[Dict[str, Any], None]:
+    async def synthesize_stream(self, request: TTSRequest) -> Coroutine[Any, Any, AsyncGenerator[dict[str, Any], None]]: # type: ignore
         """流式合成语音"""
         client = self._get_client()
         
@@ -480,4 +551,6 @@ class MiniMaxTTSService(BaseTTSService):
     async def close(self):
         """关闭服务"""
         logger.info("Closing MiniMaxTTSService")
-        await self.client.close()
+        if self._client:
+            await self._client.close()
+            self._client = None

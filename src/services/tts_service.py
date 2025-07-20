@@ -12,10 +12,10 @@ class DashScopeTTSService(BaseTTSService):
         self.model = model
         self.extra_params = kwargs
     
-    async def synthesize_stream(self, request: TTSRequest) -> AsyncGenerator[Dict[str, Any], None]:
+    async def synthesize_stream(self, request: TTSRequest) -> AsyncGenerator[Dict[str, Any], None]: # type: ignore
         """流式合成语音"""
         try:
-            import dashscope
+            import dashscope # type: ignore
         except ImportError:
             raise ImportError("dashscope package is required for DashScope TTS service")
         
