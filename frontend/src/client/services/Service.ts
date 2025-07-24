@@ -9,13 +9,24 @@ import type { Body_upload_file_api_files_upload_post } from '../models/Body_uplo
 import type { CharacterCreateRequest } from '../models/CharacterCreateRequest';
 import type { CharacterPromptRequest } from '../models/CharacterPromptRequest';
 import type { CharacterUpdateRequest } from '../models/CharacterUpdateRequest';
-import type { EvidenceCreateRequest } from '../models/EvidenceCreateRequest';
 import type { EvidencePromptRequest } from '../models/EvidencePromptRequest';
 import type { EvidenceUpdateRequest } from '../models/EvidenceUpdateRequest';
+import type { GameHistoryResponse } from '../models/GameHistoryResponse';
+import type { GameParticipantResponse } from '../models/GameParticipantResponse';
+import type { GameSessionCreate } from '../models/GameSessionCreate';
+import type { GameSessionResponse } from '../models/GameSessionResponse';
 import type { ImageGenerationRequestModel } from '../models/ImageGenerationRequestModel';
-import type { LocationCreateRequest } from '../models/LocationCreateRequest';
-import type { LocationUpdateRequest } from '../models/LocationUpdateRequest';
+import type { PasswordChange } from '../models/PasswordChange';
+import type { ScriptCoverPromptRequest } from '../models/ScriptCoverPromptRequest';
+import type { ScriptEvidence } from '../models/ScriptEvidence';
+import type { ScriptLocation } from '../models/ScriptLocation';
+import type { Token } from '../models/Token';
 import type { TTSRequest } from '../models/TTSRequest';
+import type { UserBrief } from '../models/UserBrief';
+import type { UserLogin } from '../models/UserLogin';
+import type { UserRegister } from '../models/UserRegister';
+import type { UserResponse } from '../models/UserResponse';
+import type { UserUpdate } from '../models/UserUpdate';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -33,6 +44,26 @@ export class Service {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/scripts/generate/cover',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 生成剧本封面提示词
+     * 使用LLM生成剧本封面图片的提示词
+     * @param requestBody
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static generateScriptCoverPromptApiScriptsGenerateCoverPromptPost(
+        requestBody: ScriptCoverPromptRequest,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/scripts/generate/cover-prompt',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -110,7 +141,7 @@ export class Service {
      */
     public static createEvidenceApiEvidenceScriptIdEvidencePost(
         scriptId: number,
-        requestBody: EvidenceCreateRequest,
+        requestBody: ScriptEvidence,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -357,7 +388,7 @@ export class Service {
      */
     public static createLocationApiLocationsScriptIdLocationsPost(
         scriptId: number,
-        requestBody: LocationCreateRequest,
+        requestBody: ScriptLocation,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
@@ -405,7 +436,7 @@ export class Service {
     public static updateLocationApiLocationsScriptIdLocationsLocationIdPut(
         scriptId: number,
         locationId: number,
-        requestBody: LocationUpdateRequest,
+        requestBody: ScriptLocation,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'PUT',
@@ -581,7 +612,7 @@ export class Service {
      * @throws ApiError
      */
     public static listFilesApiFilesListGet(
-        category?: string,
+        category?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -714,6 +745,307 @@ export class Service {
             errors: {
                 422: `Validation Error`,
             },
+        });
+    }
+    /**
+     * 用户注册
+     * 用户注册
+     * @param requestBody
+     * @returns UserResponse Successful Response
+     * @throws ApiError
+     */
+    public static registerApiAuthRegisterPost(
+        requestBody: UserRegister,
+    ): CancelablePromise<UserResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/auth/register',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 用户登录
+     * 用户登录
+     * @param requestBody
+     * @returns Token Successful Response
+     * @throws ApiError
+     */
+    public static loginApiAuthLoginPost(
+        requestBody: UserLogin,
+    ): CancelablePromise<Token> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/auth/login',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 获取当前用户信息
+     * 获取当前用户信息（使用中间件认证）
+     * @returns UserResponse Successful Response
+     * @throws ApiError
+     */
+    public static getCurrentUserInfoApiAuthMeGet(): CancelablePromise<UserResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/auth/me',
+        });
+    }
+    /**
+     * 更新用户资料
+     * 更新用户资料
+     * @param requestBody
+     * @returns UserResponse Successful Response
+     * @throws ApiError
+     */
+    public static updateProfileApiAuthMePut(
+        requestBody: UserUpdate,
+    ): CancelablePromise<UserResponse> {
+        return __request(OpenAPI, {
+            method: 'PUT',
+            url: '/api/auth/me',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 修改密码
+     * 修改密码
+     * @param requestBody
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static changePasswordApiAuthChangePasswordPost(
+        requestBody: PasswordChange,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/auth/change-password',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 用户登出
+     * 用户登出
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static logoutApiAuthLogoutPost(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/auth/logout',
+        });
+    }
+    /**
+     * 获取用户列表
+     * 获取用户列表（使用中间件管理员认证）
+     * @param skip
+     * @param limit
+     * @returns UserBrief Successful Response
+     * @throws ApiError
+     */
+    public static getUsersApiAuthUsersGet(
+        skip?: number,
+        limit: number = 20,
+    ): CancelablePromise<Array<UserBrief>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/auth/users',
+            query: {
+                'skip': skip,
+                'limit': limit,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 获取指定用户信息
+     * 获取指定用户信息
+     * @param userId
+     * @returns UserBrief Successful Response
+     * @throws ApiError
+     */
+    public static getUserByIdApiAuthUsersUserIdGet(
+        userId: number,
+    ): CancelablePromise<UserBrief> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/auth/users/{user_id}',
+            path: {
+                'user_id': userId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 验证令牌
+     * 验证令牌有效性
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static verifyTokenApiAuthVerifyTokenGet(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/auth/verify-token',
+        });
+    }
+    /**
+     * 创建游戏会话
+     * 创建游戏会话
+     * @param requestBody
+     * @returns GameSessionResponse Successful Response
+     * @throws ApiError
+     */
+    public static createGameSessionApiUsersGameSessionsPost(
+        requestBody: GameSessionCreate,
+    ): CancelablePromise<GameSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/game-sessions',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 加入游戏会话
+     * 加入游戏会话
+     * @param sessionId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static joinGameSessionApiUsersGameSessionsSessionIdJoinPost(
+        sessionId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/game-sessions/{session_id}/join',
+            path: {
+                'session_id': sessionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 离开游戏会话
+     * 离开游戏会话
+     * @param sessionId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static leaveGameSessionApiUsersGameSessionsSessionIdLeavePost(
+        sessionId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/game-sessions/{session_id}/leave',
+            path: {
+                'session_id': sessionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 获取游戏历史
+     * 获取用户游戏历史
+     * @param skip 跳过的记录数
+     * @param limit 返回的记录数
+     * @returns GameHistoryResponse Successful Response
+     * @throws ApiError
+     */
+    public static getGameHistoryApiUsersGameHistoryGet(
+        skip?: number,
+        limit: number = 20,
+    ): CancelablePromise<Array<GameHistoryResponse>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/game-history',
+            query: {
+                'skip': skip,
+                'limit': limit,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 获取游戏会话详情
+     * 获取游戏会话详情
+     * @param sessionId
+     * @returns GameSessionResponse Successful Response
+     * @throws ApiError
+     */
+    public static getGameSessionApiUsersGameSessionsSessionIdGet(
+        sessionId: string,
+    ): CancelablePromise<GameSessionResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/game-sessions/{session_id}',
+            path: {
+                'session_id': sessionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 获取游戏参与者
+     * 获取游戏参与者列表
+     * @param sessionId
+     * @returns GameParticipantResponse Successful Response
+     * @throws ApiError
+     */
+    public static getGameParticipantsApiUsersGameSessionsSessionIdParticipantsGet(
+        sessionId: string,
+    ): CancelablePromise<Array<GameParticipantResponse>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/game-sessions/{session_id}/participants',
+            path: {
+                'session_id': sessionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * 获取用户统计信息
+     * 获取用户统计信息
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static getUserStatsApiUsersStatsGet(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/stats',
         });
     }
 }

@@ -60,5 +60,17 @@ export type ScriptInfo = {
      * 价格
      */
     price?: number;
+    /**
+     * 剧本评分(0-5分)
+     */
+    rating?: number;
+    /**
+     * 剧本分类
+     */
+    category?: string;
+    /**
+     * 游玩次数统计
+     */
+    play_count?: number;
 };
 

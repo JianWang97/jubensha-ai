@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScriptEvidence as Evidence, ImageGenerationRequestModel as ImageGenerationRequest } from '@/client';
+import { ScriptEvidence as Evidence, EvidenceType, ImageGenerationRequestModel as ImageGenerationRequest } from '@/client';
 import { ScriptsService, Service } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface EvidenceManagerProps {
   generateEvidenceImage?: (request: ImageGenerationRequest) => Promise<{ url: string }>;
@@ -56,7 +56,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     description: '',
     image_url: '',
     significance: '',
-    evidence_type: 'physical',
+    evidence_type: EvidenceType.PHYSICAL,
     importance: '重要证据',
     is_hidden: false,
     location: '',
@@ -149,7 +149,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
       description: '',
       related_to: '',
       significance: '',
-      evidence_type: 'physical',
+      evidence_type: EvidenceType.PHYSICAL,
       importance: '一般证据',
       is_hidden: false,
       image_url: ''
@@ -623,7 +623,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   <label className="block text-sm font-medium text-purple-200 mb-2">重要性说明</label>
                   <Textarea
                     name="significance"
-                    value={evidenceForm.significance}
+                    value={evidenceForm.significance || ''}
                     onChange={handleEvidenceFormChange}
                     rows={2}
                     className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"

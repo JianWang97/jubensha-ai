@@ -14,6 +14,7 @@ from ...db.repositories.location_repository import LocationRepository
 from io import BytesIO
 
 from random import randint
+from ...services.llm_service import llm_service, LLMMessage
 
 router = APIRouter(prefix="/api/scripts", tags=["剧本图片生成"])
 
@@ -39,6 +40,14 @@ class ImageGenerationRequestModel(BaseModel):
     steps: int = 20
     cfg: float = 8.0
     seed: Optional[int] = None
+
+class ScriptCoverPromptRequest(BaseModel):
+    """剧本封面提示词生成请求模型"""
+    script_title: str
+    script_description: str
+    script_tags: Optional[list] = None
+    difficulty: Optional[str] = None
+    style_preference: Optional[str] = None
 
 class ScriptResponse(BaseModel):
     success: bool
@@ -83,6 +92,59 @@ async def generate_cover_image(request: ImageGenerationRequestModel, script_repo
                 "url": url,
                 "generation_time": response.generation_time,
                 "prompt_id": response.prompt_id
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
+@router.post("/generate/cover-prompt", summary="生成剧本封面提示词")
+async def generate_script_cover_prompt(request: ScriptCoverPromptRequest):
+    """使用LLM生成剧本封面图片的提示词"""
+    try:
+        # 构建LLM提示
+        system_prompt = "你是一个专业的图片生成提示词创作者，擅长为剧本杀游戏创建详细的封面图片描述。"
+        
+        user_prompt = f"""请为以下剧本生成一个详细的封面图片生成提示词：
+
+剧本标题：{request.script_title}
+剧本描述：{request.script_description}
+"""
+        
+        if request.script_tags:
+            user_prompt += f"剧本标签：{', '.join(request.script_tags)}\n"
+        
+        if request.difficulty:
+            user_prompt += f"难度等级：{request.difficulty}\n"
+        
+        if request.style_preference:
+            user_prompt += f"风格偏好：{request.style_preference}\n"
+        
+        user_prompt += """\n请生成一个适合用于AI图片生成的英文提示词，要求：
+1. 描述要具体、生动，体现剧本的主题和氛围
+2. 包含适当的艺术风格描述
+3. 考虑光线、构图、色彩等视觉元素
+4. 适合剧本杀游戏的神秘、悬疑氛围
+5. 只返回英文提示词，不要其他解释"""
+        
+        # 调用LLM服务
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt)
+        ]
+        
+        response = await llm_service.chat_completion(messages, max_tokens=200)
+        
+        if not response.content:
+            raise HTTPException(status_code=500, detail="LLM服务返回空内容")
+        
+        return ScriptResponse(
+            success=True,
+            message="封面提示词生成成功",
+            data={
+                "prompt": response.content.strip(),
+                "script_title": request.script_title
             }
         )
     except HTTPException:

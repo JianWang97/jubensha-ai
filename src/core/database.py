@@ -116,6 +116,9 @@ db_manager = DatabaseManager()
 
 # 数据库初始化SQL
 INIT_SQL = """
+-- 创建剧本状态枚举类型
+CREATE TYPE scriptstatus AS ENUM ('DRAFT', 'PUBLISHED', 'ARCHIVED');
+
 -- 创建剧本信息表
 CREATE TABLE IF NOT EXISTS scripts (
     id SERIAL PRIMARY KEY,
@@ -126,8 +129,13 @@ CREATE TABLE IF NOT EXISTS scripts (
     duration_minutes INTEGER DEFAULT 120,
     difficulty VARCHAR(20) DEFAULT '中等',
     tags TEXT[], -- PostgreSQL数组类型
-    status VARCHAR(20) DEFAULT 'draft',
+    status scriptstatus DEFAULT 'DRAFT',
     cover_image_url TEXT,
+    is_public BOOLEAN DEFAULT FALSE,
+    price NUMERIC(10, 2) DEFAULT 0.00,
+    rating NUMERIC(3, 2) DEFAULT 0.0,
+    category VARCHAR(50) DEFAULT '推理',
+    play_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -203,12 +211,72 @@ CREATE TABLE IF NOT EXISTS game_phases (
     order_index INTEGER DEFAULT 0
 );
 
+-- 创建用户表
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    nickname VARCHAR(50),
+    avatar_url TEXT,
+    bio TEXT,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE NOT NULL,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建游戏会话表
+CREATE TABLE IF NOT EXISTS game_sessions (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(100) UNIQUE NOT NULL,
+    script_id INTEGER NOT NULL,
+    host_user_id INTEGER REFERENCES users(id) NOT NULL,
+    status VARCHAR(20) DEFAULT 'waiting' NOT NULL,
+    current_phase VARCHAR(50),
+    max_players INTEGER DEFAULT 4 NOT NULL,
+    current_players INTEGER DEFAULT 0 NOT NULL,
+    game_data JSONB,
+    started_at TIMESTAMP WITH TIME ZONE,
+    finished_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建游戏参与者表
+CREATE TABLE IF NOT EXISTS game_participants (
+    id SERIAL PRIMARY KEY,
+    session_id INTEGER REFERENCES game_sessions(id) NOT NULL,
+    user_id INTEGER REFERENCES users(id) NOT NULL,
+    character_id INTEGER,
+    role VARCHAR(20) DEFAULT 'player' NOT NULL,
+    status VARCHAR(20) DEFAULT 'joined' NOT NULL,
+    is_winner BOOLEAN DEFAULT FALSE NOT NULL,
+    score INTEGER DEFAULT 0 NOT NULL,
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    left_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_characters_script_id ON characters(script_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_script_id ON evidence(script_id);
 CREATE INDEX IF NOT EXISTS idx_locations_script_id ON locations(script_id);
 CREATE INDEX IF NOT EXISTS idx_scripts_status ON scripts(status);
 CREATE INDEX IF NOT EXISTS idx_scripts_author ON scripts(author);
+
+-- 用户系统索引
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_session_id ON game_sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_host_user_id ON game_sessions(host_user_id);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_status ON game_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_game_participants_session_id ON game_participants(session_id);
+CREATE INDEX IF NOT EXISTS idx_game_participants_user_id ON game_participants(user_id);
 
 -- 创建更新时间触发器
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -220,6 +288,15 @@ END;
 $$ language 'plpgsql';
 
 CREATE TRIGGER update_scripts_updated_at BEFORE UPDATE ON scripts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_game_sessions_updated_at BEFORE UPDATE ON game_sessions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_game_participants_updated_at BEFORE UPDATE ON game_participants
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 """
 

@@ -642,7 +642,7 @@ class GameEngine:
                     "action": action,
                     "type": message_type,
                     "voice_id": character_voice_id,
-                    "turn": turn_count + 1
+                    "turn": str(turn_count + 1)
                 }
                 
                 actions.append(action_data)

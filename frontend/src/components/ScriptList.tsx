@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { Sparkles } from 'lucide-react';
 import { ScriptInfo, ScriptsService, ScriptStatus, Service } from '@/client';
 
 const ScriptList = () => {
@@ -62,16 +63,35 @@ const ScriptList = () => {
 
   if (loading) {
     return (
-      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg p-8 text-center">
-        <div className="text-gray-600">加载中...</div>
+      <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-8 text-center border border-purple-500/20">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center animate-spin">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <div className="text-white text-lg font-medium">加载中...</div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg p-8 text-center">
-        <div className="text-red-600">错误: {error}</div>
+      <div className="bg-red-900/50 backdrop-blur-sm rounded-lg p-6 text-center border border-red-500/20">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+            <span className="text-white text-sm">!</span>
+          </div>
+          <div className="space-y-2">
+            <div className="text-white font-medium">加载失败</div>
+            <div className="text-red-300 text-sm">{error}</div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-all text-sm"
+            >
+              重新加载
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -99,91 +119,51 @@ const ScriptList = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* 游戏化标题栏 */}
-      <div className="bg-gradient-to-r from-purple-900 via-blue-900 to-indigo-900 rounded-2xl p-6 shadow-2xl border border-purple-500/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-500 rounded-xl flex items-center justify-center text-2xl shadow-lg">
-              🎭
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-1">剧本档案库</h2>
-              <p className="text-purple-200">共 {scripts.length} 个剧本等待探索</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-              {scripts.filter(s => s.status === ScriptStatus.ARCHIVED || s.status === ScriptStatus.PUBLISHED).length}
-            </div>
-            <div className="text-sm text-purple-200">已发布</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 游戏化卡片网格 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="space-y-4">
+      {/* 剧本网格 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {scripts.map((script) => {
           return (
             <div 
               key={script.id} 
-              className="group relative bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-2xl p-6 shadow-2xl border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 hover:scale-105 hover:shadow-purple-500/25"
+              className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-purple-500/20 hover:border-purple-400/40 transition-all"
             >
-              {/* 背景光效 */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              
               {/* 状态徽章 */}
-              <div className="absolute -top-2 -right-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusStyle(script.status!)} transform rotate-12`}>
-                  {script.status === ScriptStatus.ARCHIVED ? '🚀 已发布' : 
-                   script.status === ScriptStatus.PUBLISHED ? '🚀 已发布' :
-                   script.status === ScriptStatus.DRAFT ? '📝 草稿' : script.status}
+              <div className="flex items-center justify-between mb-3">
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  script.status === ScriptStatus.ARCHIVED || script.status === ScriptStatus.PUBLISHED
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                }`}>
+                  {script.status === ScriptStatus.ARCHIVED || script.status === ScriptStatus.PUBLISHED ? '已发布' : '草稿'}
                 </span>
+                <span className="text-purple-300 text-sm">{script.player_count}人</span>
               </div>
 
-              {/* 主要内容 */}
-              <div className="relative z-10">
-                {/* 标题区域 */}
-                <div className="mb-4">
-                  <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-200 transition-colors">
-                    {script.title}
-                  </h3>
-                  <p className="text-gray-400 text-sm line-clamp-2">
-                    {script.description || '暂无描述'}
-                  </p>
-                </div>
-
-                {/* 游戏信息 */}
-                <div className="space-y-3 mb-6">
-                  {/* 玩家人数 */}
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
-                      👥
-                    </div>
-                    <span className="text-gray-300">{script.player_count} 人游戏</span>
-                  </div>
-                </div>
-
-                {/* 操作按钮 */}
-                <div className="flex space-x-3">
-                  <button 
-                    onClick={() => handleEdit(script.id!)}
-                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-purple-500/25 transform hover:scale-105"
-                  >
-                    ✏️ 编辑
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(script.id!)}
-                    className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-red-500/25 transform hover:scale-105"
-                  >
-                    🗑️ 删除
-                  </button>
-                </div>
+              {/* 标题和描述 */}
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-white mb-2 line-clamp-1">
+                  {script.title}
+                </h3>
+                <p className="text-gray-400 text-sm line-clamp-2">
+                  {script.description || '暂无描述'}
+                </p>
               </div>
 
-              {/* 装饰性元素 */}
-              <div className="absolute top-4 right-4 text-6xl opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-                🎲
+              {/* 操作按钮 */}
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => handleEdit(script.id!)}
+                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 px-3 rounded-lg transition-all text-sm font-medium"
+                >
+                  编辑
+                </button>
+                <button 
+                  onClick={() => handleDelete(script.id!)}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded-lg transition-all text-sm font-medium"
+                >
+                  删除
+                </button>
               </div>
             </div>
           );
@@ -192,12 +172,24 @@ const ScriptList = () => {
 
       {/* 空状态 */}
       {scripts.length === 0 && (
-        <div className="text-center py-16">
-          <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-6xl shadow-2xl">
-            🎭
+        <div className="bg-slate-800/30 rounded-lg p-12 text-center">
+          <div className="w-16 h-16 mx-auto mb-6 bg-purple-500/20 rounded-full flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-purple-400" />
           </div>
-          <h3 className="text-2xl font-bold text-white mb-2">暂无剧本</h3>
-          <p className="text-gray-400">开始创建你的第一个剧本吧！</p>
+          
+          <div className="space-y-3 mb-6">
+            <h3 className="text-xl font-semibold text-white">暂无剧本</h3>
+            <p className="text-gray-400">开始创建您的第一个剧本</p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg transition-all font-medium">
+              创建新剧本
+            </button>
+            <button className="bg-slate-600 hover:bg-slate-500 text-white px-6 py-3 rounded-lg transition-all font-medium">
+              浏览模板
+            </button>
+          </div>
         </div>
       )}
     </div>

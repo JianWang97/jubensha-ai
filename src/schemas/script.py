@@ -42,6 +42,10 @@ class ScriptInfo(BaseDataModel):
     cover_image_url: Optional[str] = Field(None, description="封面图片URL")
     is_public: bool = Field(False, description="是否公开")
     price: float = Field(0.00, description="价格")
+    # 新增字段
+    rating: float = Field(0.0, description="剧本评分(0-5分)")
+    category: str = Field("推理", description="剧本分类")
+    play_count: int = Field(0, description="游玩次数统计")
     
     model_config = {"populate_by_name": True}
     

@@ -136,7 +136,8 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
         
         # 添加过滤条件
         if status:
-            query = query.filter(ScriptDBModel.status == status)
+            # 使用枚举的值而不是枚举对象本身
+            query = query.filter(ScriptDBModel.status == status.value)
         if author:
             query = query.filter(ScriptDBModel.author == author)
         
@@ -261,7 +262,7 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
     
     def get_scripts_by_status(self, status: ScriptStatus) -> List[ScriptInfo]:
         """根据状态获取剧本列表"""
-        db_scripts = self.db.query(ScriptDBModel).filter(ScriptDBModel.status == status).all()
+        db_scripts = self.db.query(ScriptDBModel).filter(ScriptDBModel.status == status.value).all()
         return [ScriptInfo.model_validate(script, from_attributes=True) for script in db_scripts]
     
     def get_scripts_by_author(self, author: str) -> List[ScriptInfo]:
@@ -275,7 +276,7 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
         if not db_script:
             return False
         
-        setattr(db_script, 'status', status)
+        setattr(db_script, 'status', status.value)
         return True
     
     def update_script_cover_image_url(self, script_id: int, cover_image_url: str) -> bool:

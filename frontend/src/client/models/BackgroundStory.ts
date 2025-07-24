@@ -61,6 +61,6 @@ export type BackgroundStory = {
     /**
      * 胜利条件
      */
-    victory_conditions?: (string | null);
+    victory_conditions?: (Record<string, any> | null);
 };
 

@@ -8,6 +8,12 @@ import type { ApiRequestOptions } from './ApiRequestOptions';
 type Resolver<T> = (options: ApiRequestOptions) => Promise<T>;
 type Headers = Record<string, string>;
 
+const getToken = (options: ApiRequestOptions) => {
+    const token = localStorage.getItem('access_token');
+    return token || undefined;
+}
+
+
 export type OpenAPIConfig = {
     BASE: string;
     VERSION: string;
@@ -25,7 +31,10 @@ export const OpenAPI: OpenAPIConfig = {
     VERSION: '0.1.0',
     WITH_CREDENTIALS: false,
     CREDENTIALS: 'include',
-    TOKEN: undefined,
+    TOKEN: async (options: ApiRequestOptions) => {
+        const token = localStorage.getItem('access_token');
+        return token || '';
+    },
     USERNAME: undefined,
     PASSWORD: undefined,
     HEADERS: undefined,

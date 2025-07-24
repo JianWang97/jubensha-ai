@@ -19,6 +19,8 @@ from ...schemas.script import (
 )
 from ...schemas.base import APIResponse, PaginatedResponse
 from ...db.session import get_db_session
+from src.core.auth_dependencies import get_current_user, get_current_active_user
+from src.db.models.user import User
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 
@@ -31,10 +33,13 @@ def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptReposi
 @router.post("/", response_model=APIResponse[ScriptInfo])
 async def create_script(
     script_data: ScriptInfo,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[ScriptInfo]:
     """创建新剧本"""
     try:
+        # 设置作者为当前用户
+        script_data.author = str(current_user.username)
         created_script = repo.create_script(script_data)
         return APIResponse(
             success=True,
@@ -48,10 +53,13 @@ async def create_script(
 @router.post("/complete", response_model=APIResponse[Script])
 async def create_complete_script(
     script: Script,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[Script]:
     """创建完整剧本（包含所有关联数据）"""
     try:
+        # 设置作者为当前用户
+        script.info.author = str(current_user.username)
         created_script = repo.create_complete_script(script)
         return APIResponse(
             success=True,
@@ -65,17 +73,37 @@ async def create_complete_script(
 @router.get("/", response_model=PaginatedResponse[ScriptInfo])
 async def get_scripts(
     status: Optional[ScriptStatus] = Query(None, description="剧本状态过滤"),
-    author: Optional[str] = Query(None, description="作者过滤"),
+    page: int = Query(1, ge=1, description="页码"),
+    size: int = Query(20, ge=1, le=100, description="每页数量"),
+    current_user: User = Depends(get_current_active_user),
+    repo: ScriptRepository = Depends(get_script_repository)
+) -> PaginatedResponse[ScriptInfo]:
+    """获取剧本列表（分页）- 仅返回当前用户的剧本"""
+    try:
+        print(f'get_scripts for user: {current_user.username}')
+        # 只返回当前用户的剧本
+        return repo.get_scripts_list(status=status, author=str(current_user.username), page=page, size=size)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取剧本列表失败: {str(e)}")
+
+
+@router.get("/public", response_model=PaginatedResponse[ScriptInfo])
+async def get_public_scripts(
+    status: Optional[ScriptStatus] = Query(None, description="剧本状态过滤"),
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页数量"),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> PaginatedResponse[ScriptInfo]:
-    """获取剧本列表（分页）"""
+    """获取公开的剧本列表（分页）"""
     try:
-        print('get_scripts')
-        return repo.get_scripts_list(status=status, author=author, page=page, size=size)
+        # 获取所有公开状态的剧本
+        return repo.get_scripts_list(
+            status = ScriptStatus.PUBLISHED,
+            page=page,
+            size=size
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取剧本列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取公开剧本列表失败: {str(e)}")
 
 
 @router.get("/search", response_model=PaginatedResponse[ScriptInfo])
@@ -95,12 +123,17 @@ async def search_scripts(
 @router.get("/{script_id}", response_model=APIResponse[Script])
 async def get_script(
     script_id: int,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[Script]:
     """获取完整剧本信息"""
     script = repo.get_script_by_id(script_id)
     if not script:
         raise HTTPException(status_code=404, detail="剧本不存在")
+    
+    # 检查权限：只能查看自己的剧本
+    if script.info.author != current_user.username:
+        raise HTTPException(status_code=403, detail="无权限访问此剧本")
     
     return APIResponse(
         success=True,
@@ -112,12 +145,17 @@ async def get_script(
 @router.get("/{script_id}/info", response_model=APIResponse[ScriptInfo])
 async def get_script_info(
     script_id: int,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[ScriptInfo]:
     """获取剧本基本信息"""
     script_info = repo.get_script_info_by_id(script_id)
     if not script_info:
         raise HTTPException(status_code=404, detail="剧本不存在")
+    
+    # 检查权限：只能查看自己的剧本
+    if script_info.author != current_user.username:
+        raise HTTPException(status_code=403, detail="无权限访问此剧本")
     
     return APIResponse(
         success=True,
@@ -130,9 +168,18 @@ async def get_script_info(
 async def update_script(
     script_id: int,
     script: Script,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[Script]:
     """更新完整剧本"""
+    # 检查剧本是否存在和权限
+    existing_script = repo.get_script_by_id(script_id)
+    if not existing_script:
+        raise HTTPException(status_code=404, detail="剧本不存在")
+    
+    if existing_script.info.author != current_user.username:
+        raise HTTPException(status_code=403, detail="无权限修改此剧本")
+    
     updated_script = repo.update_complete_script(script_id, script)
     if not updated_script:
         raise HTTPException(status_code=404, detail="剧本不存在")
@@ -149,6 +196,7 @@ async def update_script_info(
     script_id: int,
     script_data: ScriptInfo,
     request: Request,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[ScriptInfo]:
     """更新剧本基本信息"""
@@ -158,6 +206,14 @@ async def update_script_info(
         # 记录请求数据用于调试
         request_body = await request.body()
         logger.info(f"更新剧本信息请求 - script_id: {script_id}, 请求体: {request_body.decode('utf-8')}")
+        
+        # 检查剧本是否存在和权限
+        existing_script = repo.get_script_info_by_id(script_id)
+        if not existing_script:
+            raise HTTPException(status_code=404, detail="剧本不存在")
+        
+        if existing_script.author != current_user.username:
+            raise HTTPException(status_code=403, detail="无权限修改此剧本")
         
         updated_script = repo.update_script_info(script_id, script_data)
         if not updated_script:
@@ -183,9 +239,18 @@ async def update_script_info(
 async def update_script_status(
     script_id: int,
     status: ScriptStatus,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[str]:
     """更新剧本状态"""
+    # 检查剧本是否存在和权限
+    existing_script = repo.get_script_info_by_id(script_id)
+    if not existing_script:
+        raise HTTPException(status_code=404, detail="剧本不存在")
+    
+    if existing_script.author != current_user.username:
+        raise HTTPException(status_code=403, detail="无权限修改此剧本")
+    
     success = repo.update_script_status(script_id, status)
     if not success:
         raise HTTPException(status_code=404, detail="剧本不存在")
@@ -200,9 +265,18 @@ async def update_script_status(
 @router.delete("/{script_id}", response_model=APIResponse[str])
 async def delete_script(
     script_id: int,
+    current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[str]:
     """删除剧本"""
+    # 检查剧本是否存在和权限
+    existing_script = repo.get_script_info_by_id(script_id)
+    if not existing_script:
+        raise HTTPException(status_code=404, detail="剧本不存在")
+    
+    if existing_script.author != current_user.username:
+        raise HTTPException(status_code=403, detail="无权限删除此剧本")
+    
     success = repo.delete_script(script_id)
     if not success:
         raise HTTPException(status_code=404, detail="剧本不存在")

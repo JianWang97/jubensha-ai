@@ -263,6 +263,29 @@ export const catchErrorCodes = (options: ApiRequestOptions, result: ApiResult): 
 
     const error = errors[result.status];
     if (error) {
+        if (result.status === 401) {
+            let authStore: any = null;
+            const getAuthStore = async () => {
+                if (!authStore) {
+                    const { useAuthStore } = await import('@/stores/authStore');
+                    authStore = useAuthStore;
+                }
+                return authStore;
+            };
+            // 仅在浏览器环境执行
+            if (typeof window !== 'undefined') {
+                // 获取auth store并执行登出
+                getAuthStore().then(store => {
+                    const { logout } = store.getState();
+                    logout().catch(console.error);
+                }).catch(console.error);
+                
+                // 延迟重定向到登录页
+                setTimeout(() => {
+                    window.location.href = '/auth/login';
+                }, 100);
+            }
+        }
         throw new ApiError(options, result, error);
     }
 

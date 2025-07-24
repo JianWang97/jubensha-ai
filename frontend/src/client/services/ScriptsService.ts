@@ -35,9 +35,8 @@ export class ScriptsService {
     }
     /**
      * Get Scripts
-     * 获取剧本列表（分页）
+     * 获取剧本列表（分页）- 仅返回当前用户的剧本
      * @param status 剧本状态过滤
-     * @param author 作者过滤
      * @param page 页码
      * @param size 每页数量
      * @returns PaginatedResponse_ScriptInfo_ Successful Response
@@ -45,7 +44,6 @@ export class ScriptsService {
      */
     public static getScriptsApiScriptsGet(
         status?: (ScriptStatus | null),
-        author?: (string | null),
         page: number = 1,
         size: number = 20,
     ): CancelablePromise<PaginatedResponse_ScriptInfo_> {
@@ -54,7 +52,6 @@ export class ScriptsService {
             url: '/api/scripts/',
             query: {
                 'status': status,
-                'author': author,
                 'page': page,
                 'size': size,
             },
@@ -78,6 +75,33 @@ export class ScriptsService {
             url: '/api/scripts/complete',
             body: requestBody,
             mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Public Scripts
+     * 获取公开的剧本列表（分页）
+     * @param status 剧本状态过滤
+     * @param page 页码
+     * @param size 每页数量
+     * @returns PaginatedResponse_ScriptInfo_ Successful Response
+     * @throws ApiError
+     */
+    public static getPublicScriptsApiScriptsPublicGet(
+        status?: (ScriptStatus | null),
+        page: number = 1,
+        size: number = 20,
+    ): CancelablePromise<PaginatedResponse_ScriptInfo_> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/scripts/public',
+            query: {
+                'status': status,
+                'page': page,
+                'size': size,
+            },
             errors: {
                 422: `Validation Error`,
             },

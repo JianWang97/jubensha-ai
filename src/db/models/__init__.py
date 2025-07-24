@@ -5,6 +5,8 @@ from .evidence import EvidenceDBModel, EvidenceType
 from .location import LocationDBModel
 from .background_story import BackgroundStoryDBModel
 from .game_phase import GamePhaseDBModel
+from .user import User
+from .game_session import GameSession, GameParticipant
 
 __all__ = [
     "ScriptDBModel",
@@ -13,6 +15,9 @@ __all__ = [
     "LocationDBModel",
     "BackgroundStoryDBModel",
     "GamePhaseDBModel",
+    "User",
+    "GameSession",
+    "GameParticipant",
     "ScriptStatus",
     "EvidenceType"
 ]

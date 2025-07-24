@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import Layout from '@/components/Layout';
+import AppLayout from '@/components/AppLayout';
 import CharacterAvatars from '@/components/CharacterAvatars';
 import GameLog from '@/components/GameLog';
 import { useGameState } from '@/hooks/useGameState';
@@ -106,18 +106,9 @@ const GamePage = () => {
   }, [isGameStarted, ttsEnabled, startQueueProcessor, stopQueueProcessor]);
 
   return (
-    <Layout backgroundImage={getSceneBackground()}>
+    <AppLayout title={`游戏进行中 - ${selectedScript?.info.title || '未知剧本'}`} showSidebar={false} backgroundImage={getSceneBackground()} isGamePage={true}>
       {(
         <>
-          {/* 角色头像悬浮显示 */}
-          <CharacterAvatars 
-            characters={characters.map(char => ({
-              ...char,
-              avatar_url: char.avatar_url === null ? undefined : char.avatar_url
-            }))} 
-            gameLog={gameLog} 
-          />
-          
           {/* 开始游戏按钮 - 仅在游戏未开始时显示 */}
           {!isGameStarted && (
             <div className="fixed inset-0 flex items-center justify-center z-20">
@@ -146,61 +137,99 @@ const GamePage = () => {
             </div>
           )}
           
-          {/* TTS控制面板 - 游戏进行中显示 */}
+          {/* 游戏进行中的界面 - 类似游戏画面布局 */}
           {isGameStarted && (
-            <div className="fixed top-4 left-4 z-30">
-              <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="text-lg">{ttsEnabled ? '🔊' : '🔇'}</div>
-                  <div className="text-white text-sm">
-                    <div className="font-medium">
-                      语音播报: {ttsEnabled ? '已启用' : '已禁用'}
+            <div className="min-h-screen flex flex-col relative">
+              {/* TTS控制面板 */}
+              <div className="fixed top-4 left-4 z-30">
+                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="text-lg">{ttsEnabled ? '🔊' : '🔇'}</div>
+                    <div className="text-white text-sm">
+                      <div className="font-medium">
+                        语音播报: {ttsEnabled ? '已启用' : '已禁用'}
+                      </div>
+                      <div className="text-xs text-gray-300 mt-1">
+                        {audioInitialized ? '音频已就绪' : '音频未初始化'}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-300 mt-1">
-                      {audioInitialized ? '音频已就绪' : '音频未初始化'}
+                    <div className="flex flex-col space-y-1">
+                      {!audioInitialized && (
+                        <button
+                          onClick={initializeAudio}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                        >
+                          初始化音频
+                        </button>
+                      )}
+                      <button
+                        onClick={toggleTTS}
+                        className={`px-2 py-1 rounded text-xs transition-colors ${
+                          ttsEnabled 
+                            ? 'bg-red-600 hover:bg-red-700 text-white' 
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                      >
+                        {ttsEnabled ? '禁用' : '启用'}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-col space-y-1">
-                    {!audioInitialized && (
-                      <button
-                        onClick={initializeAudio}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
-                      >
-                        初始化音频
-                      </button>
-                    )}
+                </div>
+              </div>
+              
+              {/* 游戏控制面板 */}
+              <div className="fixed top-4 right-4 z-30">
+                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="text-white text-sm text-center">
+                      <div className="font-medium">
+                        当前阶段: {gameState?.phase || '未知'}
+                      </div>
+                    </div>
                     <button
-                      onClick={toggleTTS}
-                      className={`px-2 py-1 rounded text-xs transition-colors ${
-                        ttsEnabled 
-                          ? 'bg-red-600 hover:bg-red-700 text-white' 
-                          : 'bg-green-600 hover:bg-green-700 text-white'
-                      }`}
+                      onClick={handleNextPhase}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                     >
-                      {ttsEnabled ? '禁用' : '启用'}
+                      ⏭️ 下一阶段
                     </button>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-          
-          {/* 游戏控制面板 - 游戏进行中显示 */}
-          {isGameStarted && (
-            <div className="fixed top-4 right-4 z-30">
-              <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="text-white text-sm text-center">
-                    <div className="font-medium">
-                      当前阶段: {gameState?.phase || '未知'}
-                    </div>
+
+              {/* 主要内容区域 - 占据大部分空间 */}
+              <div className="flex-1"></div>
+
+              {/* 底部游戏界面区域 - 类似游戏画面 */}
+              <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10">
+                {/* 字幕显示区域 */}
+                <div className="px-6 py-4 min-h-[120px] flex items-center justify-center">
+                  <div className="w-full max-w-4xl">
+                    {currentSpeakingCharacter ? (
+                      <div className="text-center space-y-2">
+                        <div className="text-lg font-semibold text-white">
+                          {currentSpeakingCharacter}
+                        </div>
+                        <div className="text-base text-gray-200 bg-black/50 rounded-lg px-4 py-2">
+                          {currentSpeechText || '正在发言中...'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-400">
+                        等待角色发言...
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={handleNextPhase}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-                  >
-                    ⏭️ 下一阶段
-                  </button>
+                </div>
+                
+                {/* 角色头像区域 - 移到底部 */}
+                <div className="px-6 pb-6">
+                  <CharacterAvatars 
+                    characters={characters.map(char => ({
+                      ...char,
+                      avatar_url: char.avatar_url === null ? undefined : char.avatar_url
+                    }))} 
+                    gameLog={gameLog} 
+                  />
                 </div>
               </div>
             </div>
@@ -210,7 +239,7 @@ const GamePage = () => {
           <GameLog gameLog={gameLog} />
         </>
       )}
-    </Layout>
+    </AppLayout>
   );
 };
 

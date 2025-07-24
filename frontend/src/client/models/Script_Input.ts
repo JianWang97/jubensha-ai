@@ -12,18 +12,6 @@ import type { ScriptLocation } from './ScriptLocation';
  * 完整剧本数据
  */
 export type Script_Input = {
-    /**
-     * 记录ID
-     */
-    id?: (number | null);
-    /**
-     * 创建时间
-     */
-    created_at?: (string | null);
-    /**
-     * 更新时间
-     */
-    updated_at?: (string | null);
     info: ScriptInfo;
     /**
      * 背景故事

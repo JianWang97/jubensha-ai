@@ -21,6 +21,9 @@ from src.api.routes.game_routes import router as game_router
 from src.api.routes.file_routes import router as file_router
 # 导入TTS API路由
 from src.api.routes.tts_routes import router as tts_router
+# 导入用户认证路由
+from src.api.routes.auth_routes import router as auth_router
+from src.api.routes.user_routes import router as user_router
 # 导入数据库相关
 from src.core.database import db_manager
 from src.db.session import init_database
@@ -57,6 +60,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
+# 添加认证中间件（必须在CORS之后添加）
+from src.core.auth_middleware import UnifiedAuthMiddleware
+app.add_middleware(UnifiedAuthMiddleware)
+
 # 添加CORS中间件
 app.add_middleware(
     CORSMiddleware,
@@ -85,6 +92,9 @@ app.include_router(file_router)
 # 注册TTS API路由
 app.include_router(tts_router)
 app.include_router(asset_router)
+# 注册用户认证路由
+app.include_router(auth_router)
+app.include_router(user_router)
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, session_id: str = None, script_id: int = 1):
     """WebSocket端点"""
