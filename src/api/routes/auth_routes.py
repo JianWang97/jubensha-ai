@@ -78,7 +78,7 @@ async def login(
     )
     
     # 更新最后登录时间
-    AuthService.update_last_login(db, user.id)
+    AuthService.update_last_login(db, int(user.id))
     
     return Token(
         access_token=access_token,
@@ -108,7 +108,7 @@ async def update_profile(
         # 更新用户资料
         updated_user = AuthService.update_user_profile(
             db=db,
-            user_id=current_user.id,
+            user_id=int(current_user.id),
             nickname=user_update.nickname,
             bio=user_update.bio,
             avatar_url=user_update.avatar_url
@@ -135,7 +135,7 @@ async def change_password(
         # 修改密码
         success = AuthService.change_password(
             db=db,
-            user_id=current_user.id,
+            user_id=int(current_user.id),
             old_password=password_data.old_password,
             new_password=password_data.new_password
         )
