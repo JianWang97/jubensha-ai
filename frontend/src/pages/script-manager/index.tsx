@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import { Search, Plus, BookOpen, Users, Clock, Filter, Grid, List, Star, Download, Upload, Settings, BarChart3, FolderOpen, Archive, Edit3, Copy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +58,7 @@ const Header = () => {
 };
 
 const GameToolbar = () => {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('latest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -158,7 +160,10 @@ const GameToolbar = () => {
               <Download className="w-4 h-4" />
               导入
             </button>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all">
+            <button 
+              onClick={() => router.push('/script-manager/create')}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all"
+            >
               <Plus className="w-4 h-4" />
               新建剧本
             </button>

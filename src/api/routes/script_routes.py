@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 import logging
+import json
+from pydantic import BaseModel
 from ...db.repositories import ScriptRepository
 from ...schemas.script import (
     Script, ScriptInfo, ScriptCharacter, ScriptEvidence, 
@@ -21,8 +23,30 @@ from ...schemas.base import APIResponse, PaginatedResponse
 from ...db.session import get_db_session
 from src.core.auth_dependencies import get_current_user, get_current_active_user
 from src.db.models.user import User
+from ...services.llm_service import llm_service, LLMMessage
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
+
+
+# 请求模型
+class GenerateScriptInfoRequest(BaseModel):
+    theme: str
+    script_type: Optional[str] = None
+    player_count: Optional[str] = None
+
+class CreateScriptRequest(BaseModel):
+    """创建剧本请求模型"""
+    title: str
+    description: str
+    player_count: int
+    estimated_duration: Optional[int] = 180
+    difficulty_level: Optional[str] = "medium"
+    category: Optional[str] = "推理"
+    tags: Optional[List[str]] = []
+    # 灵感相关字段
+    inspiration_type: Optional[str] = None
+    inspiration_content: Optional[str] = None
+    background_story: Optional[str] = None
 
 
 def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
@@ -30,17 +54,106 @@ def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptReposi
     return ScriptRepository(db)
 
 
+@router.post("/generate-info", response_model=APIResponse[dict])
+async def generate_script_info(
+    request: GenerateScriptInfoRequest,
+    current_user: User = Depends(get_current_active_user)
+) -> APIResponse[dict]:
+    """根据主题生成剧本基础信息"""
+    try:
+        # 构建LLM提示
+        system_prompt = """你是一个专业的剧本杀游戏设计师，擅长根据主题创作引人入胜的剧本。
+请根据用户提供的主题，生成剧本的基础信息。
+
+要求：
+1. 生成的内容要有创意和吸引力
+2. 符合剧本杀游戏的特点
+3. 内容要完整且逻辑合理
+4. 返回JSON格式，包含以下字段：
+   - title: 剧本标题
+   - description: 剧本简介（100-200字）
+   - background: 背景故事（200-300字）
+   - suggested_type: 建议的剧本类型
+   - suggested_player_count: 建议的玩家人数"""
+        
+        user_prompt = f"""主题：{request.theme}"""
+        
+        if request.script_type:
+            user_prompt += f"\n剧本类型偏好：{request.script_type}"
+        
+        if request.player_count:
+            user_prompt += f"\n玩家人数：{request.player_count}"
+        
+        user_prompt += "\n\n请生成剧本基础信息，以JSON格式返回。"
+        
+        # 调用LLM服务
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt)
+        ]
+        
+        response = await llm_service.chat_completion(messages, max_tokens=800, temperature=0.8)
+        
+        if not response.content:
+            raise HTTPException(status_code=500, detail="LLM服务返回空内容")
+        
+        # 尝试解析JSON响应
+        import json
+        try:
+            generated_info = json.loads(response.content.strip())
+        except json.JSONDecodeError:
+            # 如果不是有效JSON，返回原始内容
+            generated_info = {
+                "title": "AI生成的剧本",
+                "description": response.content.strip(),
+                "background": "",
+                "suggested_type": request.script_type or "mystery",
+                "suggested_player_count": request.player_count or "6"
+            }
+        
+        return APIResponse(
+            success=True,
+            message="剧本基础信息生成成功",
+            data=generated_info
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成剧本信息失败: {str(e)}")
+
+
 @router.post("/", response_model=APIResponse[ScriptInfo])
 async def create_script(
-    script_data: ScriptInfo,
+    request: CreateScriptRequest,
     current_user: User = Depends(get_current_active_user),
     repo: ScriptRepository = Depends(get_script_repository)
 ) -> APIResponse[ScriptInfo]:
     """创建新剧本"""
     try:
-        # 设置作者为当前用户
-        script_data.author = str(current_user.username)
+        # 创建ScriptInfo对象
+        script_data = ScriptInfo(
+            title=request.title,
+            description=request.description,
+            author=str(current_user.username),
+            player_count=request.player_count,
+            estimated_duration=request.estimated_duration or 180,
+            difficulty_level=request.difficulty_level or "medium",
+            category=request.category or "推理",
+            tags=request.tags or []
+        )
+        
+        # 创建剧本
         created_script = repo.create_script(script_data)
+        
+        # 如果有背景故事，创建背景故事记录
+        if request.background_story and created_script.id:
+            from ...schemas.script import BackgroundStory
+            background_story = BackgroundStory(
+                script_id=created_script.id,
+                title="AI生成的背景故事",
+                setting_description=request.background_story
+            )
+            # 这里可以添加创建背景故事的逻辑
+            # repo.create_background_story(background_story)
+        
         return APIResponse(
             success=True,
             data=created_script,
