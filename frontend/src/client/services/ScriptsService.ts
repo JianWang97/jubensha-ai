@@ -2,9 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { APIResponse_dict_ } from '../models/APIResponse_dict_';
 import type { APIResponse_Script_ } from '../models/APIResponse_Script_';
 import type { APIResponse_ScriptInfo_ } from '../models/APIResponse_ScriptInfo_';
 import type { APIResponse_str_ } from '../models/APIResponse_str_';
+import type { CreateScriptRequest } from '../models/CreateScriptRequest';
+import type { GenerateScriptInfoRequest } from '../models/GenerateScriptInfoRequest';
 import type { PaginatedResponse_ScriptInfo_ } from '../models/PaginatedResponse_ScriptInfo_';
 import type { Script_Input } from '../models/Script_Input';
 import type { ScriptInfo } from '../models/ScriptInfo';
@@ -14,6 +17,26 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class ScriptsService {
     /**
+     * Generate Script Info
+     * 根据主题生成剧本基础信息
+     * @param requestBody
+     * @returns APIResponse_dict_ Successful Response
+     * @throws ApiError
+     */
+    public static generateScriptInfoApiScriptsGenerateInfoPost(
+        requestBody: GenerateScriptInfoRequest,
+    ): CancelablePromise<APIResponse_dict_> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/scripts/generate-info',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Create Script
      * 创建新剧本
      * @param requestBody
@@ -21,7 +44,7 @@ export class ScriptsService {
      * @throws ApiError
      */
     public static createScriptApiScriptsPost(
-        requestBody: ScriptInfo,
+        requestBody: CreateScriptRequest,
     ): CancelablePromise<APIResponse_ScriptInfo_> {
         return __request(OpenAPI, {
             method: 'POST',

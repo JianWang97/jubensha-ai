@@ -140,67 +140,66 @@ const GamePage = () => {
           {/* 游戏进行中的界面 - 类似游戏画面布局 */}
           {isGameStarted && (
             <div className="min-h-screen flex flex-col relative">
-              {/* TTS控制面板 */}
-              <div className="fixed top-4 left-4 z-30">
-                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
-                  <div className="flex items-center space-x-3">
+              {/* 角色头像区域 - 移到顶部 */}
+              <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-30">
+                <div className="flex items-center bg-black/60 backdrop-blur-sm rounded-lg p-2 border border-white/20 shadow-lg">
+                  <CharacterAvatars 
+                    characters={characters.map(char => ({
+                      ...char,
+                      avatar_url: char.avatar_url === null ? undefined : char.avatar_url
+                    }))} 
+                    gameLog={gameLog} 
+                  />
+                </div>
+              </div>
+
+              {/* 合并的控制面板 */}
+              <div className="fixed top-16 left-4 z-30">
+                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg flex items-center space-x-4">
+                  {/* TTS控制 */}
+                  <div className="flex items-center space-x-2">
                     <div className="text-lg">{ttsEnabled ? '🔊' : '🔇'}</div>
                     <div className="text-white text-sm">
                       <div className="font-medium">
-                        语音播报: {ttsEnabled ? '已启用' : '已禁用'}
-                      </div>
-                      <div className="text-xs text-gray-300 mt-1">
-                        {audioInitialized ? '音频已就绪' : '音频未初始化'}
+                        语音: {ttsEnabled ? '启用' : '禁用'}
                       </div>
                     </div>
-                    <div className="flex flex-col space-y-1">
-                      {!audioInitialized && (
-                        <button
-                          onClick={initializeAudio}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
-                        >
-                          初始化音频
-                        </button>
-                      )}
-                      <button
-                        onClick={toggleTTS}
-                        className={`px-2 py-1 rounded text-xs transition-colors ${
-                          ttsEnabled 
-                            ? 'bg-red-600 hover:bg-red-700 text-white' 
-                            : 'bg-green-600 hover:bg-green-700 text-white'
-                        }`}
-                      >
-                        {ttsEnabled ? '禁用' : '启用'}
-                      </button>
-                    </div>
+                    <button
+                      onClick={toggleTTS}
+                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                        ttsEnabled 
+                          ? 'bg-red-600 hover:bg-red-700 text-white' 
+                          : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
+                    >
+                      {ttsEnabled ? '禁用' : '启用'}
+                    </button>
                   </div>
-                </div>
-              </div>
-              
-              {/* 游戏控制面板 */}
-              <div className="fixed top-4 right-4 z-30">
-                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20 shadow-lg">
-                  <div className="flex flex-col items-center space-y-2">
-                    <div className="text-white text-sm text-center">
+                  
+                  {/* 游戏控制 */}
+                  <div className="flex items-center space-x-2 border-l border-gray-600 pl-4">
+                    <div className="text-white text-sm">
                       <div className="font-medium">
-                        当前阶段: {gameState?.phase || '未知'}
+                        阶段: {gameState?.phase || '未知'}
                       </div>
                     </div>
                     <button
                       onClick={handleNextPhase}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
                     >
-                      ⏭️ 下一阶段
+                      下一阶段
                     </button>
                   </div>
                 </div>
               </div>
 
               {/* 主要内容区域 - 占据大部分空间 */}
-              <div className="flex-1"></div>
+              <div className="flex-1 relative mt-32 mb-32">
+                {/* 原角色头像区域已移至顶部 */}
+              </div>
 
               {/* 底部游戏界面区域 - 类似游戏画面 */}
-              <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10">
+              <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10 fixed bottom-0 left-0 right-0">
                 {/* 字幕显示区域 */}
                 <div className="px-6 py-4 min-h-[120px] flex items-center justify-center">
                   <div className="w-full max-w-4xl">
@@ -219,17 +218,6 @@ const GamePage = () => {
                       </div>
                     )}
                   </div>
-                </div>
-                
-                {/* 角色头像区域 - 移到底部 */}
-                <div className="px-6 pb-6">
-                  <CharacterAvatars 
-                    characters={characters.map(char => ({
-                      ...char,
-                      avatar_url: char.avatar_url === null ? undefined : char.avatar_url
-                    }))} 
-                    gameLog={gameLog} 
-                  />
                 </div>
               </div>
             </div>

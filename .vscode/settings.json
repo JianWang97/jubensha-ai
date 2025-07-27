@@ -1,3 +1,6 @@
 {
-    "python.languageServer": "None"
+    "python.languageServer": "Pylance",
+    "python.defaultInterpreterPath": "./.venv/bin/python",
+    "pyright.disableLanguageServices": false,
+    "pyright.disableOrganizeImports": false
 }

@@ -3,7 +3,14 @@ import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import EvidenceManager from '@/components/EvidenceManager';
 import CharacterManager from '@/components/CharacterManager';
-import { ImageGenerationRequestModel, ScriptsService, ScriptStatus, Service } from '@/client';
+import { 
+  ScriptsService,
+  Service,
+  ScriptInfo,
+  ImageGenerationRequestModel,
+  ScriptStatus
+} from '@/client';
+
 import { Script_Output as Script, ScriptCoverPromptRequest } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +31,7 @@ const ScriptEditPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const updateScript = async (scriptId: number, data: any) => {
+  const updateScript = async (scriptId: number, data: ScriptInfo) => {
     const response = await ScriptsService.updateScriptInfoApiScriptsScriptIdInfoPut(scriptId, data);
     return response.data;
   };
@@ -34,7 +41,7 @@ const ScriptEditPage = () => {
     return response.data;
   };
   
-  const generateEvidenceImage = async (request: any) => {
+  const generateEvidenceImage = async (request: ImageGenerationRequestModel) => {
     const response = await Service.generateEvidenceImageApiScriptsGenerateEvidencePost(request);
     return response.data;
   };
@@ -60,7 +67,7 @@ const ScriptEditPage = () => {
     duration_minutes: 0,
     difficulty: '',
     tags: [] as string[],
-    status: '',
+    status: 'DRAFT' as ScriptStatus,
     cover_image_url: ''
   });
   
@@ -109,7 +116,7 @@ const ScriptEditPage = () => {
             duration_minutes: scriptData.info.duration_minutes || 0,
             difficulty: scriptData.info.difficulty || '',
             tags: scriptData.info.tags || [],
-            status: scriptData.info.status || '',
+            status: (scriptData.info.status as ScriptStatus) || ScriptStatus.DRAFT,
             cover_image_url: scriptData.info.cover_image_url || ''
           });
 
@@ -168,7 +175,7 @@ const ScriptEditPage = () => {
       const request: ScriptCoverPromptRequest = {
         script_title: formData.title,
         script_description: formData.description,
-        script_tags: formData.tags,
+        script_tags: null,
         difficulty: formData.difficulty,
         style_preference: '电影级别，高质量，专业摄影'
       };
@@ -353,14 +360,14 @@ const ScriptEditPage = () => {
               <label className="block text-sm font-medium text-purple-200 mb-2">
                 📊 状态
               </label>
-              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as ScriptStatus }))}>
                 <SelectTrigger className="bg-slate-800/50 border-purple-500/30 text-purple-100">
                   <SelectValue placeholder="请选择状态" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-purple-500/30">
-                  <SelectItem value={ScriptStatus.DRAFT}>📝 草稿</SelectItem>
-                  <SelectItem value={ScriptStatus.ARCHIVED}>✅ 已归档</SelectItem>
-                  <SelectItem value={ScriptStatus.PUBLISHED}>🌟 已发布</SelectItem>
+                <SelectContent>
+                  <SelectItem value="DRAFT">草稿</SelectItem>
+                  <SelectItem value="PUBLISHED">已发布</SelectItem>
+                  <SelectItem value="ARCHIVED">已归档</SelectItem>
                 </SelectContent>
               </Select>
             </div>

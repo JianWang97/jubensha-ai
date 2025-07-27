@@ -91,7 +91,7 @@ const ProfilePage: React.FC = () => {
   return (
     <ProtectedRoute>
       <AppLayout title="个人资料">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-6">
 
           <Tabs defaultValue="profile" className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-md border-white/20">

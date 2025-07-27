@@ -17,8 +17,11 @@ from pydantic import BaseModel
 from ...db.repositories import ScriptRepository
 from ...schemas.script import (
     Script, ScriptInfo, ScriptCharacter, ScriptEvidence, 
-    ScriptLocation, ScriptStatus, EvidenceType
+    ScriptLocation
 )
+from ...schemas.script_info import ScriptStatus
+from ...schemas.script_evidence import EvidenceType
+from ...schemas.script_requests import GenerateScriptInfoRequest, CreateScriptRequest
 from ...schemas.base import APIResponse, PaginatedResponse
 from ...db.session import get_db_session
 from src.core.auth_dependencies import get_current_user, get_current_active_user
@@ -29,24 +32,6 @@ router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 
 
 # 请求模型
-class GenerateScriptInfoRequest(BaseModel):
-    theme: str
-    script_type: Optional[str] = None
-    player_count: Optional[str] = None
-
-class CreateScriptRequest(BaseModel):
-    """创建剧本请求模型"""
-    title: str
-    description: str
-    player_count: int
-    estimated_duration: Optional[int] = 180
-    difficulty_level: Optional[str] = "medium"
-    category: Optional[str] = "推理"
-    tags: Optional[List[str]] = []
-    # 灵感相关字段
-    inspiration_type: Optional[str] = None
-    inspiration_content: Optional[str] = None
-    background_story: Optional[str] = None
 
 
 def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
@@ -134,25 +119,35 @@ async def create_script(
             description=request.description,
             author=str(current_user.username),
             player_count=request.player_count,
-            estimated_duration=request.estimated_duration or 180,
-            difficulty_level=request.difficulty_level or "medium",
+            duration_minutes=request.estimated_duration or 180,
+            difficulty=request.difficulty or "medium",
             category=request.category or "推理",
-            tags=request.tags or []
+            tags=request.tags or [],
+            status=ScriptStatus.DRAFT,
+            cover_image_url=None,
+            is_public=False,
+            price=0.0,
+            rating=0.0,
+            play_count=0,
+            # 以下字段使用默认值
+            id=None,
+            created_at=None,
+            updated_at=None
         )
         
         # 创建剧本
         created_script = repo.create_script(script_data)
         
         # 如果有背景故事，创建背景故事记录
-        if request.background_story and created_script.id:
-            from ...schemas.script import BackgroundStory
-            background_story = BackgroundStory(
-                script_id=created_script.id,
-                title="AI生成的背景故事",
-                setting_description=request.background_story
-            )
-            # 这里可以添加创建背景故事的逻辑
-            # repo.create_background_story(background_story)
+        # if request.background_story and created_script.id:
+        #     from ...schemas.background_story import BackgroundStory
+        #     background_story = BackgroundStory(
+        #         script_id=created_script.id,
+        #         title="AI生成的背景故事",
+        #         setting_description=request.background_story
+        #     )
+        #     # 这里可以添加创建背景故事的逻辑
+        #     # repo.create_background_story(background_story)
         
         return APIResponse(
             success=True,

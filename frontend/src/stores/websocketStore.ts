@@ -18,7 +18,7 @@ export interface GameState {
 
 export interface WebSocketMessage {
   type: string;
-  data?: any;
+  data?: Record<string, unknown>;
   message?: string;
 }
 
@@ -46,7 +46,7 @@ interface WebSocketState {
   // WebSocket操作
   connect: (sessionId?: string, scriptId?: number) => void;
   disconnect: () => void;
-  sendMessage: (message: any) => void;
+  sendMessage: (message: Record<string, unknown>) => void;
 
   // 游戏操作
   startGame: (scriptId: string) => void;
@@ -81,7 +81,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     const state = get();
 
     // 验证session_id
-    const messageSessionId = message.data?.session_id || (message as any).session_id;
+    const messageSessionId = message.data?.session_id || (message as unknown as { session_id: string }).session_id;
 
     // 如果消息包含session_id且与当前session_id不匹配，则忽略该消息
     if (messageSessionId && state.currentSessionId && messageSessionId !== state.currentSessionId) {
@@ -271,7 +271,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   },
 
   // 发送消息
-  sendMessage: (message: any) => {
+  sendMessage: (message: Record<string, unknown>) => {
     const state = get();
 
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {

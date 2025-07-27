@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/authStore';
-import { PasswordChange } from '@/types/auth';
+import { PasswordChange } from '@/client';
 import AppLayout from '@/components/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ const ChangePasswordPage: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState<PasswordChange & { confirmPassword: string }>({
-    current_password: '',
+    old_password: '',
     new_password: '',
     confirmPassword: '',
   });
@@ -35,31 +35,31 @@ const ChangePasswordPage: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value,
+      [name]: value
     }));
   };
 
   const validateForm = () => {
-    if (!formData.current_password.trim()) {
-      toast.error('请输入当前密码');
+    if (!formData.old_password.trim()) {
+      toast.error("请输入当前密码");
       return false;
     }
+    
     if (!formData.new_password.trim()) {
-      toast.error('请输入新密码');
+      toast.error("请输入新密码");
       return false;
     }
+    
     if (formData.new_password.length < 6) {
-      toast.error('新密码至少需要6个字符');
+      toast.error("新密码至少需要6个字符");
       return false;
     }
-    if (formData.new_password === formData.current_password) {
-      toast.error('新密码不能与当前密码相同');
-      return false;
-    }
+    
     if (formData.new_password !== formData.confirmPassword) {
-      toast.error('两次输入的新密码不一致');
+      toast.error("两次输入的密码不一致");
       return false;
     }
+    
     return true;
   };
 
@@ -125,16 +125,16 @@ const ChangePasswordPage: React.FC = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* 当前密码 */}
                 <div className="space-y-2">
-                  <Label htmlFor="current_password" className="text-white">
+                  <Label htmlFor="old_password" className="text-white">
                     当前密码 *
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      id="current_password"
-                      name="current_password"
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      value={formData.current_password}
+                      id="old_password"
+                      name="old_password"
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={formData.old_password}
                       onChange={handleInputChange}
                       placeholder="请输入当前密码"
                       className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-orange-500"
@@ -165,7 +165,7 @@ const ChangePasswordPage: React.FC = () => {
                     <Input
                       id="new_password"
                       name="new_password"
-                      type={showNewPassword ? 'text' : 'password'}
+                      type={showNewPassword ? "text" : "password"}
                       value={formData.new_password}
                       onChange={handleInputChange}
                       placeholder="请输入新密码（至少6个字符）"
@@ -197,7 +197,7 @@ const ChangePasswordPage: React.FC = () => {
                     <Input
                       id="confirmPassword"
                       name="confirmPassword"
-                      type={showConfirmPassword ? 'text' : 'password'}
+                      type={showConfirmPassword ? "text" : "password"}
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
                       placeholder="请再次输入新密码"

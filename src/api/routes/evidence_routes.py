@@ -43,7 +43,7 @@ class ScriptResponse(BaseModel):
     data: Optional[dict] = None
 
 @router.post("/{script_id}/evidence", summary="创建证据")
-async def create_evidence(script_id: int, request: ScriptEvidence, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
+async def create_evidence(script_id: int, request: EvidenceCreateRequest, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
     """为指定剧本创建新证据"""
     try:
 

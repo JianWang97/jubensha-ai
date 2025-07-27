@@ -91,7 +91,7 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
   // 处理剧本选择
   const handleSelectScript = useCallback((script: Script) => {
     setSelectedScript(script);
-    loadCharacters(script.id!);
+    loadCharacters(script.info.id!);
     // 重置游戏状态
     setGameLog([
       {
@@ -156,6 +156,15 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
         } catch (error) {
           console.error('自动加载剧本失败:', error);
           addLogEntry('系统', '自动加载剧本失败，请手动选择剧本。');
+          // 添加一个更明确的错误提示
+          setGameLog(prev => [
+            ...prev,
+            {
+              character: '系统',
+              content: `错误：无法加载ID为${scriptId}的剧本，可能是剧本不存在或者无访问权限。`,
+              timestamp: new Date()
+            }
+          ]);
         }
       };
       loadScriptFromUrl();

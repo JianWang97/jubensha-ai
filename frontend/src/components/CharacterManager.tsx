@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ScriptCharacter as Character, ImageGenerationRequestModel as ImageGenerationRequest } from '@/client';
-import { ScriptsService, Service } from '@/client';
+import { 
+  Service,
+  CharacterCreateRequest,
+  CharacterUpdateRequest,
+  CharacterPromptRequest,
+  ImageGenerationRequestModel
+} from '@/client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,7 +50,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     return response.data;
   };
   
-  const createCharacter = async (request: any) => {
+  const createCharacter = async (request: CharacterCreateRequest) => {
     const response = await Service.createCharacterApiCharactersScriptIdCharactersPost(Number(scriptId), request);
     return response.data;
   };
@@ -53,7 +60,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     return response.data.system_voice;
   };
   
-  const updateCharacter = async (scriptId: number, characterId: number, request: any) => {
+  const updateCharacter = async (scriptId: number, characterId: number, request: CharacterUpdateRequest) => {
     const response = await Service.updateCharacterApiCharactersScriptIdCharactersCharacterIdPut(scriptId, characterId, request);
     return response.data;
   };
@@ -63,12 +70,12 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     return response.data;
   };
   
-  const generateCharacterPrompt = async (request: any) => {
+  const generateCharacterPrompt = async (request: CharacterPromptRequest) => {
     const response = await Service.generateCharacterPromptApiCharactersCharactersGeneratePromptPost(request);
     return response.data;
   };
   
-  const generateAvatarImage = async (request: any) => {
+  const generateAvatarImage = async (request: ImageGenerationRequestModel) => {
     const response = await Service.generateAvatarImageApiScriptsGenerateAvatarPost(request);
     return response.data;
   };
@@ -150,12 +157,12 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
         // 编辑模式 - 调用更新API
         await updateCharacter(Number(scriptId), editingCharacter.id!, {
           name: characterForm.name,
-          age: characterForm.age,
+          age: characterForm.age ?? null,
           profession: characterForm.profession,
           background: characterForm.background,
           secret: characterForm.secret,
           objective: characterForm.objective,
-          gender: characterForm.gender,
+          gender: characterForm.gender || '中性',
           is_murderer: characterForm.is_murderer,
           is_victim: characterForm.is_victim,
           personality_traits: characterForm.personality_traits,
@@ -166,14 +173,13 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
       } else {
         // 添加模式 - 调用创建API
         await createCharacter({
-          script_id: Number(scriptId),
           name: characterForm.name || '',
-          age: characterForm.age,
+          age: characterForm.age ?? 0,
           profession: characterForm.profession,
           background: characterForm.background,
           secret: characterForm.secret,
           objective: characterForm.objective,
-          gender: characterForm.gender,
+          gender: characterForm.gender || '中性',
           is_murderer: characterForm.is_murderer,
           is_victim: characterForm.is_victim,
           personality_traits: characterForm.personality_traits,

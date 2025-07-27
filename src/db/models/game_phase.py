@@ -2,7 +2,7 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from ..base import SQLAlchemyBase
-from ...schemas.script import GamePhaseEnum
+from ...schemas.game_phase import GamePhaseEnum
 
 
 class GamePhaseDBModel(SQLAlchemyBase):

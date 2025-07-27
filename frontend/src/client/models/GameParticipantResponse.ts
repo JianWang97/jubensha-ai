@@ -8,14 +8,11 @@ import type { UserBrief } from './UserBrief';
  */
 export type GameParticipantResponse = {
     id: number;
+    session_id: number;
     user_id: number;
-    character_id: (number | null);
+    user: UserBrief;
     role: string;
     status: string;
-    is_winner: boolean;
-    score: number;
     joined_at: string;
-    left_at: (string | null);
-    user: UserBrief;
 };
 

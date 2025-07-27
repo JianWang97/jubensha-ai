@@ -2,13 +2,20 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { GameParticipantResponse } from './GameParticipantResponse';
-import type { GameSessionResponse } from './GameSessionResponse';
+import type { UserBrief } from './UserBrief';
 /**
- * 游戏历史响应模式
+ * 游戏历史记录响应模式
  */
 export type GameHistoryResponse = {
-    session: GameSessionResponse;
-    participation: GameParticipantResponse;
+    id: number;
+    session_id: string;
+    script_id: number;
+    script_title: string;
+    host_user_id: number;
+    status: string;
+    created_at: string;
+    started_at: (string | null);
+    ended_at: (string | null);
+    participants?: Array<UserBrief>;
 };
 

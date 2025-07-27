@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/components/AppLayout';
 import AuthGuard from '@/components/AuthGuard';
 import { useRouter } from 'next/router';
-
+import { useRoomsStore, Room } from '@/stores/roomsStore';
 
 const RoomCard = ({ room, onJoin, onViewDetails }) => {
   const getStatusColor = (status) => {
@@ -342,8 +342,8 @@ const QuickMatchCard = ({ onQuickMatch }) => {
 
 export default function RoomsPage() {
   const router = useRouter();
-  const [rooms, setRooms] = useState([]);
-  const [filteredRooms, setFilteredRooms] = useState([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -359,7 +359,7 @@ export default function RoomsPage() {
     // 标签页过滤
     if (activeTab === 'my') {
       // 这里应该根据当前用户过滤
-      filtered = filtered.filter(room => room.host === '当前用户');
+      filtered = filtered.filter(room => room.host.name === '当前用户');
     } else if (activeTab === 'public') {
       filtered = filtered.filter(room => !room.isPrivate);
     }
@@ -368,8 +368,8 @@ export default function RoomsPage() {
     if (searchTerm) {
       filtered = filtered.filter(room => 
         room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.script.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.host.toLowerCase().includes(searchTerm.toLowerCase())
+        (typeof room.script === 'string' ? room.script : room.script.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        room.host.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 

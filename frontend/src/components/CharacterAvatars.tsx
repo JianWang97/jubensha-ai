@@ -70,42 +70,21 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
   // 分离当前发言角色和其他角色
   const speakingChar = characters.find(char => char.name === speakingCharacter);
   const otherCharacters = characters.filter(char => char.name !== speakingCharacter);
-  const isSystemSpeaking = speakingCharacter === '系统' || speakingCharacter === 'System';
 
-  const renderCharacter = (character: ScriptCharacter, isSpeaking: boolean, isCenter: boolean = false) => {
+  const renderCharacter = (character: ScriptCharacter, isSpeaking: boolean) => {
     return (
-      <div key={character.id} className={`relative flex flex-col items-center transition-all duration-500 ${
-        isCenter ? 'transform scale-110' : ''
-      }`}>
-        {/* 发言气泡 */}
-         {isSpeaking && speechBubble && (
-           <div className={`absolute ${isCenter ? 'left-40' : 'left-28'} top-1/2 transform -translate-y-1/2 bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-xl border border-gray-200 max-w-lg min-w-[250px] z-20 animate-pulse`}>
-             <div className="text-gray-800 text-sm font-medium leading-relaxed">
-               {speechBubble.length > 150 ? speechBubble.substring(0, 150) + '...' : speechBubble}
-             </div>
-             {/* 气泡尾巴 - 指向左侧头像 */}
-             <div className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-full w-0 h-0 border-t-8 border-b-8 border-r-8 border-transparent border-r-white/95"></div>
-             
-             {/* 发言动画点 */}
-             <div className="absolute -bottom-3 -right-3 flex space-x-1">
-               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-               <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-             </div>
-           </div>
-         )}
-        
+      <div key={character.id} className={`relative flex flex-col items-center transition-all duration-500`}>
         {/* 角色头像 */}
-        <div className={`relative ${isSpeaking && isCenter ? 'w-32 h-32' : isSpeaking ? 'w-24 h-24' : 'w-20 h-20'} rounded-full border-4 ${getCharacterBorderColor(character)} ${getCharacterBgColor(character)} backdrop-blur-sm flex items-center justify-center transition-all duration-500 shadow-lg ${
+        <div className={`relative w-16 h-16 rounded-full border-4 ${getCharacterBorderColor(character)} ${getCharacterBgColor(character)} backdrop-blur-sm flex items-center justify-center transition-all duration-500 shadow-lg ${
           isSpeaking ? 'scale-125 shadow-2xl ring-4 ring-yellow-400/70 ring-offset-2 ring-offset-transparent' : 'hover:scale-110 hover:shadow-xl'
         }`}>
-          <div className={`w-full h-full flex items-center justify-center ${isCenter ? 'text-4xl' : 'text-3xl'}`}>
+          <div className="w-full h-full flex items-center justify-center text-2xl">
             {getCharacterAvatar(character)}
           </div>
           
           {/* 发言指示器 */}
           {isSpeaking && (
-            <div className="absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-r from-green-400 to-blue-500 rounded-full border-2 border-white animate-pulse shadow-lg"></div>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full border-2 border-white animate-pulse shadow-lg"></div>
           )}
           
           {/* 角色状态光环 */}
@@ -115,8 +94,8 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
         </div>
         
         {/* 角色名称 */}
-        <div className={`mt-2 text-white font-medium text-center bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full ${
-          isCenter ? 'text-base' : 'text-sm'
+        <div className={`mt-1 text-white font-medium text-center bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full text-xs whitespace-nowrap ${
+          isSpeaking ? 'bg-yellow-500/50 text-yellow-100' : ''
         }`}>
           {character.name}
         </div>
@@ -124,61 +103,12 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
     );
   };
 
-  // 渲染系统发言（在中央）
-  const renderSystemSpeaking = () => {
-    if (!isSystemSpeaking || !speechBubble) return null;
-    
-    return (
-      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
-        <div className="relative flex flex-col items-center">
-          {/* 系统发言气泡 */}
-          <div className="bg-gradient-to-r from-purple-500/95 to-blue-500/95 backdrop-blur-sm rounded-xl p-6 shadow-2xl border border-purple-300 max-w-2xl min-w-[300px] animate-pulse">
-            <div className="text-white text-lg font-medium leading-relaxed text-center">
-              {speechBubble}
-            </div>
-            
-            {/* 发言动画点 */}
-            <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-              <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-            </div>
-          </div>
-          
-          {/* 系统图标 */}
-          <div className="mt-4 w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-3xl text-white shadow-xl ring-4 ring-purple-400/50">
-            🎭
-          </div>
-          
-          <div className="mt-2 text-white text-lg font-bold text-center bg-gradient-to-r from-purple-500/80 to-blue-500/80 backdrop-blur-sm px-4 py-2 rounded-full">
-            系统
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <>
-      {/* 系统发言（中央） */}
-      {renderSystemSpeaking()}
-      
-      {/* 顶部角色头像区域 */}
-      <div className="fixed top-4 left-4 right-4 z-10 pointer-events-none">
-        <div className="flex justify-center items-start gap-6 flex-wrap">
-          {otherCharacters.map((character) => 
-            renderCharacter(character, false, false)
-          )}
-        </div>
-      </div>
-      
-      {/* 中央发言角色 */}
-      {speakingChar && !isSystemSpeaking && (
-        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
-          {renderCharacter(speakingChar, true, true)}
-        </div>
+    <div className="flex items-center space-x-4">
+      {characters.map((character) => 
+        renderCharacter(character, character.name === speakingCharacter)
       )}
-    </>
+    </div>
   );
 };
 

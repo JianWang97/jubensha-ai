@@ -1,7 +1,8 @@
 // 用户认证状态管理
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, UserLogin, UserRegister, UserUpdate, PasswordChange } from '@/types/auth';
+import { UserLogin, UserRegister } from '@/types/auth';
+import { UserResponse as User, UserUpdate, PasswordChange } from '@/client';
 import { authService } from '@/services/authService';
 
 interface AuthState {
@@ -158,51 +159,25 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // 清除错误
-      clearError: () => {
-        set({ error: null });
-      },
+      clearError: () => set({ error: null }),
 
       // 设置加载状态
-      setLoading: (loading: boolean) => {
-        set({ isLoading: loading });
-      },
+      setLoading: (loading: boolean) => set({ isLoading: loading }),
 
       // 检查认证状态
       checkAuth: async () => {
-        const currentState = get();
-        // 如果正在加载中，避免重复调用
-        if (currentState.isLoading) {
-          return;
-        }
-        
         const token = authService.getToken();
-        if (!token) {
-          set({ isAuthenticated: false, user: null });
-          return;
-        }
-
-        // 如果已经认证且有用户信息，直接返回
-        if (currentState.isAuthenticated && currentState.user) {
-          return;
-        }
-
-        try {
-          const isValid = await authService.validateToken();
-          if (isValid) {
-            await get().getCurrentUser();
-          } else {
-            set({ isAuthenticated: false, user: null });
-          }
-        } catch (error) {
-          set({ isAuthenticated: false, user: null });
+        if (token) {
+          await get().getCurrentUser();
         }
       },
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
+      partialize: (state) => ({ 
+        user: state.user, 
         isAuthenticated: state.isAuthenticated,
+        // 不持久化isLoading和error状态
       }),
     }
   )

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScriptEvidence as Evidence, EvidenceType, ImageGenerationRequestModel as ImageGenerationRequest } from '@/client';
+import { ScriptEvidence as Evidence, EvidencePromptRequest, EvidenceType, ImageGenerationRequestModel as ImageGenerationRequest, ScriptEvidence } from '@/client';
 import { ScriptsService, Service } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,17 +31,17 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     return response.data;
   };
   
-  const generateEvidencePrompt = async (request: any) => {
+  const generateEvidencePrompt = async (request: EvidencePromptRequest) => {
     const response = await Service.generateEvidencePromptApiEvidenceEvidenceGeneratePromptPost(request);
     return response.data;
   };
   
-  const createEvidence = async (request: any) => {
-    const response = await Service.createEvidenceApiEvidenceScriptIdEvidencePost(request.script_id, request);
+  const createEvidence = async (request: ScriptEvidence) => {
+    const response = await Service.createEvidenceApiEvidenceScriptIdEvidencePost(request.script_id!, request);
     return response.data;
   };
   
-  const updateEvidence = async (evidenceId: number, request: any) => {
+  const updateEvidence = async (evidenceId: number, request: ScriptEvidence) => {
     const response = await Service.updateEvidenceApiEvidenceScriptIdEvidenceEvidenceIdPut(Number(scriptId), evidenceId, request);
     return response.data;
   };
@@ -193,10 +193,8 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
       const result = await generateEvidencePrompt({
         evidence_name: evidenceForm.name,
         evidence_description: evidenceForm.description,
-        evidence_type: evidenceForm.evidence_type || 'physical',
-        location: evidenceForm.location || '',
-        related_to: evidenceForm.related_to || '',
-        script_context: '' // 可以从剧本信息中获取
+        script_theme: evidenceForm.evidence_type || 'physical',
+        style_preference: evidenceForm.location || '',
       });
 
       if (result) {
@@ -456,7 +454,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                     <Select
                       name="evidence_type"
                       value={evidenceForm.evidence_type}
-                      onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'evidence_type', value } } as any)}
+                      onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'evidence_type', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
                     >
                       <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
                         <SelectValue />
@@ -476,7 +474,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                     <Select
                       name="importance"
                       value={evidenceForm.importance}
-                      onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'importance', value } } as any)}
+                      onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'importance', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
                     >
                       <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
                         <SelectValue />

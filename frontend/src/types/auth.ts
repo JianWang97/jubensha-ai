@@ -13,13 +13,16 @@ export interface User {
 
 export interface UserProfile {
   id: number;
-  user_id: number;
+  username: string;
+  email: string;
+  nickname: string;
+  avatar_url?: string;
   bio?: string;
   location?: string;
   website?: string;
   birth_date?: string;
   phone?: string;
-  preferences?: Record<string, any>;
+  preferences?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

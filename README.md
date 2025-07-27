@@ -193,3 +193,54 @@ DEBUG=true uv run python main.py
 ---
 
 **享受AI剧本杀的乐趣！** 🎭✨
+
+## 测试
+
+项目包含全面的单元测试和API测试，确保代码质量和接口稳定性。
+
+### 测试结构
+
+```
+tests/
+├── conftest.py          # 测试配置
+├── factories.py         # 测试数据工厂
+├── test_auth_api.py     # 认证API测试
+├── test_auth_utils.py   # 认证工具测试
+├── test_api_routes.py   # API路由测试
+├── test_script_api.py   # 剧本API测试
+├── test_user_api.py     # 用户API测试
+├── test_utils_api.py    # 工具API测试
+├── test_models.py       # 数据模型测试
+├── test_script_loading.py # 剧本加载测试
+├── test_services.py     # 服务层测试
+└── test_utils.py        # 工具函数测试
+```
+
+### 运行测试
+
+使用以下命令运行测试：
+
+```bash
+# 运行所有测试
+uv run pytest
+
+# 运行特定测试文件
+uv run pytest tests/test_script_api.py
+
+# 运行带标记的测试
+uv run pytest -m api
+
+# 生成测试覆盖率报告
+uv run pytest --cov=src --cov-report=html
+```
+
+也可以使用测试运行脚本：
+
+```bash
+# 运行所有测试
+python tests/run_tests.py
+
+# 运行API测试
+python tests/run_tests.py api
+```
+

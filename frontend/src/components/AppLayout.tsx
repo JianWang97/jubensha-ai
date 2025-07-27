@@ -250,8 +250,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         "pt-14", // 为TopBar留出空间
         showSidebar && !isGamePage ? (sidebarCollapsed ? "md:pl-16" : "md:pl-64") : ""
       )}>
-        {/* 面包屑导航 */}
-        {breadcrumbs.length > 1 && (
+        {/* 面包屑导航 - 游戏页面不显示 */}
+        {!isGamePage && breadcrumbs.length > 1 && (
           <div className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
             <div className="px-4 sm:px-6 lg:px-8 py-3">
               <nav className="flex items-center space-x-2 text-sm">
@@ -275,8 +275,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
         )}
 
-        {/* 页面标题 */}
-        {title && (
+        {/* 页面标题 - 游戏页面不显示 */}
+        {title && !isGamePage && (
           <div className="bg-gray-800/30 backdrop-blur-sm border-b border-gray-700">
             <div className="px-4 sm:px-6 lg:px-8 py-6">
               <h1 className="text-2xl md:text-3xl font-bold text-white">{title}</h1>

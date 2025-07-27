@@ -7,15 +7,13 @@
  */
 export type GameSessionResponse = {
     id: number;
-    session_id: string;
     script_id: number;
     host_user_id: number;
-    status: string;
-    current_phase: (string | null);
-    max_players: number;
     current_players: number;
-    started_at: (string | null);
-    finished_at: (string | null);
+    max_players: number;
+    status: string;
     created_at: string;
+    started_at: (string | null);
+    ended_at: (string | null);
 };
 

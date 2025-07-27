@@ -60,17 +60,7 @@ async def create_location(script_id: int, request: ScriptLocation, location_repo
         }
         
         # 添加场景
-        location = location_repository.add_location(ScriptLocation(
-            id = None,
-            script_id=script_id,
-            name=request.name,
-            description=request.description,
-            searchable_items=[],
-            background_image_url=request.background_image_url,
-            is_crime_scene=False,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
-        ))
+        location = location_repository.add_location(location_data)
         location_id = location.id
         
         if not location_id:

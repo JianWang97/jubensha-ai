@@ -1,19 +1,19 @@
 // 用户认证API服务
 import { config } from '@/stores/configStore';
-import {
-  User,
-  UserRegister,
-  UserLogin,
-  UserUpdate,
-  PasswordChange,
-  Token,
-  UserResponse,
+import { 
+  Token, 
+  UserResponse as User, 
+  UserRegister, 
+  UserLogin as LoginData, 
   UserBrief,
-  GameHistory
-} from '@/types/auth';
+  GameHistoryResponse as GameHistory,
+  PasswordChange,
+  UserUpdate
+} from '@/client';
+import { StoreApi } from 'zustand';
 
 // 延迟导入authStore以避免循环依赖
-let authStore: any = null;
+let authStore: StoreApi<unknown> | null = null;
 const getAuthStore = async () => {
   if (!authStore) {
     const { useAuthStore } = await import('@/stores/authStore');
@@ -53,24 +53,9 @@ class AuthService {
       // 401状态码拦截器：自动退出登录
       if (response.status === 401) {
         this.removeToken();
-        // 调用authStore的logout方法更新全局状态
+        // 重定向到登录页面
         if (typeof window !== 'undefined') {
-          getAuthStore().then(async store => {
-            try {
-              const { logout } = store.getState();
-              await logout();
-              // 等待logout完成后再重定向
-              window.location.href = '/auth/login';
-            } catch (error) {
-              console.error('Logout error:', error);
-              // 即使logout失败也要重定向
-              window.location.href = '/auth/login';
-            }
-          }).catch(error => {
-            console.error('Get auth store error:', error);
-            // 如果获取store失败，直接重定向
-            window.location.href = '/auth/login';
-          });
+          window.location.href = '/auth/login';
         }
       }
       
@@ -101,25 +86,38 @@ class AuthService {
     }
   }
 
-  // 用户注册
-  async register(userData: UserRegister): Promise<UserResponse> {
-    const response = await this.request<UserResponse>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-    return response;
+  /**
+   * 用户注册
+   * @param registerData 注册数据
+   * @returns 注册响应
+   */
+  async register(registerData: UserRegister): Promise<User> {
+    try {
+      return await this.request<User>('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(registerData),
+      });
+    } catch (error) {
+      console.error('注册失败:', error);
+      throw error;
+    }
   }
 
-  // 用户登录
-  async login(credentials: UserLogin): Promise<Token> {
-    const response = await this.request<Token>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-    
-    // 保存token
-    this.setToken(response.access_token);
-    return response;
+  /**
+   * 用户登录
+   * @param loginData 登录数据
+   * @returns 登录响应
+   */
+  async login(loginData: LoginData): Promise<Token> {
+    try {
+      return await this.request<Token>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(loginData),
+      });
+    } catch (error) {
+      console.error('登录失败:', error);
+      throw error;
+    }
   }
 
   // 用户登出
@@ -135,13 +133,13 @@ class AuthService {
   }
 
   // 获取当前用户信息
-  async getCurrentUser(): Promise<UserResponse> {
-    return this.request<UserResponse>('/api/auth/me');
+  async getCurrentUser(): Promise<User> {
+    return this.request<User>('/api/auth/me');
   }
 
   // 更新用户资料
-  async updateProfile(userData: UserUpdate): Promise<UserResponse> {
-    return this.request<UserResponse>('/api/auth/me', {
+  async updateProfile(userData: UserUpdate): Promise<User> {
+    return this.request<User>('/api/auth/me', {
       method: 'PUT',
       body: JSON.stringify(userData),
     });

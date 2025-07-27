@@ -18,6 +18,7 @@ export type { Body_upload_file_api_files_upload_post } from './models/Body_uploa
 export type { CharacterCreateRequest } from './models/CharacterCreateRequest';
 export type { CharacterPromptRequest } from './models/CharacterPromptRequest';
 export type { CharacterUpdateRequest } from './models/CharacterUpdateRequest';
+export type { CreateScriptRequest } from './models/CreateScriptRequest';
 export type { EvidencePromptRequest } from './models/EvidencePromptRequest';
 export { EvidenceType } from './models/EvidenceType';
 export type { EvidenceUpdateRequest } from './models/EvidenceUpdateRequest';
@@ -27,6 +28,7 @@ export type { GamePhase } from './models/GamePhase';
 export { GamePhaseEnum } from './models/GamePhaseEnum';
 export type { GameSessionCreate } from './models/GameSessionCreate';
 export type { GameSessionResponse } from './models/GameSessionResponse';
+export type { GenerateScriptInfoRequest } from './models/GenerateScriptInfoRequest';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { ImageGenerationRequestModel } from './models/ImageGenerationRequestModel';
 export type { PaginatedResponse_ScriptInfo_ } from './models/PaginatedResponse_ScriptInfo_';

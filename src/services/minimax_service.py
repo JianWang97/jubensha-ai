@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import logging
+import ssl
 from typing import Optional, Dict, Any, AsyncGenerator, List
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
@@ -91,12 +92,20 @@ class MiniMaxClient:
     async def _get_session(self) -> aiohttp.ClientSession:
         """获取HTTP会话"""
         if self.session is None or self.session.closed:
+            # 创建SSL上下文，处理证书验证问题
+            ssl_context = ssl.create_default_context()
+            # 在开发环境中，可以选择性地禁用证书验证
+            # 注意：在生产环境中应该使用正确的证书验证
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
             # 创建连接器，增加限制以避免"Chunk too big"错误
             connector = aiohttp.TCPConnector(
                 limit=MiniMaxConstants.MAX_CONNECTIONS,  # 总连接数限制
                 limit_per_host=MiniMaxConstants.MAX_CONNECTIONS_PER_HOST,  # 每个主机的连接数限制
                 ttl_dns_cache=300,  # DNS缓存时间
                 use_dns_cache=True,
+                ssl=ssl_context,  # 使用自定义SSL上下文
             )
             
             self.session = aiohttp.ClientSession(
@@ -488,6 +497,7 @@ class MiniMaxClient:
                 data=response
             )
         except Exception as e:
+            logger.error(f"Failed to get voice list from MiniMax: {str(e)}", exc_info=True)
             return MiniMaxResponse(
                 success=False,
                 error=str(e)

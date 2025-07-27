@@ -220,7 +220,14 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
               </TabsContent>
             </Tabs>
             <div className="flex gap-3 mt-6">
-              <Button className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+              <Button 
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                onClick={() => {
+                  // 关闭抽屉并跳转到游戏页面
+                  onClose();
+                  window.location.href = `/game?script_id=${script.id}`;
+                }}
+              >
                 立即开始
               </Button>
               <Button variant="outline" className="flex-1 border-gray-600 text-gray-300 hover:bg-purple-600/20 hover:border-purple-500">
@@ -375,23 +382,12 @@ export default function ScriptsPage() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout title="剧本库">
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
-        {/* 头部导航 */}
+        {/* 头部导航 - 移除重复的标题和返回按钮，因为AppLayout已提供面包屑导航 */}
         <div className="border-b border-gray-700 bg-gray-900/50 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-4">
-                <Link href="/" className="flex items-center gap-2 text-gray-400 hover:text-purple-400 transition-colors">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="text-sm">返回首页</span>
-                </Link>
-                <div className="h-6 w-px bg-gray-600"></div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                  剧本库
-                </h1>
-                <Badge variant="secondary" className="bg-purple-600/20 text-purple-300 border-purple-500/30">{filteredScripts.length} 个剧本</Badge>
-              </div>
               <div className="flex items-center gap-4">
                 {/* 搜索框 */}
                 <div className="relative">

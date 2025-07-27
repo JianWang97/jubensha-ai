@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import json
+import logging
 
 from ...core.websocket_server import game_server
 from ...services import TTSService
@@ -11,6 +12,9 @@ from ...services.tts_service import TTSRequest as ServiceTTSRequest
 from ...core.config import config
 
 router = APIRouter(prefix="/api/tts", tags=["语音合成"])
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 class TTSRequest(BaseModel):
     text: str
@@ -130,9 +134,17 @@ async def get_available_voices() -> Dict[str, Any]:
                         "provider": "minimax",
                         "data": data,
                     }
+                else:
+                    error_msg = voice_response.get('error') if voice_response else "Unknown error"
+                    logger.error(f"Failed to get voice list from MiniMax: {error_msg}")
+                    return {
+                        "success": False,
+                        "error": f"获取Minimax声音列表失败: {error_msg}",
+                        "provider": "minimax"
+                    }
             return {
                 "success": False,
-                "error": "获取Minimax声音列表失败"
+                "error": "获取Minimax声音列表失败: 服务不支持get_voice_list方法"
             }
         else:
             return {
@@ -141,6 +153,7 @@ async def get_available_voices() -> Dict[str, Any]:
             }
 
     except Exception as e:
+        logger.error(f"Failed to get available voices: {str(e)}", exc_info=True)
         return {
             "success": False,
             "error": f"获取声音列表失败: {str(e)}"

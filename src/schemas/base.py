@@ -99,30 +99,20 @@ class APIResponse(BaseModel, Generic[T]):
     @classmethod
     def error_response(cls, message: str, error_code: str = None) -> 'APIResponse[T]':
         """创建错误响应"""
-        return cls(success=False, message=message, error_code=error_code, data=None)
+        return cls(success=False, message=message, data=None, error_code=error_code)
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    """分页响应格式"""
-    items: List[T] = Field(default_factory=list, description="数据列表")
-    total: int = Field(0, description="总记录数")
-    page: int = Field(1, description="当前页码")
-    size: int = Field(10, description="每页大小")
-    pages: int = Field(0, description="总页数")
-    has_next: bool = Field(False, description="是否有下一页")
-    has_prev: bool = Field(False, description="是否有上一页")
+    """分页响应模型"""
+    items: List[T] = Field(..., description="数据列表")
+    total: int = Field(..., description="总记录数")
+    page: int = Field(..., description="当前页码")
+    size: int = Field(..., description="每页数量")
+    total_pages: int = Field(..., description="总页数")
     
     model_config = ConfigDict(from_attributes=True)
     
     @classmethod
     def create(cls, items: List[T], total: int, page: int, size: int) -> 'PaginatedResponse[T]':
         """创建分页响应"""
-        pages = (total + size - 1) // size if size > 0 else 0
-        return cls(
-            items=items,
-            total=total,
-            page=page,
-            size=size,
-            pages=pages,
-            has_next=page < pages,
-            has_prev=page > 1
-        )
+        total_pages = (total + size - 1) // size  # 向上取整
+        return cls(items=items, total=total, page=page, size=size, total_pages=total_pages)

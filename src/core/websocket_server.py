@@ -2,7 +2,7 @@ import asyncio
 import json
 from typing import Set, Union, Any, Dict
 from src.core import GameEngine
-from src.schemas.script import GamePhaseEnum as GamePhase
+from src.schemas.game_phase import GamePhaseEnum as GamePhase
 import os
 from dotenv import load_dotenv
 import uuid

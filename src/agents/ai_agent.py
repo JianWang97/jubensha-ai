@@ -3,7 +3,8 @@ from typing import Dict
 import os
 import logging
 
-from ..schemas.script import ScriptCharacter as Character, GamePhaseEnum as GamePhase
+from ..schemas.script import ScriptCharacter as Character
+from ..schemas.game_phase import GamePhaseEnum as GamePhase
 from ..services import LLMService
 from ..services.llm_service import LLMMessage
 from ..core.config import config

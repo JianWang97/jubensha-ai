@@ -522,7 +522,7 @@ export const useRoomsStore = create<RoomsState>()(persist(
         )
       };
       
-      get().updateRoom(roomId, updatedRoom as any);
+      get().updateRoom(roomId, updatedRoom);
     },
 
     // 聊天操作

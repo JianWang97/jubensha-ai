@@ -9,10 +9,10 @@ from ..schemas.script import (
     ScriptEvidence, 
     ScriptLocation,
     BackgroundStory,
-    GamePhase,
-    GamePhaseEnum,
-    EvidenceType
+    GamePhase
 )
+from ..schemas.game_phase import GamePhaseEnum
+from ..schemas.script_evidence import EvidenceType
 from ..schemas.base import BaseDataModel
 from ..agents import AIAgent
 from .evidence_manager import EvidenceManager

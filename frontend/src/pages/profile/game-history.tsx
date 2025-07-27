@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthStore } from '@/stores/authStore';
 import { authService } from '@/services/authService';
-import { GameHistory } from '@/types/auth';
+import { GameHistoryResponse as GameHistory } from '@/client';
 import AppLayout from '@/components/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { toast } from 'sonner';
@@ -63,8 +63,7 @@ const GameHistoryPage: React.FC = () => {
 
   // 过滤游戏历史
   const filteredHistory = gameHistory.filter(game => {
-    const matchesSearch = game.script_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         game.session_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = game.script_title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || game.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -197,29 +196,34 @@ const GameHistoryPage: React.FC = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-lg font-medium text-white">
-                              {game.script_name}
+                              {game.script_title}
                             </h3>
                             <Badge className={statusDisplay.className}>
                               {statusDisplay.label}
                             </Badge>
                           </div>
                           <p className="text-gray-300 mb-3">
-                            房间：{game.session_name}
+                            房间：{game.session_id}
                           </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                            <div className="flex items-center text-gray-400">
-                              <Calendar className="h-4 w-4 mr-2" />
-                              开始时间：{formatDate(game.created_at)}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-500">
+                            <div className="flex items-center">
+                              <Calendar className="w-4 h-4 mr-1" />
+                              {new Date(game.created_at).toLocaleDateString()}
                             </div>
-                            <div className="flex items-center text-gray-400">
-                              <Users className="h-4 w-4 mr-2" />
-                              参与人数：{game.participants.length}人
+                            <div className="flex items-center">
+                              <Users className="w-4 h-4 mr-1" />
+                              {game.participants?.length || 0} players
                             </div>
-                            <div className="flex items-center text-gray-400">
-                              <Clock className="h-4 w-4 mr-2" />
-                              游戏时长：{getGameDuration(game.created_at, game.finished_at)}
+                            <div className="flex items-center">
+                              <Trophy className="w-4 h-4 mr-1" />
+                              {game.status}
                             </div>
                           </div>
+                          {game.script_title && (
+                            <p className="text-sm text-gray-600 mt-2">
+                              剧本: {game.script_title}
+                            </p>
+                          )}
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2">
                           {game.status === 'playing' && (
@@ -244,18 +248,19 @@ const GameHistoryPage: React.FC = () => {
                       </div>
                       
                       {/* 参与者列表 */}
-                      {game.participants.length > 0 && (
+                      {game.participants && game.participants.length > 0 && (
                         <div className="mt-4 pt-4 border-t border-white/20">
                           <h4 className="text-sm font-medium text-white mb-2">参与者：</h4>
                           <div className="flex flex-wrap gap-2">
-                            {game.participants.map((participant) => (
-                              <Badge
-                                key={participant.id}
-                                variant="outline"
-                                className="border-white/20 text-gray-300"
-                              >
-                                {participant.user.nickname || participant.user.username}
-                              </Badge>
+                            {game.participants.map((participant, index) => (
+                              <div key={index} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center text-xs font-medium">
+                                  {participant.nickname ? participant.nickname.charAt(0).toUpperCase() : participant.username.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm text-white">
+                                  {participant.nickname || participant.username}
+                                </span>
+                              </div>
                             ))}
                           </div>
                         </div>

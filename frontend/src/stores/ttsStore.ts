@@ -49,7 +49,7 @@ export const useTTSStore = create<TTSState>((set, get) => ({
     if (state.audioInitialized) return;
     
     try {
-      const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const context = new (window.AudioContext || (window as unknown as typeof window.AudioContext))();
       
       if (context.state === 'suspended') {
         await context.resume();
@@ -150,9 +150,16 @@ export const useTTSStore = create<TTSState>((set, get) => ({
       // 使用voice mapping获取正确的voice_id，优先使用传入的voice，否则使用character
       console.log(item.character, item.voice);
       const voiceId = item.voice;
+      
+      // 获取认证token
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      
       const response = await fetch(`${config.api.baseUrl}/api/tts/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}) // 添加认证头
+        },
         body: JSON.stringify({ text: item.text, voice: voiceId })
       });
       

@@ -5,7 +5,7 @@ import random
 import logging
 from datetime import datetime
 
-from src.schemas.script import GamePhaseEnum as GamePhase
+from src.schemas.game_phase import GamePhaseEnum as GamePhase
 from src.services.llm_service import LLMService, LLMMessage
 from src.core.config import config
 

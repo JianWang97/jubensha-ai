@@ -1,8 +1,11 @@
 """剧本数据访问层"""
+from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import desc, or_
-from ...schemas.script import Script, ScriptInfo, ScriptStatus
+
+from ...schemas.script import Script, ScriptInfo
+from ...schemas.script_info import ScriptStatus
 from ...schemas.base import PaginatedResponse
 from ..models.script_model import ScriptDBModel
 from ..models.character import CharacterDBModel
@@ -18,15 +21,26 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
     
     def __init__(self, db_session: Session):
         super().__init__(ScriptDBModel, db_session)
-        self.db = db_session
+        self.db: Session = db_session
     
     def create_script(self, script_data: ScriptInfo) -> ScriptInfo:
         """创建新剧本"""
         # 转换为数据库模型
-        db_data = script_data.to_db_dict()
-        db_script = ScriptDBModel(**db_data)
-        
-        # 保存到数据库
+        db_script = ScriptDBModel(
+            title=script_data.title,
+            description=script_data.description,
+            author=script_data.author,
+            player_count=script_data.player_count,
+            duration_minutes=script_data.estimated_duration or 180,
+            difficulty=script_data.difficulty_level or "medium",
+            category=script_data.category or "推理",
+            tags=script_data.tags or [],
+            status=script_data.status or ScriptStatus.DRAFT,
+            cover_image_url=script_data.cover_image_url,
+            is_public=script_data.is_public,
+            price=script_data.price,
+            rating=script_data.rating,
+        )
         self.db.add(db_script)
         self.db.flush()
         
@@ -116,7 +130,7 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
             characters=characters,
             evidence=evidence,
             locations=locations,
-            game_phases=game_phases,
+            game_phases=game_phases
         )
     
     def get_script_info_by_id(self, script_id: int) -> Optional[ScriptInfo]:

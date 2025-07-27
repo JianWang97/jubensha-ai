@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import { Sparkles, Image, PenTool, ArrowRight, Lightbulb, Users, Clock, BookOpen, Wand2 } from 'lucide-react';
+import { Sparkles, PenTool, ArrowRight, Lightbulb, Users, Clock, BookOpen, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,13 +26,6 @@ const inspirationOptions: InspirationOption[] = [
     description: '让AI为你生成一个独特的剧本主题，激发创作灵感',
     icon: <Sparkles className="w-8 h-8" />,
     color: 'from-purple-500 to-pink-500'
-  },
-  {
-    id: 'image-inspiration',
-    title: '图片灵感',
-    description: '从一张图片开始，构建你的故事世界',
-    icon: <Image className="w-8 h-8" />,
-    color: 'from-blue-500 to-cyan-500'
   },
   {
     id: 'one-sentence',
@@ -63,7 +56,6 @@ const playerCounts = [
 
 export default function CreateScript() {
   const router = useRouter();
-  const [step, setStep] = useState<'inspiration' | 'details'>('inspiration');
   const [selectedInspiration, setSelectedInspiration] = useState<string>('');
   const [inspirationInput, setInspirationInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -138,12 +130,6 @@ export default function CreateScript() {
     }
   };
 
-  const handleNextStep = () => {
-    if (selectedInspiration) {
-      setStep('details');
-    }
-  };
-
   const handleCreateScript = async () => {
     try {
       // 准备创建剧本的数据
@@ -190,7 +176,7 @@ export default function CreateScript() {
         <p className="text-slate-400 text-lg">选择一个灵感启发方式，让创意自由流淌</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-8">
+      <div className="grid md:grid-cols-2 gap-6 mb-8">
         {inspirationOptions.map((option) => (
           <Card 
             key={option.id}
@@ -266,61 +252,8 @@ export default function CreateScript() {
         </Card>
       )}
 
-      {selectedInspiration === 'image-inspiration' && (
-        <Card className="bg-slate-800/80 border-slate-700 mb-6">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Image className="w-5 h-5 text-blue-400" />
-              上传灵感图片
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center hover:border-slate-500 transition-colors">
-              <Image className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-              <p className="text-slate-400 mb-2">点击上传图片或拖拽到此处</p>
-              <p className="text-slate-500 text-sm">支持 JPG、PNG 格式</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {selectedInspiration && (
         <div className="flex justify-center">
-          <Button 
-            onClick={handleNextStep}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-3 text-lg"
-            disabled={selectedInspiration === 'one-sentence' && !inspirationInput.trim()}
-          >
-            下一步：填写基础信息
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderDetailsStep = () => (
-    <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mb-4">
-          <BookOpen className="w-8 h-8 text-white" />
-        </div>
-        <h1 className="text-3xl font-bold text-white mb-2">完善剧本信息</h1>
-        <p className="text-slate-400 text-lg">填写一些基础信息，让你的剧本更加完整</p>
-      </div>
-
-      {/* AI生成基础信息按钮 */}
-      <Card className="bg-slate-800/80 border-slate-700 mb-6">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Wand2 className="w-5 h-5 text-purple-400" />
-            AI智能生成
-          </CardTitle>
-          <CardDescription className="text-slate-400">
-            基于您选择的主题，让AI为您生成完整的剧本基础信息
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
           <Button 
             onClick={generateScriptInfo}
             disabled={isGeneratingInfo || (!generatedTheme && !inspirationInput)}
@@ -338,15 +271,36 @@ export default function CreateScript() {
               </>
             )}
           </Button>
-          
-          {generatedInfo && (
+        </div>
+      )}
+    </div>
+  );
+
+  const renderDetailsStep = () => (
+    <div className="max-w-2xl mx-auto">
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mb-4">
+          <BookOpen className="w-8 h-8 text-white" />
+        </div>
+        <h1 className="text-3xl font-bold text-white mb-2">完善剧本信息</h1>
+        <p className="text-slate-400 text-lg">填写一些基础信息，让你的剧本更加完整</p>
+      </div>
+
+      {generatedInfo && (
+        <Card className="bg-slate-800/80 border-slate-700 mb-6">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-purple-400" />
+              AI生成的背景故事
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="mt-4 p-4 bg-slate-900/50 rounded-lg">
-              <h4 className="text-white font-medium mb-2">AI生成的背景故事：</h4>
               <p className="text-slate-300 text-sm leading-relaxed">{generatedInfo.background}</p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="bg-slate-800/80 border-slate-700">
         <CardContent className="p-6 space-y-6">
@@ -406,14 +360,7 @@ export default function CreateScript() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-between mt-8">
-        <Button 
-          variant="outline" 
-          onClick={() => setStep('inspiration')}
-          className="border-slate-600 text-slate-300 hover:text-white"
-        >
-          上一步
-        </Button>
+      <div className="flex justify-center mt-8">
         <Button 
           onClick={handleCreateScript}
           className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8"
@@ -430,7 +377,7 @@ export default function CreateScript() {
     <AuthGuard>
       <AppLayout title="创建新剧本">
         <div className="min-h-screen bg-slate-900 py-8 px-4">
-          {step === 'inspiration' ? renderInspirationStep() : renderDetailsStep()}
+          {!selectedInspiration || !generatedInfo ? renderInspirationStep() : renderDetailsStep()}
         </div>
       </AppLayout>
     </AuthGuard>

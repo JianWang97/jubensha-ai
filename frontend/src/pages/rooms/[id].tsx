@@ -354,7 +354,7 @@ export default function RoomDetailPage() {
   const handlePromotePlayer = (playerId) => {
     setRoom({
       ...room,
-      host: room.players.find(p => p.id === playerId),
+      host: room.players.find(p => p.id === playerId) || room.host,
       players: room.players.map(p => ({
         ...p,
         isHost: p.id === playerId

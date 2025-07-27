@@ -101,40 +101,71 @@ class GameSessionCreate(BaseModel):
 class GameSessionResponse(BaseModel):
     """游戏会话响应模式"""
     id: int
-    session_id: str
     script_id: int
     host_user_id: int
-    status: str
-    current_phase: Optional[str]
-    max_players: int
     current_players: int
-    started_at: Optional[datetime]
-    finished_at: Optional[datetime]
+    max_players: int
+    status: str
     created_at: datetime
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
     
     class Config:
         from_attributes = True
 
+class GameSessionDetail(BaseModel):
+    """游戏会话详情模式"""
+    id: int
+    script_id: int
+    host_user_id: int
+    current_players: int
+    max_players: int
+    status: str
+    created_at: datetime
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    # 可以添加更多详细信息
+    
+    class Config:
+        from_attributes = True
+
+# 游戏历史记录
+class GameHistoryResponse(BaseModel):
+    """游戏历史记录响应模式"""
+    id: int
+    session_id: str
+    script_id: int
+    script_title: str
+    host_user_id: int
+    status: str
+    created_at: datetime
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    participants: List[UserBrief] = []
+    
+    class Config:
+        from_attributes = True
+
+# 游戏参与者
 class GameParticipantResponse(BaseModel):
     """游戏参与者响应模式"""
     id: int
+    session_id: int
     user_id: int
-    character_id: Optional[int]
+    user: UserBrief
     role: str
     status: str
-    is_winner: bool
-    score: int
     joined_at: datetime
-    left_at: Optional[datetime]
-    user: UserBrief
     
     class Config:
         from_attributes = True
 
-class GameHistoryResponse(BaseModel):
-    """游戏历史响应模式"""
-    session: GameSessionResponse
-    participation: GameParticipantResponse
-    
-    class Config:
-        from_attributes = True
+class PlayerJoinRequest(BaseModel):
+    """玩家加入请求模式"""
+    session_id: int
+    user_id: int
+
+class PlayerStatusUpdate(BaseModel):
+    """玩家状态更新模式"""
+    user_id: int
+    status: str  # ready, not_ready, left, etc.
