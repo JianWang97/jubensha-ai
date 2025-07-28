@@ -28,6 +28,7 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.5.0",
     "email-validator>=2.2.0",
+    "jsonschema>=4.25.0",
 ]
 
 [mypy]

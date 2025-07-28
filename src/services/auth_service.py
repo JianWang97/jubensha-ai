@@ -48,8 +48,8 @@ class AuthService:
         """验证令牌"""
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id: int = payload.get("user_id")
-            username: str = payload.get("sub")
+            user_id: int = payload.get("user_id")  # type: ignore
+            username: str = payload.get("sub")  # type: ignore
             
             if user_id is None or username is None:
                 raise HTTPException(

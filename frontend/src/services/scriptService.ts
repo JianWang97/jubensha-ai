@@ -50,6 +50,44 @@ interface CreatedScript {
   updated_at: string;
 }
 
+interface GenerateScriptContentRequest {
+  script_id: number;
+  theme: string;
+  background_story: string;
+  player_count: number;
+  script_type?: string;
+}
+
+interface GeneratedCharacter {
+  id?: number;
+  name: string;
+  background: string;
+  gender: string;
+  age: number;
+  profession: string;
+  secret: string;
+  objective: string;
+  personality_traits: string[];
+  is_murderer: boolean;
+  is_victim: boolean;
+}
+
+interface GeneratedEvidence {
+  id?: number;
+  name: string;
+  description: string;
+  evidence_type: string;
+  location: string;
+  related_character?: string;
+  is_key_evidence: boolean;
+  discovery_condition: string;
+}
+
+interface GeneratedScriptContent {
+  characters: GeneratedCharacter[];
+  evidence: GeneratedEvidence[];
+}
+
 interface APIResponse<T> {
   success: boolean;
   message: string;
@@ -115,8 +153,26 @@ class ScriptService {
     });
     return response.data;
   }
+
+  // 生成剧本内容（角色和证据）
+  async generateScriptContent(request: GenerateScriptContentRequest): Promise<GeneratedScriptContent> {
+    const response = await this.request<APIResponse<GeneratedScriptContent>>('/api/scripts/generate-content', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    return response.data;
+  }
 }
 
 export const scriptService = new ScriptService();
 export default scriptService;
-export type { GenerateScriptInfoRequest, GeneratedScriptInfo, CreateScriptRequest, CreatedScript };
+export type { 
+  GenerateScriptInfoRequest, 
+  GeneratedScriptInfo, 
+  CreateScriptRequest, 
+  CreatedScript,
+  GenerateScriptContentRequest,
+  GeneratedCharacter,
+  GeneratedEvidence,
+  GeneratedScriptContent
+};

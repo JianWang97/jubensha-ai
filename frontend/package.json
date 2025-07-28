@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "check": "next lint",
     "generate-api": "npx openapi-typescript-codegen --input http://localhost:8010/openapi.json --output ./src/client --client axios"
   },
   "dependencies": {

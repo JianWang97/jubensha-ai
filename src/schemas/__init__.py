@@ -9,6 +9,13 @@ from .script_location import *
 from .background_story import *
 from .game_phase import *
 from .script_requests import *
+from .character_schemas import *
+from .evidence_schemas import *
+from .location_schemas import *
+from .file_schemas import *
+from .game_schemas import *
+from .image_generation_schemas import *
+from .tts_schemas import *
 
 __all__ = [
     # base
@@ -45,4 +52,31 @@ __all__ = [
     # script_requests
     'GenerateScriptInfoRequest',
     'CreateScriptRequest',
+    
+    # character_schemas
+    'CharacterCreateRequest',
+    'CharacterUpdateRequest',
+    'CharacterPromptRequest',
+    
+    # evidence_schemas
+    'EvidenceCreateRequest',
+    'EvidenceUpdateRequest',
+    'EvidencePromptRequest',
+    
+    # location_schemas
+    'LocationCreateRequest',
+    'LocationUpdateRequest',
+    
+    # file_schemas
+    'FileUploadResponse',
+    
+    # game_schemas
+    'GameResponse',
+    
+    # image_generation_schemas
+    'ImageGenerationRequestModel',
+    'ScriptCoverPromptRequest',
+    
+    # tts_schemas
+    'TTSRequest',
 ]

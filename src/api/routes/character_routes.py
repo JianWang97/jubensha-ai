@@ -1,6 +1,5 @@
 """角色管理API路由"""
 from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import List, Optional, Type
 from sqlalchemy.orm import Session
 from ...db.repositories import CharacterRepository
 from ...schemas.script import ScriptCharacter
@@ -9,7 +8,6 @@ from ...db.models.character import CharacterDBModel
 from ...schemas.base import BaseDataModel
 from ...services.llm_service import llm_service, LLMMessage
 from ...db.session import get_db_session
-from pydantic import BaseModel, Field
 import logging
 from datetime import datetime
 router = APIRouter(prefix="/api/characters", tags=["角色管理"])
@@ -17,61 +15,8 @@ logger = logging.getLogger(__name__)
 def get_character_repository(db: Session = Depends(get_db_session)) -> CharacterRepository:
     return CharacterRepository(db)
 
-class CharacterCreateRequest(BaseDataModel):
-    """角色创建请求模型"""
-    name: str = Field(..., description="角色名称")
-    background: Optional[str] = Field(None, description="角色背景")
-    gender: str = Field(..., description="性别")
-    age: int = Field(..., description="年龄")
-    profession: Optional[str] = Field(None, description="职业")
-    secret: Optional[str] = Field(None, description="秘密")
-    objective: Optional[str] = Field(None, description="目标")
-    is_victim: Optional[bool] = Field(False, description="是否为受害者")
-    is_murderer: Optional[bool] = Field(False, description="是否为凶手")
-    personality_traits: Optional[List[str]] = Field(default=[], description="性格特征")
-    avatar_url: Optional[str] = Field(None, description="头像URL")
-    voice_id: Optional[str] = Field(None, description="语音ID")
-    voice_preference: Optional[str] = Field(None, description="语音偏好")
+from ...schemas.character_schemas import CharacterCreateRequest, CharacterUpdateRequest, CharacterPromptRequest
 
-    @classmethod
-    def get_db_model(cls) -> Type:
-        """此模型不对应数据库表，返回None"""
-        return type(None)
-
-class CharacterUpdateRequest(BaseDataModel):
-    """角色更新请求模型"""
-    name: Optional[str] = Field(None, description="角色名称")
-    background: Optional[str] = Field(None, description="角色背景")
-    profession: Optional[str] = Field(None, description="职业")
-    personality_traits: Optional[List[str]] = Field(None, description="性格特征")
-    avatar_url: Optional[str] = Field(None, description="头像URL")
-    voice_id: Optional[str] = Field(None, description="语音ID")
-    age: Optional[int] = Field(None, description="年龄")
-    gender: Optional[str] = Field(None, description="性别")
-    secret: Optional[str] = Field(None, description="秘密")
-    objective: Optional[str] = Field(None, description="目标")
-    is_victim: Optional[bool] = Field(None, description="是否为受害者")
-    is_murderer: Optional[bool] = Field(None, description="是否为凶手")
-    
-    @classmethod
-    def get_db_model(cls) -> Type:
-        """此模型不对应数据库表，返回None"""
-        return type(None)
-
-class CharacterPromptRequest(BaseDataModel):
-    """角色头像提示词生成请求模型"""
-    character_name: str = Field(..., description="角色名称")
-    character_description: str = Field(..., description="角色描述")
-    age: Optional[int] = Field(None, description="年龄")
-    gender: Optional[str] = Field(None, description="性别")
-    profession: Optional[str] = Field(None, description="职业")
-    personality_traits: Optional[List[str]] = Field(None, description="性格特征")
-    script_context: Optional[str] = Field(None, description="剧本背景")
-    
-    @classmethod
-    def get_db_model(cls) -> Type:
-        """此模型不对应数据库表，返回None"""
-        return type(None)
 
 @router.post("/{script_id}/characters", summary="创建角色")
 async def create_character(script_id: int, request: CharacterCreateRequest, character_repository: CharacterRepository = Depends(get_character_repository)) -> APIResponse[ScriptCharacter]:
@@ -177,7 +122,7 @@ async def get_characters(
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(10, ge=1, le=100, description="返回的记录数"),
     character_repository_orm: CharacterRepository = Depends(get_character_repository)
-) -> APIResponse[List[ScriptCharacter]]:
+) -> APIResponse[list[ScriptCharacter]]:
     """获取指定剧本的角色列表"""
     try:
         # 获取角色列表

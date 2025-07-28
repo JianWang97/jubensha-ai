@@ -1,7 +1,7 @@
 """MinIO对象存储管理器"""
 import os
 import uuid
-from typing import Optional, BinaryIO
+from typing import BinaryIO
 from minio import Minio
 from minio.error import S3Error
 from dotenv import load_dotenv
@@ -14,20 +14,20 @@ class StorageConfig:
     """存储配置"""
     
     def __init__(self):
-        self.endpoint = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-        self.access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-        self.secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-        self.secure = os.getenv("MINIO_SECURE", "false").lower() == "true"
-        self.bucket_name = os.getenv("MINIO_BUCKET", "jubensha-assets")
-        self.public_url = os.getenv("MINIO_PUBLIC_URL", f"http://{self.endpoint}")
-
+        self.endpoint: str = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+        self.access_key: str = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+        self.secret_key: str = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+        self.secure: bool = os.getenv("MINIO_SECURE", "false").lower() == "true"
+        self.bucket_name: str = os.getenv("MINIO_BUCKET", "jubensha-assets")
+        self.public_url: str = os.getenv("MINIO_PUBLIC_URL", f"http://{self.endpoint}")
+        
 class StorageManager:
     """MinIO存储管理器"""
     
     def __init__(self):
-        self.config = StorageConfig()
-        self.client = None
-        self.is_available = False
+        self.config: StorageConfig = StorageConfig()
+        self.client: Minio | None = None
+        self.is_available: bool = False
         self._initialize_client()
     
     def _initialize_client(self):
@@ -51,10 +51,10 @@ class StorageManager:
     def _ensure_bucket_exists(self):
         """确保存储桶存在"""
         try:
-            if not self.client.bucket_exists(self.config.bucket_name):
+            if self.client and not self.client.bucket_exists(self.config.bucket_name):
                 self.client.make_bucket(self.config.bucket_name)
                 print(f"✅ 创建存储桶: {self.config.bucket_name}")
-            else:
+            elif self.client:
                 print(f"✅ 存储桶已存在: {self.config.bucket_name}")
         except S3Error as e:
             print(f"❌ 存储桶操作失败: {e}")
@@ -72,7 +72,7 @@ class StorageManager:
         unique_name = f"{uuid.uuid4().hex}{file_ext}"
         return f"{category}/{unique_name}"
     
-    async def upload_file(self, file_data: BinaryIO, filename: str, category: str = "general") -> Optional[str]:
+    async def upload_file(self, file_data: BinaryIO, filename: str, category: str = "general") -> str | None:
         """上传文件
         
         Args:
@@ -83,7 +83,7 @@ class StorageManager:
         Returns:
             文件的公开访问URL
         """
-        if not self.is_available:
+        if not self.is_available or not self.client:
             print(f"⚠️ 存储服务不可用，无法上传文件: {filename}")
             return None
             
@@ -116,7 +116,7 @@ class StorageManager:
         """获取文件的公开访问URL"""
         return urljoin(self.config.public_url, f"/{self.config.bucket_name}/{object_name}")
     
-    async def get_file(self, object_name: str) -> Optional[tuple]:
+    async def get_file(self, object_name: str) -> tuple[bytes, str] | None:
         """获取文件内容
         
         Args:
@@ -125,7 +125,7 @@ class StorageManager:
         Returns:
             (文件内容, 内容类型) 或 None
         """
-        if not self.is_available:
+        if not self.is_available or not self.client:
             print(f"⚠️ 存储服务不可用，无法获取文件: {object_name}")
             return None
             
@@ -139,19 +139,21 @@ class StorageManager:
             # 获取内容类型
             content_type = self._get_content_type(object_name)
             
-            return file_content, content_type
+            return file_content, content_type  # type: ignore
             
         except S3Error as e:
             print(f"❌ 文件获取失败: {e}")
             return None
         finally:
-            if 'response' in locals():
-                response.close()
-                response.release_conn()
+            # 使用局部变量确保response已定义
+            local_response = locals().get('response')
+            if local_response:
+                local_response.close()
+                local_response.release_conn()
     
     async def delete_file(self, object_name: str) -> bool:
         """删除文件"""
-        if not self.is_available:
+        if not self.is_available or not self.client:
             print(f"⚠️ 存储服务不可用，无法删除文件: {object_name}")
             return False
             
@@ -166,24 +168,27 @@ class StorageManager:
             print(f"❌ 文件删除失败: {e}")
             return False
     
-    async def upload_cover_image(self, file_data: BinaryIO, filename: str) -> Optional[str]:
+    async def upload_cover_image(self, file_data: BinaryIO, filename: str) -> str | None:
         """上传剧本封面图片"""
         return await self.upload_file(file_data, filename, "covers")
     
-    async def upload_avatar_image(self, file_data: BinaryIO, filename: str) -> Optional[str]:
+    async def upload_avatar_image(self, file_data: BinaryIO, filename: str) -> str | None:
         """上传角色头像图片"""
         return await self.upload_file(file_data, filename, "avatars")
     
-    async def upload_evidence_image(self, file_data: BinaryIO, filename: str) -> Optional[str]:
+    async def upload_evidence_image(self, file_data: BinaryIO, filename: str) -> str | None:
         """上传证据图片"""
         return await self.upload_file(file_data, filename, "evidence")
     
-    async def upload_scene_image(self, file_data: BinaryIO, filename: str) -> Optional[str]:
+    async def upload_scene_image(self, file_data: BinaryIO, filename: str) -> str | None:
         """上传场景背景图片"""
         return await self.upload_file(file_data, filename, "scenes")
     
-    def list_files(self, category: Optional[str] = None) -> list:
+    def list_files(self, category: str | None = None) -> list:
         """列出文件"""
+        if not self.client:
+            return []
+            
         try:
             prefix = f"{category}/" if category else None
             objects = self.client.list_objects(
@@ -194,12 +199,13 @@ class StorageManager:
             
             files = []
             for obj in objects:
-                files.append({
-                    "name": obj.object_name,
-                    "size": obj.size,
-                    "last_modified": obj.last_modified,
-                    "url": self.get_public_url(obj.object_name)
-                })
+                if obj.object_name is not None:
+                    files.append({
+                        "name": obj.object_name,
+                        "size": obj.size,
+                        "last_modified": obj.last_modified,
+                        "url": self.get_public_url(obj.object_name)
+                    })
             
             return files
         except S3Error as e:
@@ -210,11 +216,11 @@ class StorageManager:
         """获取存储统计信息"""
         try:
             stats = {
-                "covers": len(self.list_files("covers")),
-                "avatars": len(self.list_files("avatars")),
-                "evidence": len(self.list_files("evidence")),
-                "scenes": len(self.list_files("scenes")),
-                "total": len(self.list_files())
+                "covers": len(self.list_files("covers")),  # type: ignore
+                "avatars": len(self.list_files("avatars")),  # type: ignore
+                "evidence": len(self.list_files("evidence")),  # type: ignore
+                "scenes": len(self.list_files("scenes")),  # type: ignore
+                "total": len(self.list_files())  # type: ignore
             }
             return stats
         except Exception as e:

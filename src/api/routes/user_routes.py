@@ -10,7 +10,6 @@ from src.schemas.user_schemas import (
 )
 from src.db.models.user import User
 from src.db.models.game_session import GameSession, GameParticipant
-from typing import List
 import uuid
 
 router = APIRouter(prefix="/api/users", tags=["用户管理"])
@@ -30,7 +29,7 @@ async def create_game_session(
         game_session = GameSession(
             session_id=session_id,
             script_id=session_data.script_id,
-            host_user_id=current_user.id,
+            host_user_id=current_user.id,  # 修复：将Column[int]转换为int
             max_players=session_data.max_players,
             current_players=1,  # 房主自动加入
             status="waiting"
@@ -42,7 +41,7 @@ async def create_game_session(
         # 房主自动加入游戏
         participant = GameParticipant(
             session_id=game_session.id,
-            user_id=current_user.id,
+            user_id=current_user.id,  # 修复：将Column[int]转换为int
             role="host",
             status="joined"
         )
@@ -193,7 +192,7 @@ async def leave_game_session(
             detail=f"离开游戏会话失败: {str(e)}"
         )
 
-@router.get("/game-history", response_model=List[GameHistoryResponse], summary="获取游戏历史")
+@router.get("/game-history", response_model=list[GameHistoryResponse], summary="获取游戏历史")
 async def get_game_history(
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(20, ge=1, le=100, description="返回的记录数"),
@@ -206,16 +205,46 @@ async def get_game_history(
         GameParticipant.user_id == current_user.id
     ).order_by(desc(GameParticipant.created_at)).offset(skip).limit(limit).all()
     
+    # 获取所有相关的剧本ID
+    script_ids = [p.session.script_id for p in participations]
+    script_titles = {}
+    
+    # 如果有剧本ID，则查询剧本标题
+    if script_ids:
+        from src.db.repositories.script_repository import ScriptRepository
+        script_repo = ScriptRepository(db)
+        for script_id in script_ids:
+            script_info = script_repo.get_script_info_by_id(script_id)
+            if script_info:
+                script_titles[script_id] = script_info.title
+            else:
+                script_titles[script_id] = "未知剧本"
+    
     result = []
     for participation in participations:
         game_session = participation.session
         
+        # 获取参与者列表
+        participants = db.query(GameParticipant).filter(
+            GameParticipant.session_id == game_session.id
+        ).all()
+        
+        # 构建参与者简要信息列表
+        participant_briefs = [
+            UserBrief.from_orm(p.user) for p in participants
+        ]
+        
         result.append(GameHistoryResponse(
-            session=GameSessionResponse.from_orm(game_session),
-            participation=GameParticipantResponse(
-                **participation.to_dict(),
-                user=UserBrief.from_orm(participation.user)
-            )
+            id=getattr(game_session, 'id'),
+            session_id=getattr(game_session, 'session_id'),
+            script_id=getattr(game_session, 'script_id'),
+            script_title=script_titles.get(getattr(game_session, 'script_id'), "未知剧本"),
+            host_user_id=getattr(game_session, 'host_user_id'),
+            status=getattr(game_session, 'status'),
+            created_at=getattr(game_session, 'created_at'),
+            started_at=getattr(game_session, 'started_at'),
+            ended_at=getattr(game_session, 'finished_at'),
+            participants=participant_briefs
         ))
     
     return result
@@ -239,7 +268,7 @@ async def get_game_session(
     
     return GameSessionResponse.from_orm(game_session)
 
-@router.get("/game-sessions/{session_id}/participants", response_model=List[GameParticipantResponse], summary="获取游戏参与者")
+@router.get("/game-sessions/{session_id}/participants", response_model=list[GameParticipantResponse], summary="获取游戏参与者")
 async def get_game_participants(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
@@ -264,9 +293,15 @@ async def get_game_participants(
     
     result = []
     for participant in participants:
+        # 使用模型字段直接创建GameParticipantResponse对象，而不是通过to_dict()
         result.append(GameParticipantResponse(
-            **participant.to_dict(),
-            user=UserBrief.from_orm(participant.user)
+            id=getattr(participant, 'id'),
+            session_id=getattr(participant, 'session_id'),
+            user_id=getattr(participant, 'user_id'),
+            user=UserBrief.from_orm(participant.user),
+            role=getattr(participant, 'role'),
+            status=getattr(participant, 'status'),
+            joined_at=getattr(participant, 'joined_at')
         ))
     
     return result

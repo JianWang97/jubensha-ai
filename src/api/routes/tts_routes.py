@@ -1,7 +1,6 @@
 """TTS语音合成相关的API路由"""
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import json
 import logging
@@ -10,16 +9,12 @@ from ...core.websocket_server import game_server
 from ...services import TTSService
 from ...services.tts_service import TTSRequest as ServiceTTSRequest
 from ...core.config import config
+from ...schemas.tts_schemas import TTSRequest
 
 router = APIRouter(prefix="/api/tts", tags=["语音合成"])
 
 # 配置日志
 logger = logging.getLogger(__name__)
-
-class TTSRequest(BaseModel):
-    text: str
-    character: str = "default"
-    voice: Optional[str] = None  
 
 @router.post("/stream")
 async def stream_tts(request: TTSRequest) -> StreamingResponse:

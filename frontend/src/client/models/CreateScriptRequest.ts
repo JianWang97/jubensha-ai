@@ -10,9 +10,10 @@ export type CreateScriptRequest = {
     description: string;
     player_count: number;
     estimated_duration?: (number | null);
-    difficulty_level?: (string | null);
+    difficulty?: (string | null);
     category?: (string | null);
     tags?: (Array<string> | null);
+    author?: (string | null);
     inspiration_type?: (string | null);
     inspiration_content?: (string | null);
     background_story?: (string | null);

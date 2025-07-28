@@ -1,7 +1,5 @@
 """剧本图片生成API路由"""
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Optional
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.db.repositories.character_repository import CharacterRepository
@@ -15,6 +13,7 @@ from io import BytesIO
 
 from random import randint
 from ...services.llm_service import llm_service, LLMMessage
+from ...schemas.image_generation_schemas import ImageGenerationRequestModel, ScriptCoverPromptRequest, ScriptResponse
 
 router = APIRouter(prefix="/api/scripts", tags=["剧本图片生成"])
 
@@ -29,30 +28,6 @@ def get_evidence_repository(db: Session = Depends(get_db_session)) -> EvidenceRe
 
 def get_location_repository(db: Session = Depends(get_db_session)) -> LocationRepository:
     return LocationRepository(db)
-# Pydantic模型用于API请求/响应
-class ImageGenerationRequestModel(BaseModel):
-    positive_prompt: str
-    negative_prompt: str = ""
-    script_id: int
-    target_id: int  # 证据/头像/场景的ID
-    width: int = 512
-    height: int = 720
-    steps: int = 20
-    cfg: float = 8.0
-    seed: Optional[int] = None
-
-class ScriptCoverPromptRequest(BaseModel):
-    """剧本封面提示词生成请求模型"""
-    script_title: str
-    script_description: str
-    script_tags: Optional[list] = None
-    difficulty: Optional[str] = None
-    style_preference: Optional[str] = None
-
-class ScriptResponse(BaseModel):
-    success: bool
-    message: str
-    data: Optional[dict] = None
 
 @router.post("/generate/cover", summary="生成封面图片")
 async def generate_cover_image(request: ImageGenerationRequestModel, script_repository: ScriptRepository = Depends(get_script_repository)):
@@ -75,7 +50,7 @@ async def generate_cover_image(request: ImageGenerationRequestModel, script_repo
         url = await storage_manager.upload_cover_image(
             BytesIO(response.image_data),
             response.filename
-        )
+        ) if response.image_data and response.filename else None
         
         if not url:
             raise HTTPException(status_code=500, detail="图片上传失败")
@@ -184,12 +159,12 @@ async def generate_avatar_image(request: ImageGenerationRequestModel,
         url = await storage_manager.upload_avatar_image(
             BytesIO(response.image_data),
             response.filename
-        )
+        ) if response.image_data and response.filename else None
         
         if not url:
             raise HTTPException(status_code=500, detail="图片上传失败")
         
-        success = character_repository.update_avatar_url(character.id, url)
+        success = character_repository.update_avatar_url(character.id, url) if character.id else False
         if not success:
             raise HTTPException(status_code=500, detail="更新角色头像URL失败")
         
@@ -228,13 +203,13 @@ async def generate_evidence_image(request: ImageGenerationRequestModel, evidence
         url = await storage_manager.upload_evidence_image(
             BytesIO(response.image_data),
             response.filename
-        )
+        ) if response.image_data and response.filename else None
         
         if not url:
             raise HTTPException(status_code=500, detail="图片上传失败")
         
         # 更新证据的图片URL
-        success = evidence_repository.update_evidence_image_url(evidence.id, url)
+        success = evidence_repository.update_evidence_image_url(evidence.id, url) if evidence.id else False
         if not success:
             raise HTTPException(status_code=500, detail="更新证据图片URL失败")
         
@@ -274,13 +249,13 @@ async def generate_scene_image(request: ImageGenerationRequestModel, location_re
         url = await storage_manager.upload_scene_image(
             BytesIO(response.image_data),
             response.filename
-        )
+        ) if response.image_data and response.filename else None
         
         if not url:
             raise HTTPException(status_code=500, detail="图片上传失败")
         
         # 更新场景的背景图片URL
-        success = location_repository.update_location_background_url(location.id, url)
+        success = location_repository.update_location_background_url(location.id, url) if location.id else False
         if not success:
             raise HTTPException(status_code=500, detail="更新场景背景图片URL失败")
         

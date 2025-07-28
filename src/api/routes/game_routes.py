@@ -1,16 +1,11 @@
 """游戏管理相关的API路由"""
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from typing import Optional
 
 from ...core.websocket_server import game_server
+from ...schemas.game_schemas import GameResponse
 
 router = APIRouter(prefix="/api/game", tags=["游戏管理"])
-
-class GameResponse(BaseModel):
-    success: bool
-    message: str
-    data: Optional[dict] = None
 
 def create_response(success: bool, message: str, data=None):
     """创建统一的响应格式"""
@@ -21,7 +16,7 @@ def create_response(success: bool, message: str, data=None):
     }
 
 @router.get("/status")
-async def get_game_status(session_id: str = None):
+async def get_game_status(session_id: str | None = None):
     """获取游戏状态API"""
     try:
         # 如果没有提供session_id，使用默认会话
@@ -32,8 +27,8 @@ async def get_game_status(session_id: str = None):
         session = game_server.get_or_create_session(session_id)
         
         # 确保游戏已初始化
-        if not session._game_initialized:
-            await game_server._initialize_game(session)
+        if not session.game_initialized:
+            await game_server.initialize_game(session)
         
         return {
             "success": True,
@@ -47,7 +42,7 @@ async def get_game_status(session_id: str = None):
         }
 
 @router.post("/start")
-async def start_game(session_id: str = None, script_id: int = 1):
+async def start_game(session_id: str | None = None, script_id: int = 1):
     """启动游戏API"""
     try:
         # 如果没有提供session_id，使用默认会话
@@ -60,7 +55,7 @@ async def start_game(session_id: str = None, script_id: int = 1):
         return create_response(False, f"Failed to start game: {str(e)}")
 
 @router.post("/reset")
-async def reset_game(session_id: str = None):
+async def reset_game(session_id: str | None = None):
     """重置游戏API"""
     try:
         # 如果没有提供session_id，使用默认会话

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/components/AppLayout';
 import AuthGuard from '@/components/AuthGuard';
-import scriptService, { GeneratedScriptInfo, CreateScriptRequest, CreatedScript } from '@/services/scriptService';
+import scriptService, { GeneratedScriptInfo, CreateScriptRequest, CreatedScript, GenerateScriptContentRequest } from '@/services/scriptService';
 import { toast } from 'sonner';
 
 interface InspirationOption {
@@ -62,6 +62,7 @@ export default function CreateScript() {
   const [generatedTheme, setGeneratedTheme] = useState('');
   const [isGeneratingInfo, setIsGeneratingInfo] = useState(false);
   const [generatedInfo, setGeneratedInfo] = useState<GeneratedScriptInfo | null>(null);
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   
   // 基础信息表单
   const [formData, setFormData] = useState({
@@ -132,6 +133,8 @@ export default function CreateScript() {
 
   const handleCreateScript = async () => {
     try {
+      setIsGeneratingContent(true);
+      
       // 准备创建剧本的数据
       const scriptData = {
         title: formData.title,
@@ -153,16 +156,35 @@ export default function CreateScript() {
       const response = await scriptService.createScript(scriptData);
       
       if (response && response.id) {
-        // 创建成功，跳转到编辑页面，传递剧本ID
+        toast.success('剧本创建成功！正在生成角色和证据...');
+        
+        // 自动生成角色和证据
+        try {
+          const theme = selectedInspiration === 'random-theme' ? generatedTheme : inspirationInput;
+          const contentRequest: GenerateScriptContentRequest = {
+            script_id: response.id,
+            theme: theme,
+            background_story: generatedInfo?.background || '',
+            player_count: parseInt(formData.playerCount),
+            script_type: formData.type
+          };
+          
+          const contentResponse = await scriptService.generateScriptContent(contentRequest);
+          
+          toast.success(`成功生成${contentResponse.characters.length}个角色和${contentResponse.evidence.length}个证据！`);
+        } catch (contentError) {
+          console.error('生成角色和证据失败:', contentError);
+          toast.warning('剧本创建成功，但角色和证据生成失败，您可以稍后手动添加');
+        }
+        
+        // 跳转到编辑页面
         router.push(`/script-manager/edit/${response.id}`);
-      } else {
-        // 如果没有返回ID，跳转到新建编辑页面
-        router.push('/script-manager/edit/new');
-      }
+      } 
     } catch (error) {
       console.error('创建剧本失败:', error);
-      // 即使创建失败，也跳转到编辑页面，让用户可以继续编辑
-      router.push('/script-manager/edit/new');
+      toast.error('创建剧本失败，请稍后重试');
+    } finally {
+      setIsGeneratingContent(false);
     }
   };
 
@@ -364,10 +386,19 @@ export default function CreateScript() {
         <Button 
           onClick={handleCreateScript}
           className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8"
-          disabled={!formData.title || !formData.type || !formData.playerCount}
+          disabled={!formData.title || !formData.type || !formData.playerCount || isGeneratingContent}
         >
-          开始创作
-          <ArrowRight className="w-5 h-5 ml-2" />
+          {isGeneratingContent ? (
+            <>
+              <div className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              正在生成角色和证据...
+            </>
+          ) : (
+            <>
+              开始创作
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </>
+          )}
         </Button>
       </div>
     </div>

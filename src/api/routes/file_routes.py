@@ -1,21 +1,14 @@
 """文件管理相关的API路由"""
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response, RedirectResponse
-from pydantic import BaseModel
-from typing import Optional
 from datetime import timedelta
 import io
 from urllib.parse import quote
 
 from ...core.storage import storage_manager
+from ...schemas.file_schemas import FileUploadResponse
 
 router = APIRouter(prefix="/api/files", tags=["文件管理"])
-
-class FileUploadResponse(BaseModel):
-    success: bool
-    message: str
-    file_url: Optional[str] = None
-    file_name: Optional[str] = None
 
 def create_response(success: bool, message: str, data=None):
     """创建统一的响应格式"""
@@ -95,7 +88,7 @@ async def upload_file(file: UploadFile = File(...), category: str = "general"):
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 @router.get("/list")
-async def list_files(category: Optional[str] = None):
+async def list_files(category: str | None = None):
     """获取文件列表API
     
     Args:
@@ -204,10 +197,10 @@ async def download_file(file_path: str):
                 storage_manager.config.bucket_name,
                 file_path,
                 expires=timedelta(hours=1)  # 1小时
-            )
+            ) if storage_manager.client else None
             
             # 重定向到预签名URL
-            return RedirectResponse(url=download_url)
+            return RedirectResponse(url=download_url or "")
             
         except Exception as e:
             raise HTTPException(status_code=404, detail=f"文件不存在或无法访问: {str(e)}")

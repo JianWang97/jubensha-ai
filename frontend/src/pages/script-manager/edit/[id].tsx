@@ -3,7 +3,8 @@ import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import EvidenceManager from '@/components/EvidenceManager';
 import CharacterManager from '@/components/CharacterManager';
-import { 
+import ChatEditor from '@/components/ChatEditor';
+import {
   ScriptsService,
   Service,
   ScriptInfo,
@@ -21,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
+import { useWebSocketStore } from '@/stores/websocketStore';
 
 // Tab类型定义
 type TabType = 'basic' | 'evidence' | 'characters' | 'locations' | 'background';
@@ -30,34 +32,34 @@ const ScriptEditPage = () => {
   const { id } = router.query;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const updateScript = async (scriptId: number, data: ScriptInfo) => {
     const response = await ScriptsService.updateScriptInfoApiScriptsScriptIdInfoPut(scriptId, data);
     return response.data;
   };
-  
+
   const getScriptWithDetail = async (scriptId: number) => {
     const response = await ScriptsService.getScriptApiScriptsScriptIdGet(scriptId);
     return response.data;
   };
-  
+
   const generateEvidenceImage = async (request: ImageGenerationRequestModel) => {
     const response = await Service.generateEvidenceImageApiScriptsGenerateEvidencePost(request);
     return response.data;
   };
-  
+
   const generateCoverImage = async (request: ImageGenerationRequestModel) => {
     const response = await Service.generateCoverImageApiScriptsGenerateCoverPost(request);
     return response.data;
   };
-  
+
   const generateScriptCoverPrompt = async (request: ScriptCoverPromptRequest) => {
     const response = await Service.generateScriptCoverPromptApiScriptsGenerateCoverPromptPost(request);
     return response.data;
   };
   const [script, setScript] = useState<Script | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('basic');
-  
+
   // 基础信息表单数据
   const [formData, setFormData] = useState({
     title: '',
@@ -70,7 +72,7 @@ const ScriptEditPage = () => {
     status: 'DRAFT' as ScriptStatus,
     cover_image_url: ''
   });
-  
+
   // 图片生成相关状态
   const [imageGeneration, setImageGeneration] = useState({
     positive_prompt: '',
@@ -81,9 +83,12 @@ const ScriptEditPage = () => {
     cfg_scale: 7,
     seed: -1
   });
-  
+
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+
+  // WebSocket连接
+  const { connect, disconnect, isConnected } = useWebSocketStore();
 
   const [backgroundStory, setBackgroundStory] = useState({
     main_story: '',
@@ -92,7 +97,7 @@ const ScriptEditPage = () => {
     murder_method: '',
     motive: ''
   });
-  
+
 
 
   // 获取脚本数据
@@ -103,7 +108,7 @@ const ScriptEditPage = () => {
         setError(null);
         try {
           const scriptData = await getScriptWithDetail(parseInt(id));
-          if(!scriptData){
+          if (!scriptData) {
             toast('剧本不存在');
             return;
           }
@@ -131,6 +136,19 @@ const ScriptEditPage = () => {
       fetchScript();
     }
   }, [id]);
+
+  // WebSocket连接管理
+  useEffect(() => {
+    if (id && typeof id === 'string') {
+      // 建立WebSocket连接，传入脚本ID
+      connect(undefined, parseInt(id));
+    }
+
+    // 组件卸载时断开连接
+    return () => {
+      disconnect();
+    };
+  }, [id, connect, disconnect]);
 
 
   // 处理表单提交
@@ -162,7 +180,7 @@ const ScriptEditPage = () => {
     const tags = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
     setFormData(prev => ({ ...prev, tags }));
   };
-  
+
   // 生成剧本封面提示词
   const handlePromptGeneration = async () => {
     if (!formData.title.trim() && !formData.description.trim()) {
@@ -179,7 +197,7 @@ const ScriptEditPage = () => {
         difficulty: formData.difficulty,
         style_preference: '电影级别，高质量，专业摄影'
       };
-      
+
       const result = await generateScriptCoverPrompt(request);
       if (result && result.prompt) {
         setImageGeneration(prev => ({ ...prev, positive_prompt: result.prompt }));
@@ -220,7 +238,7 @@ const ScriptEditPage = () => {
         cfg: imageGeneration.cfg_scale,
         seed: imageGeneration.seed
       };
-      
+
       const result = await generateCoverImage(request);
       if (result && result.url) {
         setFormData(prev => ({ ...prev, cover_image_url: result.url }));
@@ -263,7 +281,7 @@ const ScriptEditPage = () => {
         <Card className="bg-gradient-to-br from-slate-800/90 via-red-900/90 to-slate-800/90 backdrop-blur-md border-red-500/30">
           <CardContent className="p-8 text-center">
             <div className="text-red-300 text-lg mb-4">❌ 错误: {error}</div>
-            <Button 
+            <Button
               onClick={() => router.push('/script-manager')}
               variant="secondary"
             >
@@ -371,7 +389,7 @@ const ScriptEditPage = () => {
                 </SelectContent>
               </Select>
             </div>
-        </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-purple-200 mb-2">
@@ -399,20 +417,20 @@ const ScriptEditPage = () => {
               className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
             />
           </div>
-          
+
           {/* 封面图片区域 */}
           <div className="space-y-4">
             <label className="block text-sm font-medium text-purple-200 mb-2">
               🖼️ 封面图片
             </label>
-            
+
             {/* 当前封面图片预览 */}
             <div className="mb-4">
               {formData.cover_image_url ? (
                 <div className="w-full max-w-md">
                   <div className="relative group">
-                    <img 
-                      src={formData.cover_image_url} 
+                    <img
+                      src={formData.cover_image_url}
                       alt="剧本封面"
                       className="w-full h-48 object-cover rounded-lg border border-purple-500/30 bg-slate-800"
                       onError={(e) => {
@@ -433,7 +451,7 @@ const ScriptEditPage = () => {
                 </div>
               )}
             </div>
-            
+
             {/* 手动输入图片URL */}
             <div>
               <label className="block text-sm font-medium text-purple-200 mb-2">
@@ -447,13 +465,13 @@ const ScriptEditPage = () => {
                 className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
               />
             </div>
-            
+
             {/* AI图片生成区域 */}
             <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl p-6 border border-purple-500/20">
               <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
                 🎨 AI封面生成
               </h4>
-              
+
               <div className="space-y-4">
                 {/* 正向提示词 */}
                 <div>
@@ -488,7 +506,7 @@ const ScriptEditPage = () => {
                     className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
                   />
                 </div>
-                
+
                 {/* 反向提示词 */}
                 <div>
                   <label className="block text-sm font-medium text-purple-200 mb-2">
@@ -502,15 +520,15 @@ const ScriptEditPage = () => {
                     className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
                   />
                 </div>
-                
+
                 {/* 图片参数 */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-purple-200 mb-2">
                       📐 尺寸
                     </label>
-                    <Select 
-                      value={`${imageGeneration.width}x${imageGeneration.height}`} 
+                    <Select
+                      value={`${imageGeneration.width}x${imageGeneration.height}`}
                       onValueChange={(value) => {
                         const [width, height] = value.split('x').map(Number);
                         setImageGeneration(prev => ({ ...prev, width, height }));
@@ -527,7 +545,7 @@ const ScriptEditPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-purple-200 mb-2">
                       🔢 步数
@@ -541,7 +559,7 @@ const ScriptEditPage = () => {
                       className="bg-slate-800/50 border-purple-500/30 text-purple-100"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-purple-200 mb-2">
                       ⚖️ CFG
@@ -556,7 +574,7 @@ const ScriptEditPage = () => {
                       className="bg-slate-800/50 border-purple-500/30 text-purple-100"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-purple-200 mb-2">
                       🎲 种子
@@ -569,7 +587,7 @@ const ScriptEditPage = () => {
                     />
                   </div>
                 </div>
-                
+
                 {/* 生成按钮 */}
                 <div className="flex justify-end">
                   <Button
@@ -659,7 +677,7 @@ const ScriptEditPage = () => {
               placeholder="描述剧本的主要故事背景..."
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-purple-200 mb-2">
               ⏰ 时间线
@@ -672,7 +690,7 @@ const ScriptEditPage = () => {
               placeholder="描述事件发生的时间顺序..."
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-purple-200 mb-2">
               🎯 关键事件
@@ -706,7 +724,7 @@ const ScriptEditPage = () => {
               <p className="text-purple-300/70 text-sm">{script?.info.title || '加载中...'}</p>
             </div>
           </div>
-          <Button 
+          <Button
             onClick={() => router.push('/script-manager')}
             variant="secondary"
             className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 text-white flex items-center gap-2"
@@ -716,38 +734,70 @@ const ScriptEditPage = () => {
         </div>
       </div>
 
-      {/* Tab导航和内容 */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-purple-500/30">
-          {tabs.map((tab) => (
-            <TabsTrigger 
-              key={tab.key} 
-              value={tab.key}
-              className="data-[state=active]:bg-purple-600 data-[state=active]:text-white text-purple-200"
-            >
-              <span className="mr-2">{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        
-        <div className="mt-6">
-          {activeTab === 'basic' && <BasicInfoTab />}
-          {activeTab === 'evidence' && (
-            <EvidenceManager 
-              generateEvidenceImage={generateEvidenceImage}
-              scriptId={id as string}
-            />
-          )}
-          {activeTab === 'characters' && (
-            <CharacterManager 
-              scriptId={id as string}
-            />
-          )}
-          {activeTab === 'locations' && <LocationsTab />}
-          {activeTab === 'background' && <BackgroundTab />}
+      {/* 左右分栏布局 */}
+      <div className="flex gap-6 min-h-[800px]">
+        {/* 左侧：对话编辑 */}
+        <div className="w-1/3 min-w-[400px]">
+          <ChatEditor
+            scriptId={id as string}
+            onScriptUpdate={(updatedScript) => {
+              // 更新本地剧本状态
+              setScript(updatedScript);
+              if (updatedScript.info) {
+                setFormData({
+                  title: updatedScript.info.title || '',
+                  description: updatedScript.info.description || '',
+                  author: updatedScript.info.author || '',
+                  player_count: updatedScript.info.player_count || 0,
+                  duration_minutes: updatedScript.info.duration_minutes || 0,
+                  difficulty: updatedScript.info.difficulty || '',
+                  tags: updatedScript.info.tags || [],
+                  status: (updatedScript.info.status as ScriptStatus) || ScriptStatus.DRAFT,
+                  cover_image_url: updatedScript.info.cover_image_url || ''
+                });
+              }
+            }}
+          />
         </div>
-      </Tabs>
+
+        {/* 右侧：Tab 信息 */}
+        <div className="flex-1">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-purple-500/30 flex-shrink-0">
+              {tabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                  className="data-[state=active]:bg-purple-600 data-[state=active]:text-white text-purple-200"
+                >
+                  <span className="mr-2">{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <div className="mt-6 flex-1 rounded-lg overflow-y-auto max-h-[700px]">
+              
+                {activeTab === 'basic' && <BasicInfoTab />}
+                {activeTab === 'evidence' && (
+                  <EvidenceManager
+                    generateEvidenceImage={generateEvidenceImage}
+                    scriptId={id as string}
+                  />
+                )}
+                {activeTab === 'characters' && (
+                  <CharacterManager
+                    scriptId={id as string}
+                  />
+                )}
+                {activeTab === 'locations' && <LocationsTab />}
+                {activeTab === 'background' && <BackgroundTab />}
+            
+
+            </div>
+          </Tabs>
+        </div>
+      </div>
     </Layout>
   );
 };

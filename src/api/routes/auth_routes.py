@@ -5,18 +5,15 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from src.db.session import get_db_session
 from src.services.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
-from src.core.auth_dependencies import get_current_user, get_current_active_user
+from src.core.auth_dependencies import get_current_active_user
 from src.core.middleware_dependencies import (
-    get_current_active_user_middleware, 
     get_current_admin_user_middleware,
-    get_optional_current_user_middleware
 )
 from src.schemas.user_schemas import (
     UserRegister, UserLogin, UserResponse, UserUpdate, PasswordChange,
     Token, UserBrief
 )
 from src.db.models.user import User
-from typing import List
 
 router = APIRouter(prefix="/api/auth", tags=["用户认证"])
 security = HTTPBearer()
@@ -63,7 +60,7 @@ async def login(
         )
     
     # 检查用户是否激活
-    if not user.is_active:
+    if user.is_active is False:  # 使用显式字段比较，避免SQLAlchemy布尔比较问题
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户账户已被禁用",
@@ -73,12 +70,12 @@ async def login(
     # 创建访问令牌
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = AuthService.create_access_token(
-        data={"sub": user.username, "user_id": user.id},
+        data={"sub": user.username, "user_id": getattr(user, 'id')},  # 获取实际的id值
         expires_delta=access_token_expires
     )
-    
+        
     # 更新最后登录时间
-    AuthService.update_last_login(db, int(user.id))
+    AuthService.update_last_login(db, getattr(user, 'id'))  # 获取实际的id值
     
     return Token(
         access_token=access_token,
@@ -108,7 +105,7 @@ async def update_profile(
         # 更新用户资料
         updated_user = AuthService.update_user_profile(
             db=db,
-            user_id=int(current_user.id),
+            user_id=getattr(current_user, 'id'),  # 获取实际的id值
             nickname=user_update.nickname,
             bio=user_update.bio,
             avatar_url=user_update.avatar_url
@@ -135,18 +132,18 @@ async def change_password(
         # 修改密码
         success = AuthService.change_password(
             db=db,
-            user_id=int(current_user.id),
+            user_id=getattr(current_user, 'id'),  # 获取实际的id值
             old_password=password_data.old_password,
             new_password=password_data.new_password
         )
         
-        if success:
-            return {"message": "密码修改成功"}
-        else:
+        if not success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="密码修改失败"
             )
+            
+        return {"message": "密码修改成功"}
             
     except HTTPException:
         raise
@@ -165,7 +162,7 @@ async def logout(
     # 这里只是提供一个登出端点，可以用于记录日志等
     return {"message": "登出成功"}
 
-@router.get("/users", response_model=List[UserBrief], summary="获取用户列表")
+@router.get("/users", response_model=list[UserBrief], summary="获取用户列表")
 async def get_users(
     request: Request,
     skip: int = 0,
@@ -192,7 +189,8 @@ async def get_user_by_id(
             detail="用户不存在"
         )
     
-    if not user.is_active:
+    # 检查用户是否激活
+    if user.is_active is False:  # 使用显式字段比较，避免SQLAlchemy布尔比较问题
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"

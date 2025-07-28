@@ -163,6 +163,117 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         set({ gameState: null });
         break;
 
+      case 'instruction_processing':
+        // 指令处理中
+        console.log('指令处理中:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'instruction_processing',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'edit_result':
+        // 单个编辑操作结果
+        console.log('编辑操作结果:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'edit_result',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'instruction_completed':
+        // 指令完成
+        console.log('指令完成:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'instruction_completed',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'script_data_update':
+        // 剧本数据更新
+        console.log('剧本数据更新:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'script_data_update',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'script_editing_started':
+        // 编辑模式开始
+        console.log('编辑模式开始:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'script_editing_started',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'script_editing_stopped':
+        // 编辑模式停止
+        console.log('编辑模式停止:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'script_editing_stopped',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'ai_suggestion':
+        // AI建议
+        console.log('AI建议:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'ai_suggestion',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'ai_suggestion_generating':
+        // AI建议生成中
+        console.log('AI建议生成中:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'ai_suggestion_generating',
+            data: message.data
+          }
+        }));
+        break;
+
+      case 'script_edit_result':
+        // 剧本编辑结果处理（保持向后兼容）
+        console.log('剧本编辑结果:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: message
+        }));
+        break;
+
+      case 'script_edit_error':
+        // 剧本编辑错误处理（保持向后兼容）
+        console.error('剧本编辑错误:', message.data);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'script_edit_error',
+            data: {
+              success: false,
+              message: message.data?.message || '编辑操作失败',
+              message_id: message.data?.message_id
+            }
+          }
+        }));
+        break;
+
       case 'error':
         console.error('游戏错误:', message.message);
         break;
@@ -227,6 +338,17 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     ws.onopen = () => {
       console.log('WebSocket连接已建立');
       set({ isConnected: true });
+      
+      // 如果有scriptId，自动启动编辑模式
+      if (scriptId) {
+        console.log('自动启动剧本编辑模式, script_id:', scriptId);
+        setTimeout(() => {
+          get().sendMessage({
+            type: 'start_script_editing',
+            script_id: scriptId
+          });
+        }, 100); // 稍微延迟确保连接稳定
+      }
     };
 
     ws.onmessage = (event) => {

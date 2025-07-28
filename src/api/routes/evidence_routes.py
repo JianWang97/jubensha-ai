@@ -1,6 +1,5 @@
 """证据管理API路由"""
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Optional, List
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from ...db.repositories import EvidenceRepository
@@ -8,51 +7,37 @@ from ...core.storage import storage_manager
 from ...services.llm_service import llm_service
 from ...db.session import get_db_session
 from ...schemas.script import ScriptEvidence
+from ...schemas.script_evidence import EvidenceType
+from ...schemas.evidence_schemas import EvidenceCreateRequest, EvidenceUpdateRequest, EvidencePromptRequest, ScriptResponse
+
 router = APIRouter(prefix="/api/evidence", tags=["证据管理"])
 
 def get_evidence_repository(db: Session = Depends(get_db_session)) -> EvidenceRepository:
     return EvidenceRepository(db)
 
-# Pydantic模型用于API请求/响应
-class EvidenceCreateRequest(BaseModel):
-    name: str
-    description: str
-    image_url: Optional[str] = None
-    is_public: bool = True
-    discovery_condition: Optional[str] = None
-    related_characters: Optional[List[int]] = None
-
-class EvidenceUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    image_url: Optional[str] = None
-    is_public: Optional[bool] = None
-    discovery_condition: Optional[str] = None
-    related_characters: Optional[List[int]] = None
-    importance: Optional[str] = None
-
-class EvidencePromptRequest(BaseModel):
-    evidence_name: str
-    evidence_description: str
-    script_theme: Optional[str] = None
-    style_preference: Optional[str] = None
-
-class ScriptResponse(BaseModel):
-    success: bool
-    message: str
-    data: Optional[dict] = None
-
 @router.post("/{script_id}/evidence", summary="创建证据")
 async def create_evidence(script_id: int, request: EvidenceCreateRequest, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
     """为指定剧本创建新证据"""
     try:
-
         # 创建证据对象
-        
-        request.script_id = script_id
+        evidence_data = ScriptEvidence(
+            script_id=request.script_id,
+            name=request.name,
+            description=request.description,
+            image_url=request.image_url,
+            location="",  # 从请求中没有提供
+            related_to="",  # 从请求中没有提供
+            significance="",  # 从请求中没有提供
+            evidence_type=EvidenceType.PHYSICAL,  # 默认值
+            importance="重要证据",  # 默认值
+            is_hidden=False,  # 默认值
+            id=None,
+            created_at=None,
+            updated_at=None
+        )
         
         # 添加证据
-        evidence = evidence_repository.add_evidence(request)
+        evidence = evidence_repository.add_evidence(evidence_data)
         evidence_id = evidence.id
         
         if not evidence_id:

@@ -49,9 +49,9 @@ class User(BaseSQLAlchemyModel):
             'is_active': self.is_active,
             'is_verified': self.is_verified,
             'is_admin': self.is_admin,
-            'last_login_at': self.last_login_at.isoformat() if self.last_login_at else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_login_at': self.last_login_at.isoformat() if self.last_login_at is not None else None,  # 修复：明确检查None
+            'created_at': self.created_at.isoformat() if self.created_at is not None else None,  # 修复：明确检查None
+            'updated_at': self.updated_at.isoformat() if self.updated_at is not None else None,  # 修复：明确检查None
             'hashed_password': self.hashed_password,
         }
         

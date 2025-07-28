@@ -301,3 +301,7 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
         
         setattr(db_script, 'cover_image_url', cover_image_url)
         return True
+    
+    def update_script(self, script_id: int, script: Script) -> Optional[Script]:
+        """更新剧本（script_editor_service使用的方法）"""
+        return self.update_complete_script(script_id, script)

@@ -10,6 +10,7 @@ from src.core.websocket_server import game_server
 
 # 导入剧本管理相关路由
 from src.api.routes.script_routes import router as script_management_router
+from src.api.routes.script_editor_routes import router as script_editor_router
 from src.api.routes.image_generation_routes import router as image_generation_router
 from src.api.routes.evidence_routes import router as evidence_router
 from src.api.routes.character_routes import router as character_router
@@ -81,6 +82,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 注册剧本管理相关路由
 app.include_router(script_management_router)
+app.include_router(script_editor_router)
 app.include_router(image_generation_router)
 app.include_router(evidence_router)
 app.include_router(character_router)

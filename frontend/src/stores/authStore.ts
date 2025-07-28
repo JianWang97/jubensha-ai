@@ -38,6 +38,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true, error: null });
           const response = await authService.login(credentials);
+          
+          // 保存token到localStorage
+          authService.setToken(response.access_token);
+          
           set({
             user: response.user,
             isAuthenticated: true,

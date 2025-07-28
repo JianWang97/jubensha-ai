@@ -31,7 +31,7 @@ class ConversationFlowController:
                                  available_characters: List[str], 
                                  game_state: Dict[str, Any], 
                                  phase: GamePhase,
-                                 recent_chat: List[Dict[str, Any]]) -> str:
+                                 recent_chat: List[Dict[str, Any]]) -> Optional[str]:
         """智能选择下一个说话的角色"""
         
         if not available_characters:

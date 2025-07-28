@@ -1,7 +1,6 @@
 """场景管理API路由"""
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, List
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from ...db.repositories import LocationRepository
 from ...db.repositories import ScriptRepository
@@ -9,6 +8,7 @@ from ...services.llm_service import llm_service
 from ...schemas.script import ScriptLocation
 from ...db.session import get_db_session
 from datetime import datetime
+from ...schemas.location_schemas import LocationCreateRequest, LocationUpdateRequest, ScriptResponse
 
 router = APIRouter(prefix="/api/locations", tags=["场景管理"])
 
@@ -18,49 +18,14 @@ def get_location_repository(db: Session = Depends(get_db_session)) -> LocationRe
 def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
     return ScriptRepository(db)
 
-# Pydantic模型用于API请求/响应
-class LocationCreateRequest(BaseModel):
-    name: str
-    description: str
-    background_url: Optional[str] = None
-    atmosphere: Optional[str] = None
-    available_actions: Optional[List[str]] = None
-    connected_locations: Optional[List[int]] = None
-    hidden_clues: Optional[List[str]] = None
-    access_conditions: Optional[str] = None
-
-class LocationUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    background_url: Optional[str] = None
-    atmosphere: Optional[str] = None
-    available_actions: Optional[List[str]] = None
-    connected_locations: Optional[List[int]] = None
-    hidden_clues: Optional[List[str]] = None
-    access_conditions: Optional[str] = None
-
-class ScriptResponse(BaseModel):
-    success: bool
-    message: str
-    data: Optional[dict] = None
 
 @router.post("/{script_id}/locations", summary="创建场景")
 async def create_location(script_id: int, request: ScriptLocation, location_repository: LocationRepository = Depends(get_location_repository)):
     """为指定剧本创建新场景"""
     try:
         
-        # 准备场景数据
-        location_data = {
-            "script_id": script_id,
-            "name": request.name,
-            "description": request.description,
-            "searchable_items": [],  # 默认为空列表
-            "background_image_url": request.background_image_url,
-            "is_crime_scene": False  # 默认为非案发现场
-        }
-        
         # 添加场景
-        location = location_repository.add_location(location_data)
+        location = location_repository.add_location(request)
         location_id = location.id
         
         if not location_id:
@@ -145,7 +110,7 @@ async def get_locations(script_id: int,
                 "script_id": location.script_id,
                 "name": location.name,
                 "description": location.description,
-                "searchable_items": location.searchable_items,
+                "searchable_items": list(location.searchable_items) if location.searchable_items else [],
                 "background_image_url": location.background_image_url,
                 "is_crime_scene": location.is_crime_scene
             })

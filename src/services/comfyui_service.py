@@ -44,7 +44,7 @@ class ImageGenerationResponse:
 class ComfyUIService:
     """ComfyUI图像生成服务"""
     
-    def __init__(self, server_address: str = "127.0.0.1:8188", workflow_file: str = "Epicrealismxl_Hades.json"):
+    def __init__(self, server_address: str = "192.168.2.111:8188", workflow_file: str = "Epicrealismxl_Hades.json"):
         self.server_address = server_address
         self.workflow_file = workflow_file
         self.base_workflow = self._load_base_workflow()

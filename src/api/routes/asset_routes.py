@@ -20,7 +20,7 @@ async def get_assets(path: str):
         if result is None:
             raise HTTPException(status_code=404, detail="文件未找到")
         
-        file_content, content_type = result
+        file_content, content_type = result  
         
         # 返回文件内容
         return Response(

@@ -2,23 +2,32 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { APIResponse_BatchEditResponse_ } from '../models/APIResponse_BatchEditResponse_';
 import type { APIResponse_dict_ } from '../models/APIResponse_dict_';
+import type { APIResponse_Dict_str__Any__ } from '../models/APIResponse_Dict_str__Any__';
+import type { APIResponse_EditResultResponse_ } from '../models/APIResponse_EditResultResponse_';
 import type { APIResponse_List_ScriptCharacter__ } from '../models/APIResponse_List_ScriptCharacter__';
+import type { APIResponse_ParsedInstructionsResponse_ } from '../models/APIResponse_ParsedInstructionsResponse_';
 import type { APIResponse_ScriptCharacter_ } from '../models/APIResponse_ScriptCharacter_';
+import type { APIResponse_str_ } from '../models/APIResponse_str_';
+import type { BatchEditRequest } from '../models/BatchEditRequest';
 import type { Body_upload_file_api_files_upload_post } from '../models/Body_upload_file_api_files_upload_post';
 import type { CharacterCreateRequest } from '../models/CharacterCreateRequest';
 import type { CharacterPromptRequest } from '../models/CharacterPromptRequest';
 import type { CharacterUpdateRequest } from '../models/CharacterUpdateRequest';
+import type { EvidenceCreateRequest } from '../models/EvidenceCreateRequest';
 import type { EvidencePromptRequest } from '../models/EvidencePromptRequest';
 import type { EvidenceUpdateRequest } from '../models/EvidenceUpdateRequest';
+import type { ExecuteInstructionRequest } from '../models/ExecuteInstructionRequest';
 import type { GameHistoryResponse } from '../models/GameHistoryResponse';
 import type { GameParticipantResponse } from '../models/GameParticipantResponse';
 import type { GameSessionCreate } from '../models/GameSessionCreate';
 import type { GameSessionResponse } from '../models/GameSessionResponse';
+import type { GenerateSuggestionRequest } from '../models/GenerateSuggestionRequest';
 import type { ImageGenerationRequestModel } from '../models/ImageGenerationRequestModel';
+import type { ParseInstructionRequest } from '../models/ParseInstructionRequest';
 import type { PasswordChange } from '../models/PasswordChange';
 import type { ScriptCoverPromptRequest } from '../models/ScriptCoverPromptRequest';
-import type { ScriptEvidence } from '../models/ScriptEvidence';
 import type { ScriptLocation } from '../models/ScriptLocation';
 import type { Token } from '../models/Token';
 import type { TTSRequest } from '../models/TTSRequest';
@@ -31,6 +40,128 @@ import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class Service {
+    /**
+     * Parse Instruction
+     * 解析用户的自然语言指令
+     * @param requestBody
+     * @returns APIResponse_ParsedInstructionsResponse_ Successful Response
+     * @throws ApiError
+     */
+    public static parseInstructionApiScriptEditorParseInstructionPost(
+        requestBody: ParseInstructionRequest,
+    ): CancelablePromise<APIResponse_ParsedInstructionsResponse_> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/script-editor/parse-instruction',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Execute Instruction
+     * 执行单个编辑指令
+     * @param requestBody
+     * @returns APIResponse_EditResultResponse_ Successful Response
+     * @throws ApiError
+     */
+    public static executeInstructionApiScriptEditorExecuteInstructionPost(
+        requestBody: ExecuteInstructionRequest,
+    ): CancelablePromise<APIResponse_EditResultResponse_> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/script-editor/execute-instruction',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Batch Edit
+     * 批量执行编辑指令
+     * @param requestBody
+     * @returns APIResponse_BatchEditResponse_ Successful Response
+     * @throws ApiError
+     */
+    public static batchEditApiScriptEditorBatchEditPost(
+        requestBody: BatchEditRequest,
+    ): CancelablePromise<APIResponse_BatchEditResponse_> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/script-editor/batch-edit',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Generate Suggestion
+     * 生成AI编辑建议
+     * @param requestBody
+     * @returns APIResponse_str_ Successful Response
+     * @throws ApiError
+     */
+    public static generateSuggestionApiScriptEditorGenerateSuggestionPost(
+        requestBody: GenerateSuggestionRequest,
+    ): CancelablePromise<APIResponse_str_> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/script-editor/generate-suggestion',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Editing Context
+     * 获取剧本编辑上下文信息
+     * @param scriptId
+     * @returns APIResponse_Dict_str__Any__ Successful Response
+     * @throws ApiError
+     */
+    public static getEditingContextApiScriptEditorScriptScriptIdEditingContextGet(
+        scriptId: number,
+    ): CancelablePromise<APIResponse_Dict_str__Any__> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/script-editor/script/{script_id}/editing-context',
+            path: {
+                'script_id': scriptId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Validate Script
+     * 验证剧本完整性
+     * @param scriptId
+     * @returns APIResponse_Dict_str__Any__ Successful Response
+     * @throws ApiError
+     */
+    public static validateScriptApiScriptEditorScriptScriptIdValidationGet(
+        scriptId: number,
+    ): CancelablePromise<APIResponse_Dict_str__Any__> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/script-editor/script/{script_id}/validation',
+            path: {
+                'script_id': scriptId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
     /**
      * 生成封面图片
      * 生成剧本封面图片
@@ -141,7 +272,7 @@ export class Service {
      */
     public static createEvidenceApiEvidenceScriptIdEvidencePost(
         scriptId: number,
-        requestBody: ScriptEvidence,
+        requestBody: EvidenceCreateRequest,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',

@@ -84,7 +84,10 @@ const GamePage = () => {
 
   // 获取场景背景图片
   const getSceneBackground = () => {
-    // 使用默认的背景图片
+    // 优先使用剧本封面图片，如果没有则使用默认背景
+    if (selectedScript?.info.cover_image_url) {
+      return selectedScript.info.cover_image_url;
+    }
     return '/background.png';
   };
 
