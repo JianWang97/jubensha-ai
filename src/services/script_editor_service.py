@@ -162,10 +162,13 @@ class ScriptEditorService:
   "action": "update",
   "target": "story",
   "content": {
-    "story": "用户提供的新故事内容或指令"
+    "story": "用户提供的新故事内容或指令",
+    "generate_missing": true
   },
   "description": "更新背景故事"
 }]
+
+注意：对于背景故事更新，如果用户没有明确说明只更新特定字段，应该在content中添加"generate_missing": true，这样系统会智能生成其他相关的背景故事字段。
 
 如果用户的指令信息不够详细，请根据剧本背景和常识进行合理补充，确保所有必填字段都有实际内容。"""
         
@@ -205,12 +208,14 @@ class ScriptEditorService:
             instructions_data = json.loads(response.content.strip())
             
             # 验证并转换为EditInstruction对象
-            instructions = []
+            instructions: List[EditInstruction] = []
             if isinstance(instructions_data, list):
                 for item in instructions_data:
-                    instructions.append(EditInstruction(**item))
+                    if isinstance(item, dict):
+                        instructions.append(EditInstruction(**item))
             else:
-                instructions.append(EditInstruction(**instructions_data))
+                if isinstance(instructions_data, dict):
+                    instructions.append(EditInstruction(**instructions_data))
             
             return instructions
             
@@ -252,7 +257,7 @@ class ScriptEditorService:
                     content={
                         "name": "新角色",
                         "profession": "待定职业",
-                        "background": "这是一个神秘的角色，背景有待进一步完善。他/她在剧本中扮演着重要的作用，与其他角色有着复杂的关系。",
+                        "background": "这是一个神秘的角色，背景有待进一步完善。他/他在剧本中扮演着的重要性，与其他角色有着复杂的关系。",
                         "secret": "这个角色隐藏着一个重要的秘密，这个秘密可能与案件的真相有关。",
                         "objective": "角色的具体目标需要根据剧本发展来确定。",
                         "gender": "中性",
@@ -349,7 +354,10 @@ class ScriptEditorService:
             return [EditInstruction(
                 action="update",
                 target="story",
-                content={"story": instruction},
+                content={
+                    "story": instruction,
+                    "generate_missing": True
+                },
                 description="更新背景故事"
             )]
         
@@ -433,26 +441,33 @@ class ScriptEditorService:
             # 添加新角色
             character_data = {
                 "script_id": script.info.id,
-                "name": instruction.content.get("name", "新角色"),
-                "profession": instruction.content.get("profession", ""),
-                "background": instruction.content.get("background", ""),
-                "secret": instruction.content.get("secret", ""),
-                "objective": instruction.content.get("objective", ""),
-                "gender": instruction.content.get("gender", "中性"),
-                "personality_traits": instruction.content.get("personality_traits", []),
-                "is_murderer": instruction.content.get("is_murderer", False),
-                "is_victim": instruction.content.get("is_victim", False)
+                "name": str(instruction.content.get("name", "新角色")),
+                "profession": str(instruction.content.get("profession", "")),
+                "background": str(instruction.content.get("background", "")),
+                "secret": str(instruction.content.get("secret", "")),
+                "objective": str(instruction.content.get("objective", "")),
+                "gender": str(instruction.content.get("gender", "中性")),
+                "personality_traits": list(instruction.content.get("personality_traits", [])),
+                "is_murderer": bool(instruction.content.get("is_murderer", False)),
+                "is_victim": bool(instruction.content.get("is_victim", False))
             }
             
             # 添加可选字段
-            if instruction.content.get("age"):
-                character_data["age"] = instruction.content.get("age")
-            if instruction.content.get("avatar_url"):
-                character_data["avatar_url"] = instruction.content.get("avatar_url")
-            if instruction.content.get("voice_preference"):
-                character_data["voice_preference"] = instruction.content.get("voice_preference")
-            if instruction.content.get("voice_id"):
-                character_data["voice_id"] = instruction.content.get("voice_id")
+            age = instruction.content.get("age")
+            if age is not None:
+                character_data["age"] = int(age) if isinstance(age, (int, str)) and str(age).isdigit() else None
+            
+            avatar_url = instruction.content.get("avatar_url")
+            if avatar_url:
+                character_data["avatar_url"] = str(avatar_url)
+                
+            voice_preference = instruction.content.get("voice_preference")
+            if voice_preference:
+                character_data["voice_preference"] = str(voice_preference)
+                
+            voice_id = instruction.content.get("voice_id")
+            if voice_id:
+                character_data["voice_id"] = str(voice_id)
             
             logger.info(f"[CHARACTER_EDIT] 准备添加角色数据: {character_data}")
             
@@ -541,21 +556,31 @@ class ScriptEditorService:
         
         if instruction.action == "add":
             # 添加新证据
+            evidence_type_value = instruction.content.get("evidence_type", "PHYSICAL")
+            if isinstance(evidence_type_value, str):
+                try:
+                    evidence_type = EvidenceType(evidence_type_value)
+                except ValueError:
+                    evidence_type = EvidenceType.PHYSICAL
+            else:
+                evidence_type = EvidenceType.PHYSICAL
+                
             evidence_data = {
                 "script_id": script.info.id,
-                "name": instruction.content.get("name", "新证据"),
-                "description": instruction.content.get("description", ""),
-                "location": instruction.content.get("location", ""),
-                "related_to": instruction.content.get("related_to", ""),
-                "significance": instruction.content.get("significance", ""),
-                "evidence_type": EvidenceType(instruction.content.get("evidence_type", "PHYSICAL")),
-                "importance": instruction.content.get("importance", "重要证据"),
-                "is_hidden": instruction.content.get("is_hidden", False)
+                "name": str(instruction.content.get("name", "新证据")),
+                "description": str(instruction.content.get("description", "")),
+                "location": str(instruction.content.get("location", "")),
+                "related_to": str(instruction.content.get("related_to", "")),
+                "significance": str(instruction.content.get("significance", "")),
+                "evidence_type": evidence_type,
+                "importance": str(instruction.content.get("importance", "重要证据")),
+                "is_hidden": bool(instruction.content.get("is_hidden", False))
             }
             
             # 添加可选字段
-            if instruction.content.get("image_url"):
-                evidence_data["image_url"] = instruction.content.get("image_url")
+            image_url = instruction.content.get("image_url")
+            if image_url:
+                evidence_data["image_url"] = str(image_url)
             
             logger.info(f"[EVIDENCE_EDIT] 准备添加证据数据: {evidence_data}")
             
@@ -649,15 +674,16 @@ class ScriptEditorService:
             # 添加新场景
             location_data = {
                 "script_id": script.info.id,
-                "name": instruction.content.get("name", "新场景"),
-                "description": instruction.content.get("description", ""),
-                "searchable_items": instruction.content.get("searchable_items", []),
-                "is_crime_scene": instruction.content.get("is_crime_scene", False)
+                "name": str(instruction.content.get("name", "新场景")),
+                "description": str(instruction.content.get("description", "")),
+                "searchable_items": list(instruction.content.get("searchable_items", [])),
+                "is_crime_scene": bool(instruction.content.get("is_crime_scene", False))
             }
             
             # 添加可选字段
-            if instruction.content.get("background_image_url"):
-                location_data["background_image_url"] = instruction.content.get("background_image_url")
+            background_image_url = instruction.content.get("background_image_url")
+            if background_image_url:
+                location_data["background_image_url"] = str(background_image_url)
             
             logger.info(f"[LOCATION_EDIT] 准备添加场景数据: {location_data}")
             
@@ -754,6 +780,16 @@ class ScriptEditorService:
             for key, value in instruction.content.items():
                 if hasattr(script.info, key) and key not in ["id", "author", "created_at", "updated_at"]:
                     old_value = getattr(script.info, key)
+                    # 根据字段类型进行适当的类型转换
+                    if key == "player_count" and value is not None:
+                        value = int(value) if isinstance(value, (int, str)) and str(value).isdigit() else old_value
+                    elif key in ["title", "description", "difficulty", "theme", "tags"] and value is not None:
+                        value = str(value)
+                    elif key == "estimated_duration" and value is not None:
+                        value = int(value) if isinstance(value, (int, str)) and str(value).isdigit() else old_value
+                    elif key in ["is_published", "is_featured"] and value is not None:
+                        value = bool(value)
+                    
                     setattr(script.info, key, value)
                     updated_fields.append(f"{key}: {old_value} -> {value}")
             
@@ -773,33 +809,157 @@ class ScriptEditorService:
         """处理背景故事相关指令"""
         logger.info(f"[STORY_EDIT] 处理背景故事指令 - 操作: {instruction.action}")
         
-        # 这里可以扩展背景故事的处理逻辑
-        # 目前简单地更新剧本描述
+        # 导入背景故事相关模块
+        from ..schemas.background_story import BackgroundStory
+        
         if instruction.action == "update" or instruction.action == "modify":
-            old_description = script.info.description
-            
-            # 检查content中是否有story字段，如果没有则使用整个指令内容
-            if "story" in instruction.content:
-                new_story = instruction.content["story"]
-            else:
-                # 如果用户直接输入了新的故事内容，使用description字段或整个content
-                new_story = instruction.content.get("description", str(instruction.content))
-            
-            logger.info(f"[STORY_EDIT] 背景故事更新: {old_description[:100] if old_description else '无'}... -> {new_story[:100]}...")
-            
-            script.info.description = new_story
-            
-            logger.info(f"[STORY_EDIT] 成功更新背景故事")
-            
-            return EditResult(
-                success=True,
-                message="成功更新背景故事",
-                data={"story": script.info.description},
-                updated_script=script
-            )
+            try:
+                # 准备更新数据
+                story_data = {}
+                
+                # 处理所有支持的背景故事字段
+                supported_fields = [
+                    "title", "setting_description", "incident_description", 
+                    "victim_background", "investigation_scope", "rules_reminder",
+                    "murder_method", "murder_location", "discovery_time", "victory_conditions"
+                ]
+                
+                # 处理具体字段内容
+                for field in supported_fields:
+                    if field in instruction.content:
+                        story_data[field] = instruction.content[field]
+                
+                # 智能字段映射 - 处理用户可能使用的别名
+                field_mapping = {
+                    "story": "setting_description",
+                    "description": "setting_description", 
+                    "content": "setting_description",
+                    "background": "setting_description",
+                    "event": "incident_description",
+                    "incident": "incident_description",
+                    "victim": "victim_background",
+                    "scope": "investigation_scope",
+                    "rules": "rules_reminder",
+                    "method": "murder_method",
+                    "location": "murder_location",
+                    "time": "discovery_time",
+                    "victory": "victory_conditions"
+                }
+                
+                # 应用字段映射
+                for alias, actual_field in field_mapping.items():
+                    if alias in instruction.content and actual_field not in story_data:
+                        story_data[actual_field] = instruction.content[alias]
+                
+                # AI智能生成缺失字段（仅在明确要求时）
+                if "generate_missing" in instruction.content:
+                    story_data = await self._generate_missing_story_fields(dict(story_data), script)
+                
+                # 如果没有指定具体字段，尝试从通用字段中提取
+                if not story_data:
+                    if "story" in instruction.content:
+                        story_data["setting_description"] = instruction.content["story"]
+                    elif "description" in instruction.content:
+                        story_data["setting_description"] = instruction.content["description"]
+                    elif "content" in instruction.content:
+                        story_data["setting_description"] = instruction.content["content"]
+                    else:
+                        # 如果用户直接输入了新的故事内容
+                        story_content = str(instruction.content)
+                        if story_content and story_content != "{}":
+                            story_data["setting_description"] = story_content
+                
+                if not story_data:
+                    return EditResult(success=False, message="未提供有效的背景故事内容")
+                
+                # 修改内存中的script对象
+                if hasattr(script, 'background_story') and script.background_story:
+                    # 更新现有背景故事
+                    for key, value in story_data.items():
+                        setattr(script.background_story, key, value)
+                    logger.info(f"[STORY_EDIT] 更新现有背景故事: {list(story_data.keys())}")
+                else:
+                    # 创建新的背景故事
+                    story_data["script_id"] = script.info.id
+                    script.background_story = BackgroundStory(**story_data)
+                    logger.info(f"[STORY_EDIT] 创建新背景故事: {list(story_data.keys())}")
+                
+                logger.info(f"[STORY_EDIT] 成功更新背景故事")
+                return EditResult(
+                    success=True,
+                    message=f"成功更新背景故事 ({len(story_data)}个字段)",
+                    data={"background_story": script.background_story.model_dump()},
+                    updated_script=script
+                )
+                    
+            except Exception as e:
+                logger.error(f"[STORY_EDIT] 背景故事更新异常: {str(e)}")
+                return EditResult(success=False, message=f"背景故事更新失败: {str(e)}")
         
         logger.warning(f"[STORY_EDIT] 不支持的背景故事操作: {instruction.action}")
         return EditResult(success=False, message=f"不支持的背景故事操作: {instruction.action}")
+    
+    async def _generate_missing_story_fields(self, existing_data: Dict[str, Any], script: Script) -> Dict[str, Any]:
+        """基于现有数据智能生成缺失的背景故事字段"""
+        try:
+            from ..services.llm_service import llm_service, LLMMessage
+            
+            # 构建AI提示
+            system_prompt = """你是一个专业的剧本杀背景故事创作助手。基于已有的剧本信息和背景故事片段，
+            请生成完整的背景故事各个字段。确保内容逻辑一致、情节合理、适合剧本杀游戏。
+            
+            请按照以下JSON格式返回结果：
+            {
+                "setting_description": "背景设定描述",
+                "incident_description": "事件描述", 
+                "victim_background": "受害者背景",
+                "investigation_scope": "调查范围",
+                "rules_reminder": "规则提醒",
+                "murder_method": "作案手法",
+                "murder_location": "作案地点",
+                "discovery_time": "发现时间"
+            }"""
+            
+            # 构建上下文信息
+            context_info = f"""剧本信息：
+            标题：{script.info.title}
+            描述：{script.info.description}
+            玩家人数：{script.info.player_count}
+            
+            已有背景故事内容：
+            {existing_data}
+            
+            角色信息：
+            {[char.name + ': ' + char.background for char in script.characters[:3]]}
+            """
+            
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=context_info)
+            ]
+            
+            response = await llm_service.chat_completion(messages, max_tokens=1000, temperature=0.7)
+            
+            if response.content:
+                try:
+                    import json
+                    generated_data = json.loads(response.content)
+                    
+                    # 合并现有数据和生成数据，现有数据优先
+                    result_data = {**generated_data, **existing_data}
+                    
+                    logger.info(f"[STORY_EDIT] AI生成背景故事字段: {list(generated_data.keys())}")
+                    return result_data
+                    
+                except json.JSONDecodeError:
+                    logger.warning(f"[STORY_EDIT] AI返回内容不是有效JSON，使用原始数据")
+                    return existing_data
+            
+            return existing_data
+            
+        except Exception as e:
+            logger.error(f"[STORY_EDIT] AI生成背景故事字段失败: {str(e)}")
+            return existing_data
     
     async def generate_ai_suggestion(self, script_id: int, context: str = "") -> str:
         """生成AI编辑建议"""

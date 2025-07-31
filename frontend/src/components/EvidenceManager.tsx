@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ScriptEvidence as Evidence, EvidencePromptRequest, EvidenceType, ImageGenerationRequestModel as ImageGenerationRequest, ScriptEvidence } from '@/client';
 import { ScriptsService, Service } from '@/client';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   };
   
   const createEvidence = async (request: ScriptEvidence) => {
-    const response = await Service.createEvidenceApiEvidenceScriptIdEvidencePost(request.script_id!, request);
+    const response = await Service.createEvidenceApiEvidenceScriptIdEvidencePost(request.script_id!, request as any);
     return response.data;
   };
   
@@ -63,11 +63,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     related_to: ''
   });
   
-  useEffect(() => {
-    initEvidenceForm();
-  }, [scriptId]);
-
-  const initEvidenceForm = async () => {
+  const initEvidenceForm = useCallback(async () => {
     if(scriptId){
       const script = await getScriptWithDetail(Number(scriptId));
       const evidences = script?.evidence || [];
@@ -75,7 +71,11 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
         setEvidences(evidences);
       }
     }
-  };
+  }, [scriptId]);
+
+  useEffect(() => {
+    initEvidenceForm();
+  }, [initEvidenceForm]);
   // 图片生成相关状态
   const [imageGeneration, setImageGeneration] = useState({
     positive_prompt: '',

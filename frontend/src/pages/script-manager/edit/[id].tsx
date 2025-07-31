@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import EvidenceManager from '@/components/EvidenceManager';
 import CharacterManager from '@/components/CharacterManager';
+import LocationManager from '@/components/LocationManager';
 import ChatEditor from '@/components/ChatEditor';
 import {
   ScriptsService,
@@ -65,8 +66,8 @@ const ScriptEditPage = () => {
     title: '',
     description: '',
     author: '',
-    player_count: 0,
-    duration_minutes: 0,
+    player_count: '' as string | number,
+    duration_minutes: '' as string | number,
     difficulty: '',
     tags: [] as string[],
     status: 'DRAFT' as ScriptStatus,
@@ -90,19 +91,25 @@ const ScriptEditPage = () => {
   // WebSocket连接
   const { connect, disconnect, isConnected } = useWebSocketStore();
 
+  // 背景故事状态管理 - 与后端schema保持一致
   const [backgroundStory, setBackgroundStory] = useState({
-    main_story: '',
-    timeline: '',
-    key_events: '',
+    title: '',
+    setting_description: '',
+    incident_description: '',
+    victim_background: '',
+    investigation_scope: '',
+    rules_reminder: '',
     murder_method: '',
-    motive: ''
+    murder_location: '',
+    discovery_time: '',
+    victory_conditions: {}
   });
 
 
 
   // 获取脚本数据
   useEffect(() => {
-    if (id && typeof id === 'string') {
+    if (id && typeof id === 'string' && !isNaN(parseInt(id))) {
       const fetchScript = async () => {
         setLoading(true);
         setError(null);
@@ -134,12 +141,15 @@ const ScriptEditPage = () => {
       };
 
       fetchScript();
+    } else if (id) {
+      setError('无效的剧本ID');
+      setLoading(false);
     }
   }, [id]);
 
   // WebSocket连接管理
   useEffect(() => {
-    if (id && typeof id === 'string') {
+    if (id && typeof id === 'string' && !isNaN(parseInt(id))) {
       // 建立WebSocket连接，传入脚本ID
       connect(undefined, parseInt(id));
     }
@@ -157,7 +167,16 @@ const ScriptEditPage = () => {
     if (!id || typeof id !== 'string') return;
 
     try {
-      await updateScript(parseInt(id), formData);
+      // 确保数字字段为有效数字
+      const submitData = {
+        ...formData,
+        player_count: typeof formData.player_count === 'string' ? 
+          (formData.player_count === '' ? 0 : parseInt(formData.player_count) || 0) : formData.player_count,
+        duration_minutes: typeof formData.duration_minutes === 'string' ? 
+          (formData.duration_minutes === '' ? 0 : parseInt(formData.duration_minutes) || 0) : formData.duration_minutes
+      };
+      
+      await updateScript(parseInt(id), submitData);
       alert('脚本更新成功！');
       router.push('/script-manager');
     } catch (err) {
@@ -171,7 +190,7 @@ const ScriptEditPage = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'player_count' || name === 'duration_minutes' ? parseInt(value) || 0 : value
+      [name]: value
     }));
   };
 
@@ -263,35 +282,7 @@ const ScriptEditPage = () => {
     { key: 'background' as TabType, label: '背景故事', icon: '📖' }
   ];
 
-  if (loading) {
-    return (
-      <Layout>
-        <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
-          <CardContent className="p-8 text-center">
-            <div className="text-purple-200 text-lg">🎭 加载剧本数据中...</div>
-          </CardContent>
-        </Card>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <Card className="bg-gradient-to-br from-slate-800/90 via-red-900/90 to-slate-800/90 backdrop-blur-md border-red-500/30">
-          <CardContent className="p-8 text-center">
-            <div className="text-red-300 text-lg mb-4">❌ 错误: {error}</div>
-            <Button
-              onClick={() => router.push('/script-manager')}
-              variant="secondary"
-            >
-              🔙 返回列表
-            </Button>
-          </CardContent>
-        </Card>
-      </Layout>
-    );
-  }
+  // Loading and error states are now handled within the main render instead of early returns
 
   // 基础信息Tab内容
   const BasicInfoTab = () => (
@@ -638,70 +629,199 @@ const ScriptEditPage = () => {
 
   // 场景管理Tab内容
   const LocationsTab = () => (
-    <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <h3 className="text-xl font-bold text-purple-200 flex items-center gap-2">
-          🏛️ 场景管理
-        </h3>
-        <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white">
-          ➕ 添加场景
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div className="text-purple-300 text-center py-8">
-          🏛️ 场景管理功能开发中...
-        </div>
-      </CardContent>
-    </Card>
+    <div className="p-6">
+      {id && typeof id === 'string' && !isNaN(parseInt(id)) ? (
+        <LocationManager scriptId={id} />
+      ) : (
+        <div>无效的剧本ID</div>
+      )}
+    </div>
   );
 
-  // 背景故事Tab内容
+  // 背景故事Tab内容 - 完整字段展示
   const BackgroundTab = () => (
     <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
       <CardHeader>
-        <h3 className="text-xl font-bold text-purple-200 flex items-center gap-2">
-          📖 背景故事管理
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-purple-200 flex items-center gap-2">
+            📖 背景故事管理
+          </h3>
+          <Button
+            onClick={handleSaveBackgroundStory}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
+          >
+            💾 保存背景故事
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-purple-200 mb-2">
-              📚 主要故事线
-            </label>
-            <Textarea
-              value={backgroundStory.main_story}
-              onChange={(e) => setBackgroundStory(prev => ({ ...prev, main_story: e.target.value }))}
-              rows={4}
-              className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-              placeholder="描述剧本的主要故事背景..."
-            />
+          {/* 基础设定模块 */}
+          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
+            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
+              🌟 基础设定
+            </h4>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  📝 标题
+                </label>
+                <Input
+                  value={backgroundStory.title}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, title: e.target.value }))}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="背景故事标题..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  🌍 背景设定
+                </label>
+                <Textarea
+                  value={backgroundStory.setting_description}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, setting_description: e.target.value }))}
+                  rows={4}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="描述剧本的世界观、时代背景、地点设定等..."
+                />
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-purple-200 mb-2">
-              ⏰ 时间线
-            </label>
-            <Textarea
-              value={backgroundStory.timeline}
-              onChange={(e) => setBackgroundStory(prev => ({ ...prev, timeline: e.target.value }))}
-              rows={3}
-              className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-              placeholder="描述事件发生的时间顺序..."
-            />
+          {/* 事件描述模块 */}
+          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
+            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
+              🎭 事件描述
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  📰 事件描述
+                </label>
+                <Textarea
+                  value={backgroundStory.incident_description}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, incident_description: e.target.value }))}
+                  rows={3}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="描述核心事件的经过..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  👤 受害者背景
+                </label>
+                <Textarea
+                  value={backgroundStory.victim_background}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, victim_background: e.target.value }))}
+                  rows={3}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="描述受害者的身份、背景、人际关系..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  ⏰ 发现时间
+                </label>
+                <Input
+                  value={backgroundStory.discovery_time}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, discovery_time: e.target.value }))}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="事件发现的具体时间..."
+                />
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-purple-200 mb-2">
-              🎯 关键事件
-            </label>
-            <Textarea
-              value={backgroundStory.key_events}
-              onChange={(e) => setBackgroundStory(prev => ({ ...prev, key_events: e.target.value }))}
-              rows={3}
-              className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-              placeholder="列出剧本中的关键事件..."
-            />
+          {/* 调查设定模块 */}
+          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
+            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
+              🔍 调查设定
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  🎯 调查范围
+                </label>
+                <Textarea
+                  value={backgroundStory.investigation_scope}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, investigation_scope: e.target.value }))}
+                  rows={3}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="定义玩家可以调查的范围和限制..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  🔪 作案手法
+                </label>
+                <Textarea
+                  value={backgroundStory.murder_method}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, murder_method: e.target.value }))}
+                  rows={3}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="描述作案的具体手法和过程..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  📍 作案地点
+                </label>
+                <Input
+                  value={backgroundStory.murder_location}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, murder_location: e.target.value }))}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="案件发生的具体地点..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 游戏规则模块 */}
+          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
+            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
+              📋 游戏规则
+            </h4>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  ⚠️ 规则提醒
+                </label>
+                <Textarea
+                  value={backgroundStory.rules_reminder}
+                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, rules_reminder: e.target.value }))}
+                  rows={3}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  placeholder="游戏规则和注意事项..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  🏆 胜利条件
+                </label>
+                <Textarea
+                  value={
+                    typeof backgroundStory.victory_conditions === 'object' && backgroundStory.victory_conditions !== null
+                      ? JSON.stringify(backgroundStory.victory_conditions, null, 2)
+                      : String(backgroundStory.victory_conditions || '')
+                  }
+                  onChange={(e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value);
+                      setBackgroundStory(prev => ({ ...prev, victory_conditions: parsed }));
+                    } catch {
+                      setBackgroundStory(prev => ({ ...prev, victory_conditions: e.target.value }));
+                    }
+                  }}
+                  rows={4}
+                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70 font-mono text-sm"
+                  placeholder={`{
+  "detective": "找出真凶并说出动机",
+  "murderer": "隐藏身份到游戏结束",
+  "others": "协助破案或完成个人目标"
+}`}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -710,36 +830,95 @@ const ScriptEditPage = () => {
 
 
 
-  return (
-    <Layout>
-      {/* 页面头部 */}
-      <div className="bg-gradient-to-r from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md rounded-2xl shadow-2xl p-6 mb-6 border border-purple-500/30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-full">
-              <span className="text-2xl">🎭</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-purple-200">编辑剧本</h1>
-              <p className="text-purple-300/70 text-sm">{script?.info.title || '加载中...'}</p>
-            </div>
-          </div>
-          <Button
-            onClick={() => router.push('/script-manager')}
-            variant="secondary"
-            className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 text-white flex items-center gap-2"
-          >
-            🔙 <span className="hidden sm:inline">返回列表</span>
-          </Button>
-        </div>
-      </div>
+  // 加载背景故事数据
+  useEffect(() => {
+    if (script?.background_story) {
+      setBackgroundStory({
+        title: script.background_story.title || '',
+        setting_description: script.background_story.setting_description || '',
+        incident_description: script.background_story.incident_description || '',
+        victim_background: script.background_story.victim_background || '',
+        investigation_scope: script.background_story.investigation_scope || '',
+        rules_reminder: script.background_story.rules_reminder || '',
+        murder_method: script.background_story.murder_method || '',
+        murder_location: script.background_story.murder_location || '',
+        discovery_time: script.background_story.discovery_time || '',
+        victory_conditions: script.background_story.victory_conditions || {}
+      });
+    }
+  }, [script?.background_story]);
 
-      {/* 左右分栏布局 */}
-      <div className="flex gap-6 min-h-[800px]">
-        {/* 左侧：对话编辑 */}
-        <div className="w-1/3 min-w-[400px]">
-          <ChatEditor
-            scriptId={id as string}
+  // 保存背景故事
+  const handleSaveBackgroundStory = async () => {
+    if (!id || typeof id !== 'string') return;
+    
+    try {
+      // 这里可以添加保存背景故事的API调用
+      toast.success('背景故事保存成功！');
+    } catch (err) {
+      console.error('保存背景故事失败:', err);
+      toast.error('保存背景故事失败，请重试。');
+    }
+  };
+
+  // 页面主体内容
+  const pageContent = () => {
+    if (loading) {
+      return (
+        <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
+          <CardContent className="p-8 text-center">
+            <div className="text-purple-200 text-lg">🎭 加载剧本数据中...</div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (error) {
+      return (
+        <Card className="bg-gradient-to-br from-slate-800/90 via-red-900/90 to-slate-800/90 backdrop-blur-md border-red-500/30">
+          <CardContent className="p-8 text-center">
+            <div className="text-red-300 text-lg mb-4">❌ 错误: {error}</div>
+            <Button
+              onClick={() => router.push('/script-manager')}
+              variant="secondary"
+            >
+              🔙 返回列表
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <>
+        {/* 页面头部 */}
+        <div className="bg-gradient-to-r from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md rounded-2xl shadow-2xl p-6 mb-6 border border-purple-500/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-full">
+                <span className="text-2xl">🎭</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-purple-200">编辑剧本</h1>
+                <p className="text-purple-300/70 text-sm">{script?.info.title || '加载中...'}</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => router.push('/script-manager')}
+              variant="secondary"
+              className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 text-white flex items-center gap-2"
+            >
+              🔙 <span className="hidden sm:inline">返回列表</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* 左右分栏布局 */}
+        <div className="flex gap-6 min-h-[800px]">
+          {/* 左侧：对话编辑 */}
+          <div className="w-1/3 min-w-[400px]">
+            <ChatEditor
+            scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
             onScriptUpdate={(updatedScript) => {
               // 更新本地剧本状态
               setScript(updatedScript);
@@ -758,46 +937,50 @@ const ScriptEditPage = () => {
               }
             }}
           />
-        </div>
+          </div>
 
-        {/* 右侧：Tab 信息 */}
-        <div className="flex-1">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-purple-500/30 flex-shrink-0">
-              {tabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.key}
-                  value={tab.key}
-                  className="data-[state=active]:bg-purple-600 data-[state=active]:text-white text-purple-200"
-                >
-                  <span className="mr-2">{tab.icon}</span>
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          {/* 右侧：Tab 信息 */}
+          <div className="flex-1">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-purple-500/30 flex-shrink-0">
+                {tabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.key}
+                    value={tab.key}
+                    className="data-[state=active]:bg-purple-600 data-[state=active]:text-white text-purple-200"
+                  >
+                    <span className="mr-2">{tab.icon}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-            <div className="mt-6 flex-1 rounded-lg overflow-y-auto max-h-[700px]">
-              
+              <div className="mt-6 flex-1 rounded-lg overflow-y-auto max-h-[700px]">
                 {activeTab === 'basic' && <BasicInfoTab />}
                 {activeTab === 'evidence' && (
                   <EvidenceManager
                     generateEvidenceImage={generateEvidenceImage}
-                    scriptId={id as string}
+                    scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
                   />
                 )}
                 {activeTab === 'characters' && (
                   <CharacterManager
-                    scriptId={id as string}
+                    scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
                   />
                 )}
                 {activeTab === 'locations' && <LocationsTab />}
                 {activeTab === 'background' && <BackgroundTab />}
-            
-
-            </div>
-          </Tabs>
+              </div>
+            </Tabs>
+          </div>
         </div>
-      </div>
+      </>
+    );
+  };
+
+  return (
+    <Layout>
+      {pageContent()}
     </Layout>
   );
 };

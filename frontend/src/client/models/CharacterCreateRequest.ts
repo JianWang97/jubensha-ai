@@ -49,15 +49,15 @@ export type CharacterCreateRequest = {
     /**
      * 是否为受害者
      */
-    is_victim?: (boolean | null);
+    is_victim?: boolean;
     /**
      * 是否为凶手
      */
-    is_murderer?: (boolean | null);
+    is_murderer?: boolean;
     /**
      * 性格特征
      */
-    personality_traits?: (Array<string> | null);
+    personality_traits?: Array<string>;
     /**
      * 头像URL
      */

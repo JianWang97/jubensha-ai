@@ -2,21 +2,12 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { 
-  Home, 
-  User, 
-  Settings, 
-  History, 
-  BookOpen, 
   Menu, 
-  X,
-  ChevronRight,
-  ChevronLeft,
-  Library,
-  Users
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu';
-import TopBar from '@/components/TopBar';
+import DockBar from '@/components/DockBar';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +19,7 @@ interface AppLayoutProps {
   isGamePage?: boolean;
 }
 
+// 移动端导航项
 interface NavItem {
   href: string;
   label: string;
@@ -35,14 +27,11 @@ interface NavItem {
   requireAuth?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { href: '/', label: '首页', icon: Home },
-  { href: '/scripts', label: '剧本库', icon: Library },
-  // { href: '/rooms', label: '房间管理', icon: Users },
-  { href: '/script-manager', label: '剧本管理', icon: BookOpen },
-  { href: '/profile', label: '个人资料', icon: User, requireAuth: true },
-  { href: '/profile/game-history', label: '游戏历史', icon: History, requireAuth: true },
-  { href: '/profile/change-password', label: '设置', icon: Settings, requireAuth: true },
+const mobileNavItems: NavItem[] = [
+  { href: '/script-center', label: '剧本中心', icon: () => <span>🏠</span> },
+  { href: '/profile', label: '个人资料', icon: () => <span>👤</span>, requireAuth: true },
+  { href: '/profile/game-history', label: '游戏历史', icon: () => <span>📊</span>, requireAuth: true },
+  { href: '/profile/change-password', label: '设置', icon: () => <span>⚙️</span>, requireAuth: true },
 ];
 
 const AppLayout: React.FC<AppLayoutProps> = ({ 
@@ -57,60 +46,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // 生成面包屑导航
-  const generateBreadcrumbs = () => {
-    const pathSegments = router.pathname.split('/').filter(Boolean);
-    const breadcrumbs = [{ href: '/', label: '首页' }];
 
-    let currentPath = '';
-    pathSegments.forEach((segment, index) => {
-      currentPath += `/${segment}`;
-      
-      // 根据路径生成标签
-      let label = segment;
-      switch (segment) {
-        case 'auth':
-          label = '认证';
-          break;
-        case 'login':
-          label = '登录';
-          break;
-        case 'register':
-          label = '注册';
-          break;
-        case 'profile':
-          label = '个人中心';
-          break;
-        case 'scripts':
-          label = '剧本库';
-          break;
-        case 'rooms':
-          label = '房间管理';
-          break;
-        case 'script-manager':
-          label = '剧本管理';
-          break;
-        case 'game-history':
-          label = '游戏历史';
-          break;
-        case 'change-password':
-          label = '修改密码';
-          break;
-        case 'game':
-          label = '游戏';
-          break;
-        default:
-          label = segment.charAt(0).toUpperCase() + segment.slice(1);
-      }
-
-      breadcrumbs.push({ href: currentPath, label });
-    });
-
-    return breadcrumbs;
-  };
-
-  const breadcrumbs = generateBreadcrumbs();
-  const filteredNavItems = navItems.filter(item => 
+  const filteredMobileNavItems = mobileNavItems.filter(item => 
     !item.requireAuth || isAuthenticated
   );
 
@@ -129,67 +66,54 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
       </div>
 
-      {/* 统一顶部栏 - 始终显示 */}
-      <TopBar 
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        showSidebarToggle={true}
-        isGamePage={isGamePage}
-      />
-
-      {/* 左侧边栏 (桌面端) */}
+      {/* DockBar - 桌面端显示 */}
       {showSidebar && !isGamePage && (
-        <div className={cn(
-          "hidden md:fixed md:z-40 md:flex md:flex-col transition-all duration-300",
-          "md:top-14 md:bottom-0", // 为TopBar留出空间
-          sidebarCollapsed ? "md:w-16" : "md:w-64"
-        )}>
-          <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 px-3 pb-4">
-            <div className="flex h-16 shrink-0 items-center justify-between">
+        <DockBar className="hidden md:flex" />
+      )}
+
+      {/* 移动端顶部栏 */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 md:hidden">
+        <div className="flex justify-between items-center h-14 px-4">
+          {/* 左侧区域 */}
+          <div className="flex items-center space-x-4">
+            {/* 侧边栏切换按钮 */}
+            {showSidebar && !isGamePage && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="text-white hover:bg-white/10 p-2"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="text-white hover:bg-white/10"
               >
-                {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-16" />}
+                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
-            </div>
-            <nav className="flex flex-1 flex-col">
-              <ul role="list" className="flex flex-1 flex-col gap-y-7">
-                <li>
-                  <ul role="list" className="-mx-2 space-y-1">
-                    {filteredNavItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = router.pathname === item.href || 
-                        (item.href !== '/' && router.pathname.startsWith(item.href));
-                      
-                      return (
-                        <li key={item.href}>
-                          <Link
-                            href={item.href}
-                            className={cn(
-                              "group flex gap-x-3 rounded-md p-3 text-sm leading-6 font-semibold transition-all duration-200",
-                              isActive
-                                ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
-                                : "text-gray-300 hover:text-white hover:bg-white/10",
-                              sidebarCollapsed ? "justify-center" : ""
-                            )}
-                            title={sidebarCollapsed ? item.label : undefined}
-                          >
-                            <Icon className="h-6 w-6 shrink-0" aria-hidden="true" />
-                            {!sidebarCollapsed && item.label}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              </ul>
-            </nav>
+            )}
+            
+            {/* Logo */}
+            {!isGamePage && (
+              <Link href="/" className="text-xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
+                AI 剧本杀
+              </Link>
+            )}
+            
+            {/* 游戏页面返回按钮 */}
+            {isGamePage && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push('/')}
+                className="text-white hover:bg-white/10"
+              >
+                ← 返回首页
+              </Button>
+            )}
+          </div>
+
+          {/* 右侧用户菜单 */}
+          <div className="flex items-center">
+            <UserMenu variant="compact" />
           </div>
         </div>
-      )}
+      </div>
 
       {/* 移动端侧边栏 - 始终可用 */}
       <>
@@ -201,7 +125,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           />
         )}
         
-        {/* 侧边栏 */}
+        {/* 移动端侧边栏 */}
         <div className={cn(
           "fixed top-14 left-0 z-[60] h-[calc(100vh-3.5rem)] w-64 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 transform transition-transform duration-300 md:hidden",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -213,7 +137,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             </div>
             <div className="flex flex-col h-full">
               <div className="p-4 space-y-2 flex-1">
-                {filteredNavItems.map((item) => {
+                {filteredMobileNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = router.pathname === item.href || 
                     (item.href !== '/' && router.pathname.startsWith(item.href));
@@ -247,45 +171,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({
       {/* 主要内容区域 */}
       <div className={cn(
         "relative z-10 transition-all duration-300",
-        "pt-14", // 为TopBar留出空间
-        showSidebar && !isGamePage ? (sidebarCollapsed ? "md:pl-16" : "md:pl-64") : ""
+        "pt-14 md:pt-0", // 移动端为顶部栏留出空间，桌面端不需要
+        showSidebar && !isGamePage ? "md:pl-20" : "" // 为DockBar留出空间
       )}>
-        {/* 面包屑导航 - 游戏页面不显示 */}
-        {!isGamePage && breadcrumbs.length > 1 && (
-          <div className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
-            <div className="px-4 sm:px-6 lg:px-8 py-3">
-              <nav className="flex items-center space-x-2 text-sm">
-                {breadcrumbs.map((crumb, index) => (
-                  <React.Fragment key={crumb.href}>
-                    {index > 0 && <ChevronRight className="h-4 w-4 text-gray-500" />}
-                    {index === breadcrumbs.length - 1 ? (
-                      <span className="text-purple-300 font-medium">{crumb.label}</span>
-                    ) : (
-                      <Link 
-                        href={crumb.href} 
-                        className="text-gray-400 hover:text-white transition-colors"
-                      >
-                        {crumb.label}
-                      </Link>
-                    )}
-                  </React.Fragment>
-                ))}
-              </nav>
-            </div>
-          </div>
-        )}
 
-        {/* 页面标题 - 游戏页面不显示 */}
-        {title && !isGamePage && (
-          <div className="bg-gray-800/30 backdrop-blur-sm border-b border-gray-700">
-            <div className="px-4 sm:px-6 lg:px-8 py-6">
-              <h1 className="text-2xl md:text-3xl font-bold text-white">{title}</h1>
-            </div>
-          </div>
-        )}
+
+
 
         {/* 页面内容 */}
-        <main className="px-4 sm:px-6 lg:px-8 py-6">
+        <main>
           {children}
         </main>
       </div>

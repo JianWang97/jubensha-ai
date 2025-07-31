@@ -17,6 +17,35 @@ interface ChatMessage {
   data?: any;
 }
 
+// 添加编辑结果接口定义
+interface EditResult {
+  success: boolean;
+  operation: string;
+  message: string;
+  data?: any;
+}
+
+// 添加完成数据接口定义
+interface CompletedData {
+  success_count: number;
+  results?: Array<any>;
+  script?: any;
+  [key: string]: any;
+}
+
+// 添加消息数据接口定义
+interface MessageData {
+  success?: boolean;
+  message?: string;
+  updated_script?: any;
+  script?: any;
+  suggestion?: string;
+  instruction?: string;
+  result?: EditResult;
+  data?: any;
+  [key: string]: any;
+}
+
 interface ChatEditorProps {
   scriptId: string;
   onScriptUpdate?: (updatedScript: any) => void;
@@ -47,7 +76,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => 
 
   // 处理WebSocket消息 - 使用自定义事件监听
   useEffect(() => {
-    const handleScriptEditResult = (event: CustomEvent) => {
+    const handleScriptEditResult = (event: CustomEvent<{type: string, data?: MessageData}>) => {
       const message = event.detail;
       
       switch (message.type) {
@@ -88,10 +117,12 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => 
           // 指令完成
           const completedData = message.data;
           if (completedData) {
+            const successCount = completedData.success_count || 0;
+            const resultsLength = completedData.results?.length || 0;
             const completedMessage: ChatMessage = {
               id: Date.now().toString(),
               type: 'assistant',
-              content: `🎉 指令执行完成！成功操作: ${completedData.success_count}/${completedData.results?.length || 0}`,
+              content: `🎉 指令执行完成！成功操作: ${successCount}/${resultsLength}`,
               timestamp: new Date(),
               status: 'success',
               data: completedData
@@ -158,7 +189,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => 
               msg.id === messageId 
                 ? { 
                     ...msg, 
-                    status: message.data.success ? 'success' : 'error'
+                    status: message.data?.success ? 'success' : 'error'
                   }
                 : msg
             ));
@@ -167,7 +198,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => 
             const aiMessage: ChatMessage = {
               id: Date.now().toString(),
               type: 'assistant',
-              content: message.data.message || (message.data.success ? '✅ 操作成功完成！' : '❌ 操作失败'),
+              content: message.data?.message || (message.data?.success ? '✅ 操作成功完成！' : '❌ 操作失败'),
               timestamp: new Date(),
               status: 'success',
               data: message.data
@@ -176,14 +207,14 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => 
             setMessages(prev => [...prev, aiMessage]);
             
             // 如果操作成功且有更新的剧本数据，通知父组件
-            if (message.data.success && message.data.updated_script && onScriptUpdate) {
+            if (message.data?.success && message.data?.updated_script && onScriptUpdate) {
               onScriptUpdate(message.data.updated_script);
             }
             
-            if (message.data.success) {
+            if (message.data?.success) {
               toast.success('剧本更新成功！');
             } else {
-              toast.error('操作失败：' + message.data.message);
+              toast.error('操作失败：' + (message.data?.message || '未知错误'));
             }
           }
           

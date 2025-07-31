@@ -86,7 +86,7 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
     } catch (error) {
       console.error('加载角色信息失败:', error);
     }
-  }, [getCharacters]);
+  }, []);
 
   // 处理剧本选择
   const handleSelectScript = useCallback((script: Script) => {
@@ -169,7 +169,7 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
       };
       loadScriptFromUrl();
     }
-  }, [scriptId, selectedScript, getScript, loadCharacters, addLogEntry]);
+  }, [scriptId, selectedScript, loadCharacters, addLogEntry]);
 
   // 监听WebSocket消息并更新状态
   useEffect(() => {

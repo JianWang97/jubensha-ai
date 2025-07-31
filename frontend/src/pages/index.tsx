@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { ScriptsService, ScriptInfo } from '@/client';
 import AppLayout from '@/components/AppLayout';
 import { Play, Users, Clock, Star, Sparkles, ArrowRight, GamepadIcon, TrendingUp, Library } from 'lucide-react';
@@ -154,12 +155,24 @@ const FeaturesSection = () => {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const [sessionId, setSessionId] = useState('');
   const [scriptId, setScriptId] = useState('1');
   const [scripts, setScripts] = useState<ScriptDisplay[]>([]);
   const [selectedScript, setSelectedScript] = useState<ScriptDisplay | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 检查是否已访问过首页，如果是则重定向到剧本库
+  useEffect(() => {
+    const hasVisitedHome = localStorage.getItem('hasVisitedHome');
+    if (hasVisitedHome === 'true') {
+      router.replace('/scripts');
+      return;
+    }
+    // 标记已访问过首页
+    localStorage.setItem('hasVisitedHome', 'true');
+  }, [router]);
 
   // 获取剧本列表
   const fetchScripts = async () => {

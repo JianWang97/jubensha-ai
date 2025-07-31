@@ -1,5 +1,4 @@
 """剧本信息相关的Pydantic数据模型"""
-from typing import List, Optional, Type
 from enum import Enum
 from pydantic import Field, field_validator
 from .base import BaseDataModel
@@ -16,13 +15,13 @@ class ScriptInfo(BaseDataModel):
     """剧本基本信息"""
     title: str = Field("", description="剧本标题")
     description: str = Field("", description="剧本描述")
-    author: Optional[str] = Field(None, description="作者")
+    author: str | None = Field(None, description="作者")
     player_count: int = Field(4, description="玩家数量")
     estimated_duration: int = Field(180, description="预计游戏时长(分钟)", alias="duration_minutes")
     difficulty_level: str = Field("medium", description="难度等级", alias="difficulty")
-    tags: List[str] = Field(default_factory=list, description="标签列表")
+    tags: list[str] = Field(default_factory=list, description="标签列表")
     status: ScriptStatus = Field(ScriptStatus.DRAFT, description="剧本状态")
-    cover_image_url: Optional[str] = Field(None, description="封面图片URL")
+    cover_image_url: str | None = Field(None, description="封面图片URL")
     is_public: bool = Field(False, description="是否公开")
     price: float = Field(0.00, description="价格")
     # 新增字段
@@ -49,6 +48,6 @@ class ScriptInfo(BaseDataModel):
         return v
     
     @classmethod
-    def get_db_model(cls) -> Type:
+    def get_db_model(cls) -> type:
         from ..db.models.script_model import ScriptDBModel
         return ScriptDBModel

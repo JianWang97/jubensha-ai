@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ScriptCharacter } from './ScriptCharacter';
-export type APIResponse_List_ScriptCharacter__ = {
+export type APIResponse_list_ScriptCharacter__ = {
     /**
      * 请求是否成功
      */

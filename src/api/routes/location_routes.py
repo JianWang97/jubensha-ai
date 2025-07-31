@@ -4,11 +4,11 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from ...db.repositories import LocationRepository
 from ...db.repositories import ScriptRepository
-from ...services.llm_service import llm_service
+from ...services.llm_service import llm_service, LLMMessage
 from ...schemas.script import ScriptLocation
 from ...db.session import get_db_session
 from datetime import datetime
-from ...schemas.location_schemas import LocationCreateRequest, LocationUpdateRequest, ScriptResponse
+from ...schemas.location_schemas import LocationCreateRequest, LocationUpdateRequest, ScriptResponse, LocationPromptRequest
 
 router = APIRouter(prefix="/api/locations", tags=["场景管理"])
 
@@ -103,7 +103,7 @@ async def get_locations(script_id: int,
         
         locations = location_repository.get_locations_by_script(script_id)
         # 返回场景列表
-        locations_data = []
+        locations_data: list[dict] = []
         for location in locations:
             locations_data.append({
                 "id": location.id,
@@ -158,3 +158,58 @@ async def get_location_detail(script_id: int, location_id: int,
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
+
+@router.post("/locations/generate-prompt", summary="生成场景图片提示词")
+async def generate_location_prompt(request: LocationPromptRequest):
+    """使用LLM生成场景图片的提示词"""
+    try:
+        # 构建LLM提示
+        system_prompt = "你是一个专业的图片生成提示词创作者，擅长为剧本杀游戏中的场景创建详细的图片描述。"
+        
+        user_prompt = f"""请为以下场景生成一个详细的图片生成提示词：
+
+场景名称：{request.location_name}
+场景描述：{request.location_description}
+"""
+        
+        if request.script_theme:
+            user_prompt += f"剧本主题：{request.script_theme}\n"
+        
+        if request.style_preference:
+            user_prompt += f"风格偏好：{request.style_preference}\n"
+            
+        if request.is_crime_scene:
+            user_prompt += "特殊要求：这是一个案发现场，需要体现出紧张、神秘的氛围\n"
+        
+        user_prompt += """\n要求：
+1. 描述要详细具体，包含环境、光线、氛围等元素
+2. 适合用于AI图片生成
+3. 风格要符合剧本杀游戏的氛围
+4. 避免包含具体的人物
+5. 重点突出场景的特色和氛围
+6. 只返回英文提示词，不要其他解释"""
+        
+        # 调用LLM服务
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt)
+        ]
+        
+        response = await llm_service.chat_completion(messages, max_tokens=200)
+        
+        if not response.content:
+            raise HTTPException(status_code=500, detail="LLM服务返回空内容")
+        
+        return {
+            "success": True,
+            "message": "提示词生成成功",
+            "data": {
+                "prompt": response.content.strip(),
+                "location_name": request.location_name
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成提示词失败: {str(e)}")

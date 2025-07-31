@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type EvidenceCreateRequest = {
+    script_id: number;
     name: string;
     description: string;
     image_url?: (string | null);

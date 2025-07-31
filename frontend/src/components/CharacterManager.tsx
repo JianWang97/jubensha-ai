@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -587,23 +588,22 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   
                   <div className="space-y-2">
                     <label htmlFor="voice_id" className="text-purple-200 font-medium">语音声音</label>
-                    <Select 
-                      value={characterForm.voice_id || 'none'} 
+                    <Combobox
+                      options={[
+                        { value: 'none', label: '🔇 无声音' },
+                        ...voiceOptions.map((voice) => ({
+                          value: voice.voice_id,
+                          label: `🎤 ${voice.voice_name}`,
+                          description: voice.description ? voice.description.join(', ') : undefined
+                        }))
+                      ]}
+                      value={characterForm.voice_id || 'none'}
                       onValueChange={(value) => setCharacterForm({ ...characterForm, voice_id: value === 'none' ? undefined : value })}
+                      placeholder={isLoadingVoices ? "加载中..." : "选择语音声音"}
+                      searchPlaceholder="搜索语音声音..."
+                      emptyText="未找到匹配的语音"
                       disabled={isLoadingVoices}
-                    >
-                      <SelectTrigger className="bg-slate-800/50 border-purple-500/30 text-purple-100 focus:border-purple-400">
-                        <SelectValue placeholder={isLoadingVoices ? "加载中..." : "选择语音声音"} />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-purple-500/30">
-                        <SelectItem value="none" className="text-purple-100 hover:bg-purple-600/20">🔇 无声音</SelectItem>
-                        {voiceOptions.map((voice) => (
-                          <SelectItem key={voice.voice_id} value={voice.voice_id} className="text-purple-100 hover:bg-purple-600/20">
-                            🎤 {voice.voice_name}{voice.description ? ` - ${voice.description}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
                   
                   <div className="space-y-2 md:col-span-2">

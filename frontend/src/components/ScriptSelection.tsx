@@ -44,7 +44,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({ onSelectScript }) => 
 
   useEffect(() => {
     fetchScripts();
-  }, []);
+  }, [fetchScripts]);
 
   if (loading) {
     return (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { User, LogOut, Settings, History, ChevronDown, LogIn, UserPlus } from 'lucide-react';
+import { User, LogOut, Settings, History, ChevronDown, ArrowRight, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -42,38 +42,71 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
   if (!isAuthenticated || !user) {
     if (collapsed) {
       return (
-        <div className="flex justify-center">
-          <Link href="/auth/login">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
               className="text-white hover:bg-white/10 p-2"
-              title="登录"
+              title="登录/注册"
             >
-              <LogIn className="h-4 w-4" />
+              <User className="h-4 w-4" />
             </Button>
-          </Link>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
+            align="end" 
+            className="w-40 bg-gray-900/95 backdrop-blur-md border-gray-700"
+          >
+            <DropdownMenuItem 
+              className="text-white hover:bg-white/10 cursor-pointer"
+              onClick={() => router.push('/auth/login')}
+            >
+              <ArrowRight className="h-4 w-4 mr-2" />
+              登录
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-white hover:bg-white/10 cursor-pointer"
+              onClick={() => router.push('/auth/register')}
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              注册
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     }
     return (
-      <div className="flex items-center space-x-2">
-        <Link href="/auth/login">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <Button
-            variant="outline"
-            className="border-white/20 text-white hover:bg-white/10"
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-white/10 p-2"
+            title="登录/注册"
           >
-            <LogIn className="h-4 w-4 mr-2" />
+            <User className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent 
+          align="end" 
+          className="w-40 bg-gray-900/95 backdrop-blur-md border-gray-700"
+        >
+          <DropdownMenuItem 
+            className="text-white hover:bg-white/10 cursor-pointer"
+            onClick={() => router.push('/auth/login')}
+          >
+            <ArrowRight className="h-4 w-4 mr-2" />
             登录
-          </Button>
-        </Link>
-        <Link href="/auth/register">
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
-            <UserPlus className="h-4 w-4 mr-2" />
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            className="text-white hover:bg-white/10 cursor-pointer"
+            onClick={() => router.push('/auth/register')}
+          >
+            <UserCheck className="h-4 w-4 mr-2" />
             注册
-          </Button>
-        </Link>
-      </div>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 

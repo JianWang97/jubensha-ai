@@ -6,7 +6,7 @@ import type { APIResponse_BatchEditResponse_ } from '../models/APIResponse_Batch
 import type { APIResponse_dict_ } from '../models/APIResponse_dict_';
 import type { APIResponse_Dict_str__Any__ } from '../models/APIResponse_Dict_str__Any__';
 import type { APIResponse_EditResultResponse_ } from '../models/APIResponse_EditResultResponse_';
-import type { APIResponse_List_ScriptCharacter__ } from '../models/APIResponse_List_ScriptCharacter__';
+import type { APIResponse_list_ScriptCharacter__ } from '../models/APIResponse_list_ScriptCharacter__';
 import type { APIResponse_ParsedInstructionsResponse_ } from '../models/APIResponse_ParsedInstructionsResponse_';
 import type { APIResponse_ScriptCharacter_ } from '../models/APIResponse_ScriptCharacter_';
 import type { APIResponse_str_ } from '../models/APIResponse_str_';
@@ -25,6 +25,7 @@ import type { GameSessionCreate } from '../models/GameSessionCreate';
 import type { GameSessionResponse } from '../models/GameSessionResponse';
 import type { GenerateSuggestionRequest } from '../models/GenerateSuggestionRequest';
 import type { ImageGenerationRequestModel } from '../models/ImageGenerationRequestModel';
+import type { LocationPromptRequest } from '../models/LocationPromptRequest';
 import type { ParseInstructionRequest } from '../models/ParseInstructionRequest';
 import type { PasswordChange } from '../models/PasswordChange';
 import type { ScriptCoverPromptRequest } from '../models/ScriptCoverPromptRequest';
@@ -390,14 +391,14 @@ export class Service {
      * @param scriptId
      * @param skip 跳过的记录数
      * @param limit 返回的记录数
-     * @returns APIResponse_List_ScriptCharacter__ Successful Response
+     * @returns APIResponse_list_ScriptCharacter__ Successful Response
      * @throws ApiError
      */
     public static getCharactersApiCharactersScriptIdCharactersGet(
         scriptId: number,
         skip?: number,
         limit: number = 10,
-    ): CancelablePromise<APIResponse_List_ScriptCharacter__> {
+    ): CancelablePromise<APIResponse_list_ScriptCharacter__> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/characters/{script_id}/characters',
@@ -632,6 +633,26 @@ export class Service {
         });
     }
     /**
+     * 生成场景图片提示词
+     * 使用LLM生成场景图片的提示词
+     * @param requestBody
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static generateLocationPromptApiLocationsLocationsGeneratePromptPost(
+        requestBody: LocationPromptRequest,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/locations/locations/generate-prompt',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Get Game Status
      * 获取游戏状态API
      * @param sessionId
@@ -639,7 +660,7 @@ export class Service {
      * @throws ApiError
      */
     public static getGameStatusApiGameStatusGet(
-        sessionId?: string,
+        sessionId?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
@@ -661,7 +682,7 @@ export class Service {
      * @throws ApiError
      */
     public static startGameApiGameStartPost(
-        sessionId?: string,
+        sessionId?: (string | null),
         scriptId: number = 1,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
@@ -684,7 +705,7 @@ export class Service {
      * @throws ApiError
      */
     public static resetGameApiGameResetPost(
-        sessionId?: string,
+        sessionId?: (string | null),
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',

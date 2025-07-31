@@ -7,6 +7,6 @@
  */
 export type GenerateSuggestionRequest = {
     script_id: number;
-    context?: (string | null);
+    context?: string;
 };
 

@@ -7,6 +7,7 @@ import type { APIResponse_Script_ } from '../models/APIResponse_Script_';
 import type { APIResponse_ScriptInfo_ } from '../models/APIResponse_ScriptInfo_';
 import type { APIResponse_str_ } from '../models/APIResponse_str_';
 import type { CreateScriptRequest } from '../models/CreateScriptRequest';
+import type { GenerateScriptContentRequest } from '../models/GenerateScriptContentRequest';
 import type { GenerateScriptInfoRequest } from '../models/GenerateScriptInfoRequest';
 import type { PaginatedResponse_ScriptInfo_ } from '../models/PaginatedResponse_ScriptInfo_';
 import type { Script_Input } from '../models/Script_Input';
@@ -29,6 +30,26 @@ export class ScriptsService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/scripts/generate-info',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Generate Script Content
+     * 根据剧本背景自动生成角色和证据
+     * @param requestBody
+     * @returns APIResponse_dict_ Successful Response
+     * @throws ApiError
+     */
+    public static generateScriptContentApiScriptsGenerateContentPost(
+        requestBody: GenerateScriptContentRequest,
+    ): CancelablePromise<APIResponse_dict_> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/scripts/generate-content',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
