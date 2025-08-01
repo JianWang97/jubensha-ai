@@ -13,16 +13,14 @@ T = TypeVar('T')
 def get_service(service_type: Type[T]) -> Callable[[], T]:
     """获取服务的FastAPI依赖函数
     
-    Args:
-        service_type: 服务类型
-        
-    Returns:
-        FastAPI依赖函数
+    对于瞬态/单例服务无需持久化 Session，但为了保持一致，
+    这里同样使用生成器依赖，使 ServiceScope 在请求结束时再释放。
     """
-    def dependency() -> T:
+    async def dependency():
+        # 使用 with 确保在 yield 之后自动调用 __exit__ 以释放资源
         with service_scope() as scope:
-            return scope.resolve(service_type)
-    
+            service_instance = scope.resolve(service_type)
+            yield service_instance
     return dependency
 
 
@@ -41,20 +39,15 @@ def inject(service_type: Type[T]) -> T:
 def get_scoped_service(service_type: Type[T]) -> Callable[[], T]:
     """获取作用域服务的FastAPI依赖函数
     
-    这个函数创建一个新的服务作用域，适用于需要在整个请求生命周期内
-    保持相同实例的服务（如数据库会话）
-    
-    Args:
-        service_type: 服务类型
-        
-    Returns:
-        FastAPI依赖函数
+    该版本使用生成器(
+    yield)依赖，保证 ServiceScope 生命周期贯穿整个请求，
+    在请求完成后再统一提交/回滚事务并释放资源。
     """
-    def dependency() -> T:
-        # 使用服务作用域来解析作用域服务
-        with service_scope() as scope:
-            return scope.resolve(service_type)
-    
+    async def dependency():
+        # 使用 with 确保 __exit__ 在 yield 之后调用，避免作用域过早释放
+        with service_scope() as scope:  # 使用 with 语句自动管理生命周期
+            service_instance = scope.resolve(service_type)
+            yield service_instance  # 路由处理完成后，with 块退出，scope.dispose 自动调用
     return dependency
 
 
