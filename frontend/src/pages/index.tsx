@@ -73,7 +73,7 @@ const HeroSection = () => {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-          <Link href="/scripts">
+          <Link href="/script-center">
             <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-4 text-lg font-semibold rounded-xl shadow-lg shadow-purple-500/25 transform hover:scale-105 transition-all duration-300">
               <Library className="w-5 h-5 mr-2" />
               立即开始游戏
@@ -167,7 +167,7 @@ export default function HomePage() {
   useEffect(() => {
     const hasVisitedHome = localStorage.getItem('hasVisitedHome');
     if (hasVisitedHome === 'true') {
-      router.replace('/scripts');
+      router.replace('/script-center');
       return;
     }
     // 标记已访问过首页
