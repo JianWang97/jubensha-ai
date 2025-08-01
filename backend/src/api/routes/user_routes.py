@@ -2,8 +2,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from src.db.session import get_db_session
 from src.core.auth_dependencies import get_current_active_user
+from src.core.container_integration import get_db_session_depends
 from src.schemas.user_schemas import (
     GameSessionCreate, GameSessionResponse, GameHistoryResponse,
     GameParticipantResponse, UserBrief
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/users", tags=["用户管理"])
 async def create_game_session(
     session_data: GameSessionCreate,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """创建游戏会话"""
     try:
@@ -63,7 +63,7 @@ async def create_game_session(
 async def join_game_session(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """加入游戏会话"""
     # 查找游戏会话
@@ -132,7 +132,7 @@ async def join_game_session(
 async def leave_game_session(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """离开游戏会话"""
     # 查找游戏会话
@@ -197,7 +197,7 @@ async def get_game_history(
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(20, ge=1, le=100, description="返回的记录数"),
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """获取用户游戏历史"""
     # 查询用户参与的游戏
@@ -253,7 +253,7 @@ async def get_game_history(
 async def get_game_session(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """获取游戏会话详情"""
     game_session = db.query(GameSession).filter(
@@ -272,7 +272,7 @@ async def get_game_session(
 async def get_game_participants(
     session_id: str,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """获取游戏参与者列表"""
     # 查找游戏会话
@@ -309,7 +309,7 @@ async def get_game_participants(
 @router.get("/stats", summary="获取用户统计信息")
 async def get_user_stats(
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """获取用户统计信息"""
     # 总游戏数

@@ -2,21 +2,18 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from ...db.repositories import EvidenceRepository
+from ...db.repositories.evidence_repository import EvidenceRepository
 from ...core.storage import storage_manager
 from ...services.llm_service import llm_service
-from ...db.session import get_db_session
 from ...schemas.script import ScriptEvidence
 from ...schemas.script_evidence import EvidenceType
 from ...schemas.evidence_schemas import EvidenceCreateRequest, EvidenceUpdateRequest, EvidencePromptRequest, ScriptResponse
+from ...core.container_integration import get_evidence_repo_depends
 
 router = APIRouter(prefix="/api/evidence", tags=["证据管理"])
 
-def get_evidence_repository(db: Session = Depends(get_db_session)) -> EvidenceRepository:
-    return EvidenceRepository(db)
-
 @router.post("/{script_id}/evidence", summary="创建证据")
-async def create_evidence(script_id: int, request: EvidenceCreateRequest, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
+async def create_evidence(script_id: int, request: EvidenceCreateRequest, evidence_repository: EvidenceRepository = get_evidence_repo_depends()):
     """为指定剧本创建新证据"""
     try:
         # 创建证据对象
@@ -54,7 +51,7 @@ async def create_evidence(script_id: int, request: EvidenceCreateRequest, eviden
         raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
 
 @router.put("/{script_id}/evidence/{evidence_id}", summary="更新证据")
-async def update_evidence(script_id: int, evidence_id: int, request: EvidenceUpdateRequest, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
+async def update_evidence(script_id: int, evidence_id: int, request: EvidenceUpdateRequest, evidence_repository: EvidenceRepository = get_evidence_repo_depends()):
     """更新指定证据的信息"""
     try:
         # 检查证据是否存在
@@ -79,7 +76,7 @@ async def update_evidence(script_id: int, evidence_id: int, request: EvidenceUpd
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 @router.delete("/{script_id}/evidence/{evidence_id}", summary="删除证据")
-async def delete_evidence(script_id: int, evidence_id: int, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
+async def delete_evidence(script_id: int, evidence_id: int, evidence_repository: EvidenceRepository = get_evidence_repo_depends()):
     """删除指定证据"""
     try:
         # 检查证据是否存在

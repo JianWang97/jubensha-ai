@@ -2,25 +2,19 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from ...db.repositories import LocationRepository
-from ...db.repositories import ScriptRepository
+from ...db.repositories.location_repository import LocationRepository
+from ...db.repositories.script_repository import ScriptRepository
 from ...services.llm_service import llm_service, LLMMessage
 from ...schemas.script import ScriptLocation
-from ...db.session import get_db_session
 from datetime import datetime
 from ...schemas.location_schemas import LocationCreateRequest, LocationUpdateRequest, ScriptResponse, LocationPromptRequest
+from ...core.container_integration import get_location_repo_depends, get_script_repo_depends
 
 router = APIRouter(prefix="/api/locations", tags=["场景管理"])
 
-def get_location_repository(db: Session = Depends(get_db_session)) -> LocationRepository:
-    return LocationRepository(db)
-
-def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
-    return ScriptRepository(db)
-
 
 @router.post("/{script_id}/locations", summary="创建场景")
-async def create_location(script_id: int, request: ScriptLocation, location_repository: LocationRepository = Depends(get_location_repository)):
+async def create_location(script_id: int, request: ScriptLocation, location_repository: LocationRepository = get_location_repo_depends()):
     """为指定剧本创建新场景"""
     try:
         
@@ -42,7 +36,7 @@ async def create_location(script_id: int, request: ScriptLocation, location_repo
         raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
 
 @router.put("/{script_id}/locations/{location_id}", summary="更新场景")
-async def update_location(script_id: int, location_id: int, request: ScriptLocation, location_repository: LocationRepository = Depends(get_location_repository)):
+async def update_location(script_id: int, location_id: int, request: ScriptLocation, location_repository: LocationRepository = get_location_repo_depends()):
     """更新指定场景的信息"""
     try:
         # 检查场景是否存在
@@ -65,7 +59,7 @@ async def update_location(script_id: int, location_id: int, request: ScriptLocat
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 @router.delete("/{script_id}/locations/{location_id}", summary="删除场景")
-async def delete_location(script_id: int, location_id: int, location_repository: LocationRepository = Depends(get_location_repository)):
+async def delete_location(script_id: int, location_id: int, location_repository: LocationRepository = get_location_repo_depends()):
     """删除指定场景"""
     try:
 
@@ -92,8 +86,8 @@ async def delete_location(script_id: int, location_id: int, location_repository:
 
 @router.get("/{script_id}/locations", summary="获取场景列表")
 async def get_locations(script_id: int, 
-    location_repository: LocationRepository = Depends(get_location_repository),
-    script_repository: ScriptRepository = Depends(get_script_repository)):
+    location_repository: LocationRepository = get_location_repo_depends(),
+    script_repository: ScriptRepository = get_script_repo_depends()):
     """获取指定剧本的所有场景"""
     try:
         # 检查剧本是否存在
@@ -130,8 +124,8 @@ async def get_locations(script_id: int,
 
 @router.get("/{script_id}/locations/{location_id}", summary="获取场景详情")
 async def get_location_detail(script_id: int, location_id: int,
-    location_repository: LocationRepository = Depends(get_location_repository),
-    script_repository: ScriptRepository = Depends(get_script_repository)):
+    location_repository: LocationRepository = get_location_repo_depends(),
+    script_repository: ScriptRepository = get_script_repo_depends()):
     """获取指定场景的详细信息"""
     try:
         # 检查场景是否存在

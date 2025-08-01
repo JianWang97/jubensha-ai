@@ -21,29 +21,22 @@ from ...schemas.script_editor import (
     EditResultResponse,
     BatchEditResponse
 )
-from ...db.session import get_db_session
 from src.core.auth_dependencies import get_current_active_user
 from src.db.models.user import User
+from ...core.container_integration import get_script_repo_depends, get_script_editor_svc_depends
 
 router = APIRouter(prefix="/api/script-editor", tags=["剧本编辑"])
 
 
 
-def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
-    """获取剧本仓库实例"""
-    return ScriptRepository(db)
 
-
-def get_script_editor_service(repo: ScriptRepository = Depends(get_script_repository)) -> ScriptEditorService:
-    """获取剧本编辑服务实例"""
-    return ScriptEditorService(repo)
 
 
 @router.post("/parse-instruction", response_model=APIResponse[ParsedInstructionsResponse])
 async def parse_instruction(
     request: ParseInstructionRequest,
     current_user: User = Depends(get_current_active_user),
-    editor_service: ScriptEditorService = Depends(get_script_editor_service)
+    editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[ParsedInstructionsResponse]:
     """解析用户的自然语言指令"""
     try:
@@ -79,7 +72,7 @@ async def parse_instruction(
 async def execute_instruction(
     request: ExecuteInstructionRequest,
     current_user: User = Depends(get_current_active_user),
-    editor_service: ScriptEditorService = Depends(get_script_editor_service)
+    editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[EditResultResponse]:
     """执行单个编辑指令"""
     try:
@@ -120,7 +113,7 @@ async def execute_instruction(
 async def batch_edit(
     request: BatchEditRequest,
     current_user: User = Depends(get_current_active_user),
-    editor_service: ScriptEditorService = Depends(get_script_editor_service)
+    editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[BatchEditResponse]:
     """批量执行编辑指令"""
     try:
@@ -186,7 +179,7 @@ async def batch_edit(
 async def generate_suggestion(
     request: GenerateSuggestionRequest,
     current_user: User = Depends(get_current_active_user),
-    editor_service: ScriptEditorService = Depends(get_script_editor_service)
+    editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[str]:
     """生成AI编辑建议"""
     try:
@@ -217,7 +210,7 @@ async def generate_suggestion(
 async def get_editing_context(
     script_id: int,
     current_user: User = Depends(get_current_active_user),
-    editor_service: ScriptEditorService = Depends(get_script_editor_service)
+    editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[Dict[str, Any]]:
     """获取剧本编辑上下文信息"""
     try:
@@ -261,7 +254,7 @@ async def get_editing_context(
 async def validate_script(
     script_id: int,
     current_user: User = Depends(get_current_active_user),
-    editor_service: ScriptEditorService = Depends(get_script_editor_service)
+    editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[Dict[str, Any]]:
     """验证剧本完整性"""
     try:

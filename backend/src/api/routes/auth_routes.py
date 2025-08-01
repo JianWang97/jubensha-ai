@@ -3,7 +3,6 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
-from src.db.session import get_db_session
 from src.services.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.auth_dependencies import get_current_active_user
 from src.core.middleware_dependencies import (
@@ -14,6 +13,7 @@ from src.schemas.user_schemas import (
     Token, UserBrief
 )
 from src.db.models.user import User
+from src.core.container_integration import get_db_session_depends
 
 router = APIRouter(prefix="/api/auth", tags=["用户认证"])
 security = HTTPBearer()
@@ -21,7 +21,7 @@ security = HTTPBearer()
 @router.post("/register", response_model=UserResponse, summary="用户注册")
 async def register(
     user_data: UserRegister,
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """用户注册"""
     try:
@@ -47,7 +47,7 @@ async def register(
 @router.post("/login", response_model=Token, summary="用户登录")
 async def login(
     user_data: UserLogin,
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """用户登录"""
     # 认证用户
@@ -98,7 +98,7 @@ async def get_current_user_info(
 async def update_profile(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """更新用户资料"""
     try:
@@ -125,7 +125,7 @@ async def update_profile(
 async def change_password(
     password_data: PasswordChange,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """修改密码"""
     try:
@@ -167,7 +167,7 @@ async def get_users(
     request: Request,
     skip: int = 0,
     limit: int = 20,
-    db: Session = Depends(get_db_session)
+    db: Session = get_db_session_depends()
 ):
     """获取用户列表（使用中间件管理员认证）"""
     # 使用中间件验证管理员权限
@@ -178,7 +178,7 @@ async def get_users(
 @router.get("/users/{user_id}", response_model=UserBrief, summary="获取指定用户信息")
 async def get_user_by_id(
     user_id: int,
-    db: Session = Depends(get_db_session),
+    db: Session = get_db_session_depends(),
     current_user: User = Depends(get_current_active_user)
 ):
     """获取指定用户信息"""

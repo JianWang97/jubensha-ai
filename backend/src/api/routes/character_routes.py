@@ -1,25 +1,23 @@
 """角色管理API路由"""
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy.orm import Session
-from ...db.repositories import CharacterRepository
+from ...db.repositories.character_repository import CharacterRepository
 from ...schemas.script import ScriptCharacter
 from ...schemas.base import APIResponse, PaginatedResponse
 from ...db.models.character import CharacterDBModel
 from ...schemas.base import BaseDataModel
 from ...services.llm_service import llm_service, LLMMessage
-from ...db.session import get_db_session
 import logging
 from datetime import datetime
+from ...core.container_integration import get_character_repo_depends
 router = APIRouter(prefix="/api/characters", tags=["角色管理"])
 logger = logging.getLogger(__name__)
-def get_character_repository(db: Session = Depends(get_db_session)) -> CharacterRepository:
-    return CharacterRepository(db)
 
 from ...schemas.character_schemas import CharacterCreateRequest, CharacterUpdateRequest, CharacterPromptRequest
 
 
 @router.post("/{script_id}/characters", summary="创建角色")
-async def create_character(script_id: int, request: CharacterCreateRequest, character_repository: CharacterRepository = Depends(get_character_repository)) -> APIResponse[ScriptCharacter]:
+async def create_character(script_id: int, request: CharacterCreateRequest, character_repository: CharacterRepository = get_character_repo_depends()) -> APIResponse[ScriptCharacter]:
     """为指定剧本创建新角色"""
     try:
         # 创建角色数据
@@ -57,7 +55,7 @@ async def create_character(script_id: int, request: CharacterCreateRequest, char
         raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
 
 @router.put("/{script_id}/characters/{character_id}", summary="更新角色")
-async def update_character(script_id: int, character_id: int, request: CharacterUpdateRequest, character_repository: CharacterRepository = Depends(get_character_repository)) -> APIResponse[ScriptCharacter]:
+async def update_character(script_id: int, character_id: int, request: CharacterUpdateRequest, character_repository: CharacterRepository = get_character_repo_depends()) -> APIResponse[ScriptCharacter]:
     """更新指定角色的信息"""
     try:
 
@@ -92,7 +90,7 @@ async def update_character(script_id: int, character_id: int, request: Character
         raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
 
 @router.delete("/{script_id}/characters/{character_id}", summary="删除角色")
-async def delete_character(script_id: int, character_id: int, character_repository: CharacterRepository = Depends(get_character_repository)) -> APIResponse[dict]:
+async def delete_character(script_id: int, character_id: int, character_repository: CharacterRepository = get_character_repo_depends()) -> APIResponse[dict]:
     """删除指定角色"""
     try:
 
@@ -121,7 +119,7 @@ async def get_characters(
     script_id: int,
     skip: int = Query(0, ge=0, description="跳过的记录数"),
     limit: int = Query(10, ge=1, le=100, description="返回的记录数"),
-    character_repository_orm: CharacterRepository = Depends(get_character_repository)
+    character_repository_orm: CharacterRepository = get_character_repo_depends()
 ) -> APIResponse[list[ScriptCharacter]]:
     """获取指定剧本的角色列表"""
     try:
@@ -144,7 +142,7 @@ async def get_characters(
         raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
 
 @router.get("/{script_id}/characters/{character_id}", summary="获取角色详情")
-async def get_character(script_id: int, character_id: int, character_repository_orm: CharacterRepository = Depends(get_character_repository)) -> APIResponse[ScriptCharacter]:
+async def get_character(script_id: int, character_id: int, character_repository_orm: CharacterRepository = get_character_repo_depends()) -> APIResponse[ScriptCharacter]:
     """获取指定角色的详细信息"""
     try:
 

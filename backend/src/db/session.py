@@ -106,6 +106,11 @@ def get_db_session() -> Generator[Session, None, None]:
     with db_manager.session_scope() as session:
         yield session
 
+def get_db_session_from_container():
+    """从依赖容器获取数据库会话"""
+    from ..core.dependency_container import service_scope
+    return service_scope()
+
 def init_database(database_url: Optional[str] = None) -> None:
     """初始化数据库"""
     db_manager.initialize(database_url)

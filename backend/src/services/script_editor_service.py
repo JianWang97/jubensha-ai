@@ -204,8 +204,12 @@ class ScriptEditorService:
             if not response.content:
                 raise ValueError("AI服务返回空内容")
             
+            # 记录AI返回的原始内容
+            logger.info(f"[INSTRUCTION_PARSE] AI返回原始内容: {response.content[:500]}...")
+            
             # 尝试解析JSON响应
             instructions_data = json.loads(response.content.strip())
+            logger.info(f"[INSTRUCTION_PARSE] JSON解析结果: {instructions_data}")
             
             # 验证并转换为EditInstruction对象
             instructions: List[EditInstruction] = []
@@ -221,6 +225,8 @@ class ScriptEditorService:
             
         except json.JSONDecodeError as e:
             # 如果JSON解析失败，尝试从文本中提取信息
+            logger.warning(f"[INSTRUCTION_PARSE] JSON解析失败，使用备用解析方法: {e}")
+            logger.info(f"[INSTRUCTION_PARSE] 原始响应内容: {response.content if 'response' in locals() else 'N/A'}")
             return self._fallback_parse_instruction(instruction)
         except Exception as e:
             raise ValueError(f"解析指令失败: {str(e)}")
@@ -245,11 +251,13 @@ class ScriptEditorService:
     
     def _fallback_parse_instruction(self, instruction: str) -> List[EditInstruction]:
         """备用指令解析方法"""
+        logger.info(f"[FALLBACK_PARSE] 使用备用解析方法处理指令: {instruction}")
         instruction_lower = instruction.lower()
         
         # 简单的关键词匹配
         if "添加" in instruction or "新增" in instruction or "创建" in instruction:
             if "角色" in instruction or "人物" in instruction:
+                logger.info(f"[FALLBACK_PARSE] 识别为角色添加指令")
                 # 为角色添加提供完整的默认数据
                 return [EditInstruction(
                     action="add",

@@ -7,6 +7,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from src.core.websocket_server import game_server
+from typing import List
 
 # 导入剧本管理相关路由
 from src.api.routes.script_routes import router as script_management_router
@@ -25,10 +26,22 @@ from src.api.routes.tts_routes import router as tts_router
 # 导入用户认证路由
 from src.api.routes.auth_routes import router as auth_router
 from src.api.routes.user_routes import router as user_router
+# 导入数据库相关
+from src.core.database import db_manager
+from src.db.session import init_database
+# 添加WebSocket服务器
+from src.services.websocket_server import WebSocketServer
 
-from src.db.session import init_database, get_db_session
+# 添加依赖注入容器导入
+from src.core.di_container import register_core_services
 
 load_dotenv()
+
+# 注册核心服务
+register_core_services()
+
+# 创建剧本编辑WebSocket服务器实例
+script_edit_websocket_server = WebSocketServer()
 
 app = FastAPI(title="AI剧本杀游戏",docs_url="/docs",redoc_url="/redoc")
 
@@ -96,11 +109,15 @@ app.include_router(asset_router)
 # 注册用户认证路由
 app.include_router(auth_router)
 app.include_router(user_router)
+
+# 保留现有的游戏WebSocket端点
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, session_id: str = None, script_id: int = 1):
+async def websocket_endpoint(websocket: WebSocket, session_id: str | None = None, script_id: int = 1):
     """WebSocket端点"""
     await websocket.accept()
-    await game_server.register_client(websocket, session_id, script_id)
+    # 处理session_id为None的情况
+    actual_session_id = session_id or "default_session"
+    await game_server.register_client(websocket, actual_session_id, script_id)
     
     try:
         while True:
@@ -109,27 +126,31 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str = None, scrip
     except WebSocketDisconnect:
         await game_server.unregister_client(websocket)
 
+# 添加专用的剧本编辑WebSocket端点
+@app.websocket("/ws/script-edit")
+async def script_edit_websocket_endpoint(websocket: WebSocket, session_id: str, user_id: str):
+    """剧本编辑WebSocket端点"""
+    await script_edit_websocket_server.handle_websocket(websocket, session_id, user_id)
+
 @app.on_event("startup")
 async def startup_event():
     """应用启动时的初始化"""
     try:
+        # 初始化异步数据库
+        await db_manager.initialize()
+        print("异步数据库初始化完成")
+        
         # 初始化SQLAlchemy数据库
         init_database()
         print("SQLAlchemy数据库初始化完成")
-        
-        # 配置依赖注入容器
-        from .dependency_container import configure_services
-        configure_services()
-        print("依赖注入容器配置完成")
     except Exception as e:
-        print(f"应用初始化失败: {e}")
+        print(f"数据库初始化失败: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭时的清理"""
     try:
-        session = get_db_session()
-        session.close()
+        await db_manager.close()
         print("数据库连接已关闭")
     except Exception as e:
         print(f"数据库关闭失败: {e}")

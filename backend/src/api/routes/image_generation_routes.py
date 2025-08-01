@@ -3,10 +3,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from src.db.repositories.character_repository import CharacterRepository
-from ...db.repositories import ScriptRepository
+from ...db.repositories.script_repository import ScriptRepository
 from ...core.storage import storage_manager
 from ...services.comfyui_service import ImageGenerationResponse, comfyui_service, ImageGenerationRequest
-from ...db.session import get_db_session
 from ...db.repositories.evidence_repository import EvidenceRepository
 from ...db.repositories.location_repository import LocationRepository
 from io import BytesIO
@@ -14,23 +13,12 @@ from io import BytesIO
 from random import randint
 from ...services.llm_service import llm_service, LLMMessage
 from ...schemas.image_generation_schemas import ImageGenerationRequestModel, ScriptCoverPromptRequest, ScriptResponse
+from ...core.container_integration import get_script_repo_depends, get_character_repo_depends, get_evidence_repo_depends, get_location_repo_depends
 
 router = APIRouter(prefix="/api/scripts", tags=["剧本图片生成"])
 
-def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
-    return ScriptRepository(db)
-
-def get_character_repository(db: Session = Depends(get_db_session)) -> CharacterRepository:
-    return CharacterRepository(db)
-
-def get_evidence_repository(db: Session = Depends(get_db_session)) -> EvidenceRepository:
-    return EvidenceRepository(db)
-
-def get_location_repository(db: Session = Depends(get_db_session)) -> LocationRepository:
-    return LocationRepository(db)
-
 @router.post("/generate/cover", summary="生成封面图片")
-async def generate_cover_image(request: ImageGenerationRequestModel, script_repository: ScriptRepository = Depends(get_script_repository)):
+async def generate_cover_image(request: ImageGenerationRequestModel, script_repository: ScriptRepository = get_script_repo_depends()):
     """生成剧本封面图片"""
     try:
         # 检查剧本是否存在
@@ -129,8 +117,8 @@ async def generate_script_cover_prompt(request: ScriptCoverPromptRequest):
 
 @router.post("/generate/avatar", summary="生成角色头像")
 async def generate_avatar_image(request: ImageGenerationRequestModel, 
-    script_repository: ScriptRepository = Depends(get_script_repository),
-    character_repository: CharacterRepository = Depends(get_character_repository)
+    script_repository: ScriptRepository = get_script_repo_depends(),
+    character_repository: CharacterRepository = get_character_repo_depends()
     ):
     """生成角色头像图片"""
     try:
@@ -185,7 +173,7 @@ async def generate_avatar_image(request: ImageGenerationRequestModel,
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 @router.post("/generate/evidence", summary="生成证据图片")
-async def generate_evidence_image(request: ImageGenerationRequestModel, evidence_repository: EvidenceRepository = Depends(get_evidence_repository)):
+async def generate_evidence_image(request: ImageGenerationRequestModel, evidence_repository: EvidenceRepository = get_evidence_repo_depends()):
     """生成证据图片"""
     try:
 
@@ -230,7 +218,7 @@ async def generate_evidence_image(request: ImageGenerationRequestModel, evidence
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 @router.post("/generate/scene", summary="生成场景背景图")
-async def generate_scene_image(request: ImageGenerationRequestModel, location_repository: LocationRepository = Depends(get_location_repository)):
+async def generate_scene_image(request: ImageGenerationRequestModel, location_repository: LocationRepository = get_location_repo_depends()):
     """生成场景背景图片"""
     try:
         # 检查场景是否存在
@@ -275,15 +263,15 @@ async def generate_scene_image(request: ImageGenerationRequestModel, location_re
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
-async def generate_image(requset:ImageGenerationRequestModel) : 
+async def generate_image(request:ImageGenerationRequestModel) : 
             # 创建图片生成请求
     generation_request = ImageGenerationRequest(
-        positive_prompt=requset.positive_prompt,
-        negative_prompt=requset.negative_prompt,
-        width=requset.width,
-        height=requset.height,
-        steps=requset.steps,
-        cfg=requset.cfg,
+        positive_prompt=request.positive_prompt,
+        negative_prompt=request.negative_prompt,
+        width=request.width,
+        height=request.height,
+        steps=request.steps,
+        cfg=request.cfg,
         seed=randint(0, 2**32 - 1),
     )
         

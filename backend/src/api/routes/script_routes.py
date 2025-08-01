@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 import logging
 import json
 from pydantic import BaseModel
-from ...db.repositories import ScriptRepository
+from ...db.repositories.script_repository import ScriptRepository
 from ...schemas.script import (
     Script, ScriptInfo, ScriptCharacter, ScriptEvidence, 
     ScriptLocation
@@ -33,20 +33,12 @@ class GenerateScriptContentRequest(BaseModel):
     player_count: int
     script_type: Optional[str] = None
 from ...schemas.base import APIResponse, PaginatedResponse
-from ...db.session import get_db_session
 from src.core.auth_dependencies import get_current_user, get_current_active_user
 from src.db.models.user import User
 from ...services.llm_service import llm_service, LLMMessage
+from ...core.container_integration import get_script_repo_depends, get_script_editor_svc_depends
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
-
-
-# 请求模型
-
-
-def get_script_repository(db: Session = Depends(get_db_session)) -> ScriptRepository:
-    """获取剧本仓库实例"""
-    return ScriptRepository(db)
 
 
 @router.post("/generate-info", response_model=APIResponse[dict])
@@ -119,7 +111,7 @@ async def generate_script_info(
 async def generate_script_content(
     request: GenerateScriptContentRequest,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[dict]:
     """根据剧本背景自动生成角色和证据"""
     try:
@@ -168,8 +160,8 @@ async def generate_script_content(
             )
             
             # 使用角色仓库创建角色
-            from ...db.repositories.character_repository import CharacterRepository
-            char_repo = CharacterRepository(repo.db)
+            from ...core.container_integration import get_character_repository
+            char_repo = get_character_repository()
             created_char = char_repo.create_character(character)
             created_characters.append(created_char)
         
@@ -187,8 +179,8 @@ async def generate_script_content(
             )
             
             # 使用证据仓库创建证据
-            from ...db.repositories.evidence_repository import EvidenceRepository
-            ev_repo = EvidenceRepository(repo.db)
+            from ...core.container_integration import get_evidence_repository
+            ev_repo = get_evidence_repository()
             created_ev = ev_repo.create_evidence(evidence_item)
             created_evidence.append(created_ev)
         
@@ -466,7 +458,7 @@ async def _generate_evidence(theme: str, background_story: str, characters: List
 async def create_script(
     request: CreateScriptRequest,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[ScriptInfo]:
     """创建新剧本"""
     try:
@@ -519,7 +511,7 @@ async def create_script(
 async def create_complete_script(
     script: Script,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[Script]:
     """创建完整剧本（包含所有关联数据）"""
     try:
@@ -541,7 +533,7 @@ async def get_scripts(
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页数量"),
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> PaginatedResponse[ScriptInfo]:
     """获取剧本列表（分页）- 仅返回当前用户的剧本"""
     try:
@@ -557,7 +549,7 @@ async def get_public_scripts(
     status: Optional[ScriptStatus] = Query(None, description="剧本状态过滤"),
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页数量"),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> PaginatedResponse[ScriptInfo]:
     """获取公开的剧本列表（分页）"""
     try:
@@ -576,7 +568,7 @@ async def search_scripts(
     keyword: str = Query(..., description="搜索关键词"),
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页数量"),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> PaginatedResponse[ScriptInfo]:
     """搜索剧本"""
     try:
@@ -589,7 +581,7 @@ async def search_scripts(
 async def get_script(
     script_id: int,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[Script]:
     """获取完整剧本信息"""
     script = repo.get_script_by_id(script_id)
@@ -611,7 +603,7 @@ async def get_script(
 async def get_script_info(
     script_id: int,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[ScriptInfo]:
     """获取剧本基本信息"""
     script_info = repo.get_script_info_by_id(script_id)
@@ -634,7 +626,7 @@ async def update_script(
     script_id: int,
     script: Script,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[Script]:
     """更新完整剧本"""
     # 检查剧本是否存在和权限
@@ -662,7 +654,7 @@ async def update_script_info(
     script_data: ScriptInfo,
     request: Request,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[ScriptInfo]:
     """更新剧本基本信息"""
     logger = logging.getLogger(__name__)
@@ -705,7 +697,7 @@ async def update_script_status(
     script_id: int,
     status: ScriptStatus,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[str]:
     """更新剧本状态"""
     # 检查剧本是否存在和权限
@@ -731,7 +723,7 @@ async def update_script_status(
 async def delete_script(
     script_id: int,
     current_user: User = Depends(get_current_active_user),
-    repo: ScriptRepository = Depends(get_script_repository)
+    repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[str]:
     """删除剧本"""
     # 检查剧本是否存在和权限

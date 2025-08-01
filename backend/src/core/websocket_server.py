@@ -301,13 +301,14 @@ class GameWebSocketServer:
         try:
             logger.info(f"[GAME] 开始初始化游戏: 会话={session.session_id}, 剧本={session.script_id}")
             
-            # 获取数据库会话
-            db_gen = get_db_session()
-            db = next(db_gen)
-            try:
-                # 初始化剧本编辑服务
-                script_repo = ScriptRepository(db)
-                session.editor_service = ScriptEditorService(script_repo)
+            # 使用依赖容器获取服务
+            from .dependency_container import get_container
+            container = get_container()
+            
+            with container.create_scope() as scope:
+                # 从依赖容器获取剧本编辑服务
+                from ..services.script_editor_service import ScriptEditorService
+                session.editor_service = scope.resolve(ScriptEditorService)
                 
                 # 加载剧本
                 script = session.editor_service.script_repository.get_script_by_id(session.script_id)
@@ -318,16 +319,8 @@ class GameWebSocketServer:
                 await session.game_engine.load_script_data(session.script_id)
                 
                 # 标记游戏已初始化
-                session.game_initialized = True  # 修改：使用公共属性game_initialized
+                session.game_initialized = True
                 logger.info(f"[GAME] 游戏初始化完成: 会话={session.session_id}")
-                
-            finally:
-                db.close()
-                # 完成生成器
-                try:
-                    next(db_gen)
-                except StopIteration:
-                    pass  # 这是预期的行为
                 
         except Exception as e:
             logger.error(f"[GAME] 游戏初始化失败: {e}", exc_info=True)
