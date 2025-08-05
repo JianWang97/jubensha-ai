@@ -88,13 +88,6 @@ from ..db.repositories.location_repository import LocationRepository
 from ..services.script_editor_service import ScriptEditorService
 from sqlalchemy.orm import Session
 
-# 预定义的依赖注入函数
-get_db_session = get_scoped_service(Session)
-get_script_repository = get_repository_dependency(ScriptRepository)
-get_character_repository = get_repository_dependency(CharacterRepository)
-get_evidence_repository = get_repository_dependency(EvidenceRepository)
-get_location_repository = get_repository_dependency(LocationRepository)
-get_script_editor_service = get_service_dependency(ScriptEditorService)
 
 # FastAPI Depends对象 - 使用工厂函数而不是预定义对象
 # 这些函数在需要时创建Depends对象，避免在模块导入时创建

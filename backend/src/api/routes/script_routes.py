@@ -7,20 +7,17 @@
 4. 一致的API响应结构
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from sqlalchemy.orm import Session
 import logging
 import json
-from pydantic import BaseModel
 from ...db.repositories.script_repository import ScriptRepository
-from ...schemas.script import (
-    Script, ScriptInfo, ScriptCharacter, ScriptEvidence, 
-    ScriptLocation
-)
+from ...schemas.script import Script
+from ...schemas.script_info import ScriptInfo
+from ...schemas.script_character import ScriptCharacter
 from ...schemas.script_info import ScriptStatus
-from ...schemas.script_evidence import EvidenceType
+from ...schemas.script_evidence import EvidenceType,ScriptEvidence
 from ...schemas.script_requests import GenerateScriptInfoRequest, CreateScriptRequest
 from pydantic import BaseModel
 
@@ -41,15 +38,21 @@ from ...core.container_integration import get_script_repo_depends, get_script_ed
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 
 
-@router.post("/generate-info", response_model=APIResponse[dict])
+@router.post("/generate-info", response_model=APIResponse[Dict[str, str]])
 async def generate_script_info(
     request: GenerateScriptInfoRequest,
     current_user: User = Depends(get_current_active_user)
-) -> APIResponse[dict]:
+) -> APIResponse[Dict[str, str]]:
     """根据主题生成剧本基础信息"""
-    try:
-        # 构建LLM提示
-        system_prompt = """你是一个专业的剧本杀游戏设计师，擅长根据主题创作引人入胜的剧本。
+    # 重试机制
+    max_retries = 3
+    last_error = None
+    base_temperature = 0.8
+    
+    for attempt in range(max_retries):
+        try:
+            # 构建LLM提示
+            system_prompt = """你是一个专业的剧本杀游戏设计师，擅长根据主题创作引人入胜的剧本。
 请根据用户提供的主题，生成剧本的基础信息。
 
 要求：
@@ -62,49 +65,65 @@ async def generate_script_info(
    - background: 背景故事（200-300字）
    - suggested_type: 建议的剧本类型
    - suggested_player_count: 建议的玩家人数"""
-        
-        user_prompt = f"""主题：{request.theme}"""
-        
-        if request.script_type:
-            user_prompt += f"\n剧本类型偏好：{request.script_type}"
-        
-        if request.player_count:
-            user_prompt += f"\n玩家人数：{request.player_count}"
-        
-        user_prompt += "\n\n请生成剧本基础信息，以JSON格式返回。"
-        
-        # 调用LLM服务
-        messages = [
-            LLMMessage(role="system", content=system_prompt),
-            LLMMessage(role="user", content=user_prompt)
-        ]
-        
-        response = await llm_service.chat_completion(messages, max_tokens=800, temperature=0.8)
-        
-        if not response.content:
-            raise HTTPException(status_code=500, detail="LLM服务返回空内容")
-        
-        # 尝试解析JSON响应
-        import json
-        try:
-            generated_info = json.loads(response.content.strip())
-        except json.JSONDecodeError:
-            # 如果不是有效JSON，返回原始内容
-            generated_info = {
-                "title": "AI生成的剧本",
-                "description": response.content.strip(),
-                "background": "",
-                "suggested_type": request.script_type or "mystery",
-                "suggested_player_count": request.player_count or "6"
-            }
-        
-        return APIResponse(
-            success=True,
-            message="剧本基础信息生成成功",
-            data=generated_info
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成剧本信息失败: {str(e)}")
+            
+            user_prompt = f"""主题：{request.theme}"""
+            
+            if request.script_type:
+                user_prompt += f"\n剧本类型偏好：{request.script_type}"
+            
+            if request.player_count:
+                user_prompt += f"\n玩家人数：{request.player_count}"
+            
+            user_prompt += "\n\n请生成剧本基础信息，以JSON格式返回。"
+            
+            # 调用LLM服务
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt)
+            ]
+            
+            # 每次重试时增加temperature值
+            current_temperature = base_temperature + (attempt * 0.1)
+            
+            response = await llm_service.chat_completion(
+                messages, 
+                max_tokens=800, 
+                temperature=current_temperature  # 每次重试时temperature增加0.1
+            )
+            
+            if not response.content:
+                raise HTTPException(status_code=500, detail="LLM服务返回空内容")
+            
+            # 尝试解析JSON响应
+            import json
+            try:
+                generated_info = json.loads(response.content.strip())
+            except json.JSONDecodeError:
+                # 如果不是有效JSON，返回原始内容
+                generated_info = {
+                    "title": "AI生成的剧本",
+                    "description": response.content.strip(),
+                    "background": "",
+                    "suggested_type": request.script_type or "mystery",
+                    "suggested_player_count": request.player_count or "6"
+                }
+            
+            return APIResponse(
+                success=True,
+                message="剧本基础信息生成成功",
+                data=generated_info
+            )
+        except Exception as e:
+            last_error = e
+            logging.warning(f"[AI_SCRIPT_INFO_GENERATION] 第{attempt + 1}次尝试失败: {str(e)}")
+            
+            if attempt < max_retries - 1:
+                # 在重试前调整提示词，强调之前失败的原因
+                if "JSON" in str(e) or "格式" in str(e):
+                    user_prompt += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
+    
+    # 所有重试都失败了
+    raise HTTPException(status_code=500, detail=f"生成剧本信息失败，已重试{max_retries}次。最后错误: {str(last_error)}")
 
 
 @router.post("/generate-content", response_model=APIResponse[dict])
@@ -160,9 +179,9 @@ async def generate_script_content(
             )
             
             # 使用角色仓库创建角色
-            from ...core.container_integration import get_character_repository
-            char_repo = get_character_repository()
-            created_char = char_repo.create_character(character)
+            from ...core.container_integration import get_character_repo_depends
+            char_repo = get_character_repo_depends()
+            created_char = char_repo.add_character(character)
             created_characters.append(created_char)
         
         # 创建证据
@@ -179,8 +198,8 @@ async def generate_script_content(
             )
             
             # 使用证据仓库创建证据
-            from ...core.container_integration import get_evidence_repository
-            ev_repo = get_evidence_repository()
+            from ...core.container_integration import get_evidence_repo_depends
+            ev_repo = get_evidence_repo_depends()
             created_ev = ev_repo.create_evidence(evidence_item)
             created_evidence.append(created_ev)
         
@@ -260,6 +279,8 @@ async def _generate_characters(theme: str, background_story: str, player_count: 
 - 角色之间要有逻辑关联，不能是孤立的个体
 - 凶手和受害者的设定要符合剧本逻辑
 
+返回的schema如下:
+{character_schema}
 请严格按照以上要求生成角色数据。"""
     
     user_prompt = f"""【剧本信息】
@@ -275,6 +296,7 @@ async def _generate_characters(theme: str, background_story: str, player_count: 
     # 重试机制
     max_retries = 3
     last_error = None
+    base_temperature = 0.6
     
     for attempt in range(max_retries):
         try:
@@ -285,16 +307,19 @@ async def _generate_characters(theme: str, background_story: str, player_count: 
                 LLMMessage(role="user", content=user_prompt)
             ]
             
+            # 每次重试时增加temperature值
+            current_temperature = base_temperature + (attempt * 0.1)
+            
             response = await llm_service.chat_completion(
                 messages, 
                 max_tokens=3000, 
-                temperature=0.6  # 降低温度以提高一致性
+                temperature=current_temperature  # 每次重试时temperature增加0.1
             )
             
             if not response.content:
                 raise ValueError("AI服务返回空内容")
             
-            # 清理响应内容，移除可能的markdown格式
+            # 清理响应内容，移除可能的代码格式
             content = response.content.strip()
             if content.startswith("```json"):
                 content = content[7:]
@@ -386,7 +411,7 @@ async def _generate_characters(theme: str, background_story: str, player_count: 
             if attempt < max_retries - 1:
                 # 在重试前调整提示词，强调之前失败的原因
                 if "JSON" in str(e) or "格式" in str(e):
-                    user_prompt += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何markdown标记或额外文字。"
+                    user_prompt += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
                 elif "数量" in str(e):
                     user_prompt += f"\n\n注意：必须生成恰好{player_count}个角色，不多不少。"
                 elif "凶手" in str(e) or "受害者" in str(e):
@@ -435,23 +460,48 @@ async def _generate_evidence(theme: str, background_story: str, characters: List
     evidence_count = max(len(characters) + 2, 6)  # 至少6个证据
     user_prompt += f"\n\n请为这个剧本生成{evidence_count}个证据，确保证据与角色和背景故事逻辑一致。以JSON数组格式返回。"
     
-    messages = [
-        LLMMessage(role="system", content=system_prompt),
-        LLMMessage(role="user", content=user_prompt)
-    ]
+    # 重试机制
+    max_retries = 3
+    last_error = None
+    base_temperature = 0.7
     
-    response = await llm_service.chat_completion(messages, max_tokens=2000, temperature=0.7)
+    for attempt in range(max_retries):
+        try:
+            logging.info(f"[AI_EVIDENCE_GENERATION] 第{attempt + 1}次尝试生成证据")
+            
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt)
+            ]
+            
+            # 每次重试时增加temperature值
+            current_temperature = base_temperature + (attempt * 0.1)
+            
+            response = await llm_service.chat_completion(
+                messages, 
+                max_tokens=2000, 
+                temperature=current_temperature  # 每次重试时temperature增加0.1
+            )
+            
+            if not response.content:
+                raise ValueError("AI生成证据失败：返回空内容")
+            
+            evidence = json.loads(response.content.strip())
+            if not isinstance(evidence, list):
+                raise ValueError("AI返回的不是数组格式")
+            return evidence
+            
+        except (json.JSONDecodeError, ValueError, Exception) as e:
+            last_error = e
+            logging.warning(f"[AI_EVIDENCE_GENERATION] 第{attempt + 1}次尝试失败: {str(e)}")
+            
+            if attempt < max_retries - 1:
+                # 在重试前调整提示词，强调之前失败的原因
+                if "JSON" in str(e) or "格式" in str(e):
+                    user_prompt += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
     
-    if not response.content:
-        raise ValueError("AI生成证据失败：返回空内容")
-    
-    try:
-        evidence = json.loads(response.content.strip())
-        if not isinstance(evidence, list):
-            raise ValueError("AI返回的不是数组格式")
-        return evidence
-    except json.JSONDecodeError as e:
-        raise ValueError(f"AI返回的JSON格式错误: {e}")
+    # 所有重试都失败了
+    raise ValueError(f"AI生成证据失败，已重试{max_retries}次。最后错误: {str(last_error)}")
 
 
 @router.post("/", response_model=APIResponse[ScriptInfo])

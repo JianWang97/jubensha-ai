@@ -7,7 +7,7 @@ interface LayoutProps {
 
 const Layout = ({ children, backgroundImage }: LayoutProps) => {
   return (
-    <div className="relative min-h-screen text-white font-sans overflow-hidden">
+    <div className="relative h-screen w-screen text-white font-sans overflow-hidden">
       {/* 背景图片层 */}
       {backgroundImage ? (
         <div 
@@ -22,8 +22,8 @@ const Layout = ({ children, backgroundImage }: LayoutProps) => {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
       
       {/* 内容层 */}
-      <div className="relative z-10">
-        <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="relative z-10 h-full w-full">
+        <main className="h-full w-full">
           {children}
         </main>
       </div>

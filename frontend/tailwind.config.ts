@@ -8,6 +8,14 @@ const config: Config = {
     './node_modules/@shadcn-ui/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
+    screens: {
+      'xs': '475px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       textShadow: {
         'lg': '2px 2px 4px rgba(0,0,0,0.3)',

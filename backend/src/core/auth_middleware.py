@@ -8,7 +8,8 @@
 """
 
 import re
-from typing import List, Optional, Dict, Any
+from typing import Callable, List, Optional, Dict, Any, override, Awaitable
+
 from fastapi import Request, Response, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -119,8 +120,9 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
             
             try:
                 # 获取用户
-                user = AuthService.get_user_by_username(db, token_data.username)
-                return user
+                if token_data.username is not None:
+                    user = AuthService.get_user_by_username(db, token_data.username)
+                    return user
             finally:
                 db.close()
                 
@@ -138,7 +140,8 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
             }
         )
     
-    async def dispatch(self, request: Request, call_next) -> Response:
+    @override
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """中间件主要逻辑"""
         path = request.url.path
         method = request.method

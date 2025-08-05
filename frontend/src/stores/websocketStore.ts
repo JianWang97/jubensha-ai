@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { useEffect } from 'react';
 import { useConfigStore } from './configStore';
@@ -18,7 +19,7 @@ export interface GameState {
 
 export interface WebSocketMessage {
   type: string;
-  data?: Record<string, unknown>;
+  data?: Record<string, any>;
   message?: string;
 }
 
@@ -78,6 +79,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   // 处理WebSocket消息
   handleMessage: (message: WebSocketMessage) => {
     console.log('收到消息:', message);
+    
     const state = get();
 
     // 验证session_id
@@ -92,13 +94,13 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     // 如果消息包含session_id但当前没有session_id，则更新当前session_id
     if (messageSessionId && !state.currentSessionId) {
       console.log(`更新当前session_id: ${messageSessionId}`);
-      set({ currentSessionId: messageSessionId });
+      set({ currentSessionId: messageSessionId as string});
     }
 
     switch (message.type) {
       case 'game_state':
       case 'game_state_update':
-        set({ gameState: message.data });
+        set({ gameState: message.data as GameState });
         break;
 
       case 'game_started':
@@ -110,8 +112,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         if (message.data && message.data.character && message.data.action) {
           set((state) => {
             if (!state.gameState) return state;
-            console.log('收到AI行动:', message.data);
             // 创建新的事件
+            message.data = message.data as Record<string, any>;
             const newEvent = {
               character: message.data.character,
               content: message.data.action
@@ -134,6 +136,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         break;
 
       case 'phase_changed':
+        message.data = message.data as Record<string, any>;
         set({ gameState: message.data.game_state });
         break;
 

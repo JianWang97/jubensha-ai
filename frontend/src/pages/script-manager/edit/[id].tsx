@@ -22,7 +22,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { 
+  Loader2, 
+  FileText, 
+  BookOpen, 
+  Search, 
+  Users, 
+  Building, 
+  Save, 
+  PenTool, 
+  Clock, 
+  Target, 
+  BarChart3, 
+  Star, 
+  Globe, 
+  Drama, 
+  Newspaper, 
+  User, 
+  MapPin, 
+  PocketKnife, 
+  Clipboard, 
+  AlertTriangle, 
+  Trophy, 
+  X, 
+  ArrowLeft,
+  Camera,
+  Bot,
+  Zap
+} from 'lucide-react';
 import { useWebSocketStore } from '@/stores/websocketStore';
 
 // Tab类型定义
@@ -275,528 +302,425 @@ const ScriptEditPage = () => {
 
   // Tab配置
   const tabs = [
-    { key: 'basic' as TabType, label: '剧本基础信息', icon: '📝' },
-    { key: 'evidence' as TabType, label: '证据管理', icon: '🔍' },
-    { key: 'characters' as TabType, label: '角色管理', icon: '👥' },
-    { key: 'locations' as TabType, label: '场景管理', icon: '🏛️' },
-    { key: 'background' as TabType, label: '背景故事', icon: '📖' }
+    { key: 'basic' as TabType, label: '剧本基础信息', icon: FileText },
+    { key: 'background' as TabType, label: '背景故事', icon: BookOpen },
+    { key: 'evidence' as TabType, label: '证据管理', icon: Search },
+    { key: 'characters' as TabType, label: '角色管理', icon: Users },
+    { key: 'locations' as TabType, label: '场景管理', icon: Building },
+
   ];
 
   // Loading and error states are now handled within the main render instead of early returns
 
   // 基础信息Tab内容
-  const BasicInfoTab = () => (
-    <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
-      <CardContent className="p-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
-                📝 标题
-              </label>
-              <Input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
-                ✍️ 作者
-              </label>
-              <Input
-                type="text"
-                name="author"
-                value={formData.author}
-                onChange={handleInputChange}
-                className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
-                required
-                readOnly
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
-                👥 玩家人数
-              </label>
-              <Input
-                type="number"
-                name="player_count"
-                value={formData.player_count}
-                onChange={handleInputChange}
-                min="1"
-                className="bg-slate-800/50 border-purple-500/30 text-purple-100"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
-                ⏱️ 游戏时长（分钟）
-              </label>
-              <Input
-                type="number"
-                name="duration_minutes"
-                value={formData.duration_minutes}
-                onChange={handleInputChange}
-                min="1"
-                className="bg-slate-800/50 border-purple-500/30 text-purple-100"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
-                🎯 难度
-              </label>
-              <Select value={formData.difficulty} onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value }))}>
-                <SelectTrigger className="bg-slate-800/50 border-purple-500/30 text-purple-100">
-                  <SelectValue placeholder="请选择难度" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-purple-500/30">
-                  <SelectItem value="简单">⭐ 简单</SelectItem>
-                  <SelectItem value="中等">⚡ 中等</SelectItem>
-                  <SelectItem value="困难">🔥 困难</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
-                📊 状态
-              </label>
-              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as ScriptStatus }))}>
-                <SelectTrigger className="bg-slate-800/50 border-purple-500/30 text-purple-100">
-                  <SelectValue placeholder="请选择状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DRAFT">草稿</SelectItem>
-                  <SelectItem value="PUBLISHED">已发布</SelectItem>
-                  <SelectItem value="ARCHIVED">已归档</SelectItem>
-                </SelectContent>
-              </Select>
+  const BasicInfoTab = () => {
+    return (
+      <div className="relative">
+        <div className="p-6">
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-blue-200 flex items-center gap-2">
+                <FileText className="w-5 h-5" /> 剧本基础信息
+              </h3>
+              <Button
+                onClick={handleSubmit}
+                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+              >
+                <Save className="w-4 h-4 mr-1" /> 保存基础信息
+              </Button>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-purple-200 mb-2">
-              📄 描述
-            </label>
-            <Textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={4}
-              className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-purple-200 mb-2">
-              🏷️ 标签（用逗号分隔）
-            </label>
-            <Input
-              type="text"
-              value={formData.tags.join(', ')}
-              onChange={handleTagsChange}
-              placeholder="例如：悬疑, 推理, 古风"
-              className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
-            />
-          </div>
-
-          {/* 封面图片区域 */}
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-purple-200 mb-2">
-              🖼️ 封面图片
-            </label>
-
-            {/* 当前封面图片预览 */}
-            <div className="mb-4">
-              {formData.cover_image_url ? (
-                <div className="w-full max-w-md">
-                  <div className="relative group">
-                    <img
-                      src={formData.cover_image_url}
-                      alt="剧本封面"
-                      className="w-full h-48 object-cover rounded-lg border border-purple-500/30 bg-slate-800"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                      <span className="text-white text-sm">当前封面</span>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* AI封面图片生成模块 */}
+            <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-lg relative overflow-hidden mb-8">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
+              <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+              <h3 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-3 relative z-10">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-500/80 to-pink-500/80 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-sm">
+                  <Camera className="w-4 h-4 text-white" />
+                </div>
+                AI封面图片生成
+              </h3>
+              <div className="flex gap-6 relative z-10">
+                {/* 左侧：生成控件 */}
+                <div className="flex-1 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-slate-200 font-medium">正向提示词</label>
+                      <Button
+                        type="button"
+                        onClick={handlePromptGeneration}
+                        disabled={isGeneratingPrompt || !formData.title?.trim()}
+                        size="sm"
+                        variant="outline"
+                        className="text-xs bg-gradient-to-r from-amber-600/20 to-orange-600/20 border-amber-500/30 text-amber-200 hover:bg-amber-600/30"
+                      >
+                        {isGeneratingPrompt ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            生成中...
+                          </>
+                        ) : (
+                          <>
+                            <Bot className="w-4 h-4 mr-1" />
+                            AI生成提示词
+                          </>
+                        )}
+                      </Button>
                     </div>
+                    <Textarea
+                      value={imageGeneration.positive_prompt}
+                      onChange={(e) => setImageGeneration(prev => ({ ...prev, positive_prompt: e.target.value }))}
+                      rows={3}
+                      className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 text-slate-100 placeholder-slate-400 rounded-xl transition-all duration-300 hover:bg-white/8 resize-none"
+                      placeholder="描述想要生成的封面图片，或点击上方按钮AI生成"
+                    />
                   </div>
-                </div>
-              ) : (
-                <div className="w-full max-w-md h-48 rounded-lg border-2 border-dashed border-purple-500/30 flex items-center justify-center bg-slate-800/50">
-                  <div className="text-center">
-                    <div className="text-3xl mb-2 opacity-50">🖼️</div>
-                    <div className="text-sm text-purple-300 opacity-70">暂无封面图片</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 手动输入图片URL */}
-            <div>
-              <label className="block text-sm font-medium text-purple-200 mb-2">
-                🔗 图片URL
-              </label>
-              <Input
-                type="url"
-                value={formData.cover_image_url}
-                onChange={(e) => setFormData(prev => ({ ...prev, cover_image_url: e.target.value }))}
-                placeholder="输入图片URL或使用AI生成"
-                className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
-              />
-            </div>
-
-            {/* AI图片生成区域 */}
-            <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl p-6 border border-purple-500/20">
-              <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
-                🎨 AI封面生成
-              </h4>
-
-              <div className="space-y-4">
-                {/* 正向提示词 */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-purple-200">
-                      ✨ 正向提示词
-                    </label>
+                  
+                  <div className="flex gap-2">
                     <Button
                       type="button"
-                      onClick={handlePromptGeneration}
-                      disabled={isGeneratingPrompt || (!formData.title.trim() && !formData.description.trim())}
-                      size="sm"
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 disabled:opacity-50 text-xs"
+                      onClick={handleCoverImageGeneration}
+                      disabled={isGeneratingImage || !imageGeneration.positive_prompt.trim()}
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50"
                     >
-                      {isGeneratingPrompt ? (
+                      {isGeneratingImage ? (
                         <>
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          <Zap className="w-4 h-4 mr-2 animate-spin" />
                           生成中...
                         </>
                       ) : (
                         <>
-                          🤖 AI生成提示词
+                          <Camera className="w-4 h-4 mr-2" />
+                          生成封面图片
                         </>
                       )}
                     </Button>
                   </div>
-                  <Textarea
-                    value={imageGeneration.positive_prompt}
-                    onChange={(e) => setImageGeneration(prev => ({ ...prev, positive_prompt: e.target.value }))}
-                    placeholder="描述你想要的封面图片，例如：古代中式庭院，夜晚，月光，神秘氛围，高质量，电影级别"
-                    rows={3}
-                    className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
-                  />
                 </div>
+                
+                {/* 右侧：图片预览 */}
+                {formData.cover_image_url && (
+                  <div className="flex-shrink-0">
+                    <label className="block text-sm font-medium text-slate-200 mb-2">封面预览</label>
+                    <div className="w-32 h-32 rounded-lg overflow-hidden border border-white/20 bg-slate-800">
+                      <img 
+                        src={formData.cover_image_url} 
+                        alt="封面预览"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
-                {/* 反向提示词 */}
+            {/* 基本信息模块 */}
+            <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-lg relative overflow-hidden">
+              {/* 玻璃态装饰 */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
+              <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+              <h3 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-3 relative z-10">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500/80 to-purple-500/80 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-sm">
+                  <FileText className="w-4 h-4 text-white" />
+                </div>
+                基本信息
+              </h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-purple-200 mb-2">
-                    🚫 反向提示词
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-400 rounded-full shadow-sm"></span>
+                    <FileText className="w-4 h-4" /> 剧本标题
                   </label>
-                  <Textarea
-                    value={imageGeneration.negative_prompt}
-                    onChange={(e) => setImageGeneration(prev => ({ ...prev, negative_prompt: e.target.value }))}
-                    placeholder="描述不想要的元素，例如：低质量，模糊，变形"
-                    rows={2}
-                    className="bg-slate-800/50 border-purple-500/30 text-purple-100 placeholder-purple-300/70"
+                  <Input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400 rounded-xl transition-all duration-300 hover:bg-white/8"
+                    placeholder="输入剧本标题..."
+                    required
                   />
                 </div>
 
-                {/* 图片参数 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">
-                      📐 尺寸
-                    </label>
-                    <Select
-                      value={`${imageGeneration.width}x${imageGeneration.height}`}
-                      onValueChange={(value) => {
-                        const [width, height] = value.split('x').map(Number);
-                        setImageGeneration(prev => ({ ...prev, width, height }));
-                      }}
-                    >
-                      <SelectTrigger className="bg-slate-800/50 border-purple-500/30 text-purple-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-purple-500/30">
-                        <SelectItem value="512x512">512×512</SelectItem>
-                        <SelectItem value="768x512">768×512</SelectItem>
-                        <SelectItem value="512x768">512×768</SelectItem>
-                        <SelectItem value="1024x768">1024×768</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">
-                      🔢 步数
-                    </label>
-                    <Input
-                      type="number"
-                      value={imageGeneration.steps}
-                      onChange={(e) => setImageGeneration(prev => ({ ...prev, steps: parseInt(e.target.value) || 20 }))}
-                      min="1"
-                      max="50"
-                      className="bg-slate-800/50 border-purple-500/30 text-purple-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">
-                      ⚖️ CFG
-                    </label>
-                    <Input
-                      type="number"
-                      value={imageGeneration.cfg_scale}
-                      onChange={(e) => setImageGeneration(prev => ({ ...prev, cfg_scale: parseFloat(e.target.value) || 7 }))}
-                      min="1"
-                      max="20"
-                      step="0.5"
-                      className="bg-slate-800/50 border-purple-500/30 text-purple-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">
-                      🎲 种子
-                    </label>
-                    <Input
-                      type="number"
-                      value={imageGeneration.seed}
-                      onChange={(e) => setImageGeneration(prev => ({ ...prev, seed: parseInt(e.target.value) || -1 }))}
-                      className="bg-slate-800/50 border-purple-500/30 text-purple-100"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full shadow-sm"></span>
+                    <PenTool className="w-4 h-4" /> 作者
+                  </label>
+                  <Input
+                    type="text"
+                    name="author"
+                    value={formData.author}
+                    onChange={handleInputChange}
+                    className="bg-white/3 backdrop-blur-sm border-white/15 text-slate-200 rounded-xl opacity-75"
+                    required
+                    readOnly
+                  />
                 </div>
 
-                {/* 生成按钮 */}
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={handleCoverImageGeneration}
-                    disabled={isGeneratingImage || !imageGeneration.positive_prompt.trim()}
-                    className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 disabled:opacity-50"
-                  >
-                    {isGeneratingImage ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        生成中...
-                      </>
-                    ) : (
-                      <>
-                        🎨 生成封面图片
-                      </>
-                    )}
-                  </Button>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-600 rounded-full shadow-sm"></span>
+                    <Users className="w-4 h-4" /> 玩家人数
+                  </label>
+                  <Input
+                    type="number"
+                    name="player_count"
+                    value={formData.player_count}
+                    onChange={handleInputChange}
+                    min="1"
+                    className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8"
+                    placeholder="建议3-8人"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-cyan-400 rounded-full shadow-sm"></span>
+                    <Clock className="w-4 h-4" /> 游戏时长（分钟）
+                  </label>
+                  <Input
+                    type="number"
+                    name="duration_minutes"
+                    value={formData.duration_minutes}
+                    onChange={handleInputChange}
+                    min="1"
+                    className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8"
+                    placeholder="建议120-240分钟"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-cyan-500 rounded-full shadow-sm"></span>
+                    <Target className="w-4 h-4" /> 难度等级
+                  </label>
+                  <Select value={formData.difficulty} onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value }))}>
+                    <SelectTrigger className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-orange-400/60 focus:ring-2 focus:ring-orange-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8">
+                      <SelectValue placeholder="请选择难度等级" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800/95 backdrop-blur-xl border-white/20">
+                      <SelectItem value="简单"><Star className="w-4 h-4 inline mr-1" /> 简单</SelectItem>
+                      <SelectItem value="中等"><Target className="w-4 h-4 inline mr-1" /> 中等</SelectItem>
+                      <SelectItem value="困难"><AlertTriangle className="w-4 h-4 inline mr-1" /> 困难</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-cyan-600 rounded-full shadow-sm"></span>
+                    <BarChart3 className="w-4 h-4" /> 发布状态
+                  </label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as ScriptStatus }))}>
+                    <SelectTrigger className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-rose-400/60 focus:ring-2 focus:ring-rose-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8">
+                      <SelectValue placeholder="请选择发布状态" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DRAFT"><FileText className="w-4 h-4 inline mr-1" /> 草稿</SelectItem>
+                      <SelectItem value="PUBLISHED"><BarChart3 className="w-4 h-4 inline mr-1" /> 已发布</SelectItem>
+                      <SelectItem value="ARCHIVED"><Clipboard className="w-4 h-4 inline mr-1" /> 已归档</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-4 pt-4">
-            <Button
-              type="button"
-              onClick={() => router.push('/script-manager')}
-              variant="secondary"
-            >
-              🔙 取消
-            </Button>
-            <Button
-              type="submit"
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
-            >
-              💾 保存更改
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
+          </form>
+        </div>
+      </div>
+    );
+  };
 
-
-
-
-
-  // 场景管理Tab内容
-  const LocationsTab = () => (
-    <div className="p-6">
-      {id && typeof id === 'string' && !isNaN(parseInt(id)) ? (
-        <LocationManager scriptId={id} />
-      ) : (
-        <div>无效的剧本ID</div>
-      )}
-    </div>
-  );
 
   // 背景故事Tab内容 - 完整字段展示
   const BackgroundTab = () => (
-    <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
-      <CardHeader>
+    <div className="relative">
+      <div className="p-6">
+        <div className="mb-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-purple-200 flex items-center gap-2">
-            📖 背景故事管理
-          </h3>
-          <Button
-            onClick={handleSaveBackgroundStory}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
-          >
-            💾 保存背景故事
-          </Button>
+          <h3 className="text-xl font-bold text-blue-200 flex items-center gap-2">
+                <BookOpen className="w-5 h-5" /> 背景故事管理
+              </h3>
+              <Button
+                onClick={handleSaveBackgroundStory}
+                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+              >
+                <Save className="w-4 h-4 mr-1" /> 保存背景故事
+              </Button>
         </div>
-      </CardHeader>
-      <CardContent>
+        </div>
+        <div>
         <div className="space-y-6">
           {/* 基础设定模块 */}
-          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
-            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
-              🌟 基础设定
-            </h4>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  📝 标题
-                </label>
-                <Input
-                  value={backgroundStory.title}
-                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, title: e.target.value }))}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-                  placeholder="背景故事标题..."
-                />
+          <div className="relative bg-gradient-to-br from-slate-700/30 to-slate-600/30 p-6 rounded-xl border border-slate-500/30 backdrop-blur-md shadow-lg overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-xl"></div>
+            <div className="relative z-10">
+            <h4 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg">
+                <Star className="w-4 h-4 text-white" />
               </div>
+              基础设定
+            </h4>
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  🌍 背景设定
+                <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-700 rounded-full"></span>
+                  <Globe className="w-4 h-4" /> 背景设定
                 </label>
                 <Textarea
                   value={backgroundStory.setting_description}
                   onChange={(e) => setBackgroundStory(prev => ({ ...prev, setting_description: e.target.value }))}
-                  rows={4}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  rows={5}
+                  className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
                   placeholder="描述剧本的世界观、时代背景、地点设定等..."
                 />
               </div>
             </div>
+            </div>
           </div>
 
           {/* 事件描述模块 */}
-          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
-            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
-              🎭 事件描述
+          <div className="relative bg-gradient-to-br from-slate-700/30 to-slate-600/30 p-6 rounded-xl border border-slate-500/30 backdrop-blur-md shadow-lg overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-xl"></div>
+            <div className="relative z-10">
+            <h4 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-lg">
+                <Drama className="w-4 h-4 text-white" />
+              </div>
+              事件描述
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  📰 事件描述
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-800 rounded-full"></span>
+                  <Newspaper className="w-4 h-4" /> 事件描述
                 </label>
-                <Textarea
-                  value={backgroundStory.incident_description}
-                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, incident_description: e.target.value }))}
-                  rows={3}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-                  placeholder="描述核心事件的经过..."
-                />
+                  <Textarea
+                    value={backgroundStory.incident_description}
+                    onChange={(e) => setBackgroundStory(prev => ({ ...prev, incident_description: e.target.value }))}
+                    rows={4}
+                    className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
+                    placeholder="描述核心事件的经过..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-cyan-700 rounded-full"></span>
+                  <Clock className="w-4 h-4" /> 发现时间
+                </label>
+                  <Input
+                    value={backgroundStory.discovery_time}
+                    onChange={(e) => setBackgroundStory(prev => ({ ...prev, discovery_time: e.target.value }))}
+                    className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
+                    placeholder="事件发现的具体时间..."
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  👤 受害者背景
-                </label>
+                <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 bg-cyan-800 rounded-full"></span>
+                <User className="w-4 h-4" /> 受害者背景
+              </label>
                 <Textarea
                   value={backgroundStory.victim_background}
                   onChange={(e) => setBackgroundStory(prev => ({ ...prev, victim_background: e.target.value }))}
-                  rows={3}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  rows={6}
+                  className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
                   placeholder="描述受害者的身份、背景、人际关系..."
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  ⏰ 发现时间
-                </label>
-                <Input
-                  value={backgroundStory.discovery_time}
-                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, discovery_time: e.target.value }))}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-                  placeholder="事件发现的具体时间..."
-                />
-              </div>
+            </div>
             </div>
           </div>
 
           {/* 调查设定模块 */}
-          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
-            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
-              🔍 调查设定
+          <div className="relative bg-gradient-to-br from-slate-700/30 to-slate-600/30 p-6 rounded-xl border border-slate-500/30 backdrop-blur-md shadow-lg overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-xl"></div>
+            <div className="relative z-10">
+            <h4 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg">
+                <Search className="w-4 h-4 text-white" />
+              </div>
+              调查设定
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  🎯 调查范围
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-900 rounded-full"></span>
+                  <Target className="w-4 h-4" /> 调查范围
                 </label>
-                <Textarea
-                  value={backgroundStory.investigation_scope}
-                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, investigation_scope: e.target.value }))}
-                  rows={3}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-                  placeholder="定义玩家可以调查的范围和限制..."
-                />
+                  <Textarea
+                    value={backgroundStory.investigation_scope}
+                    onChange={(e) => setBackgroundStory(prev => ({ ...prev, investigation_scope: e.target.value }))}
+                    rows={4}
+                    className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
+                    placeholder="定义玩家可以调查的范围和限制..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-cyan-900 rounded-full"></span>
+                  <MapPin className="w-4 h-4" /> 作案地点
+                </label>
+                  <Input
+                    value={backgroundStory.murder_location}
+                    onChange={(e) => setBackgroundStory(prev => ({ ...prev, murder_location: e.target.value }))}
+                    className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
+                    placeholder="案件发生的具体地点..."
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  🔪 作案手法
-                </label>
+                <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                <PocketKnife className="w-4 h-4" /> 作案手法
+              </label>
                 <Textarea
                   value={backgroundStory.murder_method}
                   onChange={(e) => setBackgroundStory(prev => ({ ...prev, murder_method: e.target.value }))}
-                  rows={3}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  rows={6}
+                  className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
                   placeholder="描述作案的具体手法和过程..."
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  📍 作案地点
-                </label>
-                <Input
-                  value={backgroundStory.murder_location}
-                  onChange={(e) => setBackgroundStory(prev => ({ ...prev, murder_location: e.target.value }))}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
-                  placeholder="案件发生的具体地点..."
-                />
-              </div>
+            </div>
             </div>
           </div>
 
           {/* 游戏规则模块 */}
-          <div className="bg-slate-700/30 p-4 rounded-lg border border-purple-500/20">
-            <h4 className="text-lg font-semibold text-purple-200 mb-4 flex items-center gap-2">
-              📋 游戏规则
+          <div className="relative bg-gradient-to-br from-slate-700/30 to-slate-600/30 p-6 rounded-xl border border-slate-500/30 backdrop-blur-md shadow-lg overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-xl"></div>
+            <div className="relative z-10">
+            <h4 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Clipboard className="w-4 h-4 text-white" />
+              </div>
+              游戏规则
             </h4>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  ⚠️ 规则提醒
-                </label>
+                <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                <AlertTriangle className="w-4 h-4" /> 规则提醒
+              </label>
                 <Textarea
                   value={backgroundStory.rules_reminder}
                   onChange={(e) => setBackgroundStory(prev => ({ ...prev, rules_reminder: e.target.value }))}
-                  rows={3}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70"
+                  rows={5}
+                  className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 rounded-lg transition-all duration-200 backdrop-blur-sm"
                   placeholder="游戏规则和注意事项..."
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-purple-200 mb-2">
-                  🏆 胜利条件
+                <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                  <Trophy className="w-4 h-4" /> 胜利条件
                 </label>
                 <Textarea
                   value={
@@ -812,8 +736,8 @@ const ScriptEditPage = () => {
                       setBackgroundStory(prev => ({ ...prev, victory_conditions: e.target.value }));
                     }
                   }}
-                  rows={4}
-                  className="bg-slate-800/50 border-purple-500/30 focus:ring-purple-400 text-purple-100 placeholder-purple-300/70 font-mono text-sm"
+                  rows={5}
+                  className="bg-slate-800/40 border-slate-500/40 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400/70 font-mono text-sm rounded-lg transition-all duration-200 backdrop-blur-sm"
                   placeholder={`{
   "detective": "找出真凶并说出动机",
   "murderer": "隐藏身份到游戏结束",
@@ -822,13 +746,13 @@ const ScriptEditPage = () => {
                 />
               </div>
             </div>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+    </div>
   );
-
-
 
   // 加载背景故事数据
   useEffect(() => {
@@ -867,7 +791,7 @@ const ScriptEditPage = () => {
       return (
         <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
           <CardContent className="p-8 text-center">
-            <div className="text-purple-200 text-lg">🎭 加载剧本数据中...</div>
+            <div className="text-purple-200 text-lg flex items-center gap-2"><Drama className="w-5 h-5" /> 加载剧本数据中...</div>
           </CardContent>
         </Card>
       );
@@ -877,12 +801,12 @@ const ScriptEditPage = () => {
       return (
         <Card className="bg-gradient-to-br from-slate-800/90 via-red-900/90 to-slate-800/90 backdrop-blur-md border-red-500/30">
           <CardContent className="p-8 text-center">
-            <div className="text-red-300 text-lg mb-4">❌ 错误: {error}</div>
+            <div className="text-red-300 text-lg mb-4 flex items-center gap-2"><X className="w-5 h-5" /> 错误: {error}</div>
             <Button
               onClick={() => router.push('/script-manager')}
               variant="secondary"
             >
-              🔙 返回列表
+              <ArrowLeft className="w-4 h-4 mr-1" /> 返回列表
             </Button>
           </CardContent>
         </Card>
@@ -890,91 +814,111 @@ const ScriptEditPage = () => {
     }
 
     return (
-      <>
-        {/* 页面头部 */}
-        <div className="bg-gradient-to-r from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md rounded-2xl shadow-2xl p-6 mb-6 border border-purple-500/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-full">
-                <span className="text-2xl">🎭</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-purple-200">编辑剧本</h1>
-                <p className="text-purple-300/70 text-sm">{script?.info.title || '加载中...'}</p>
-              </div>
+      <div className="h-full w-full flex flex-col">
+        {/* 简洁顶部导航栏 */}
+        <div className="flex items-center justify-between bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-6 py-3 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <Drama className="w-6 h-6 text-blue-400" />
+            <div>
+              <h1 className="text-lg font-semibold text-white">
+                编辑剧本
+              </h1>
+              <p className="text-sm text-slate-400">
+                {script?.info.title || '加载中...'}
+              </p>
             </div>
-            <Button
-              onClick={() => router.push('/script-manager')}
-              variant="secondary"
-              className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 text-white flex items-center gap-2"
-            >
-              🔙 <span className="hidden sm:inline">返回列表</span>
-            </Button>
           </div>
+          <Button
+            onClick={() => router.push('/script-manager')}
+            variant="secondary"
+            size="sm"
+            className="bg-slate-700/80 hover:bg-slate-600/80 text-white border-slate-600/50"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            返回列表
+          </Button>
         </div>
 
-        {/* 左右分栏布局 */}
-        <div className="flex gap-6 min-h-[800px]">
-          {/* 左侧：对话编辑 */}
-          <div className="w-1/3 min-w-[400px]">
-            <ChatEditor
-            scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
-            onScriptUpdate={(updatedScript) => {
-              // 更新本地剧本状态
-              setScript(updatedScript);
-              if (updatedScript.info) {
-                setFormData({
-                  title: updatedScript.info.title || '',
-                  description: updatedScript.info.description || '',
-                  author: updatedScript.info.author || '',
-                  player_count: updatedScript.info.player_count || 0,
-                  duration_minutes: updatedScript.info.duration_minutes || 0,
-                  difficulty: updatedScript.info.difficulty || '',
-                  tags: updatedScript.info.tags || [],
-                  status: (updatedScript.info.status as ScriptStatus) || ScriptStatus.DRAFT,
-                  cover_image_url: updatedScript.info.cover_image_url || ''
-                });
-              }
-            }}
-          />
+        {/* 现代化分栏布局 */}
+        <div className="flex flex-1 min-h-0">
+          {/* 左侧：对话编辑器 - 固定宽度 */}
+          <div className="w-1/3 h-full" style={{ height: 'calc(100vh - 4rem)' }}>
+            <div className="h-full">
+              <ChatEditor
+                scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
+                onScriptUpdate={(updatedScript) => {
+                  // 更新本地剧本状态
+                  setScript(updatedScript);
+                  if (updatedScript.info) {
+                    setFormData({
+                      title: updatedScript.info.title || '',
+                      description: updatedScript.info.description || '',
+                      author: updatedScript.info.author || '',
+                      player_count: updatedScript.info.player_count || 0,
+                      duration_minutes: updatedScript.info.duration_minutes || 0,
+                      difficulty: updatedScript.info.difficulty || '',
+                      tags: updatedScript.info.tags || [],
+                      status: (updatedScript.info.status as ScriptStatus) || ScriptStatus.DRAFT,
+                      cover_image_url: updatedScript.info.cover_image_url || ''
+                    });
+                  }
+                }}
+              />
+            </div>
           </div>
 
-          {/* 右侧：Tab 信息 */}
-          <div className="flex-1">
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-purple-500/30 flex-shrink-0">
-                {tabs.map((tab) => (
-                  <TabsTrigger
-                    key={tab.key}
-                    value={tab.key}
-                    className="data-[state=active]:bg-purple-600 data-[state=active]:text-white text-purple-200"
-                  >
-                    <span className="mr-2">{tab.icon}</span>
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+          {/* 右侧：内容管理区域 */}
+          <div className="w-2/3 h-full" style={{ height: 'calc(100vh - 4rem)' }}>
+            <div className="bg-slate-900/80 border-l border-slate-700/50 shadow-2xl overflow-hidden h-full">
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full h-full flex flex-col">
+                {/* 现代化Tab导航 */}
+                <div className="relative border-b border-slate-700/50 flex-shrink-0">
+                  <TabsList className="relative grid w-full grid-cols-5 bg-transparent border-0 p-1.5 gap-1">
+                    {tabs.map((tab) => (
+                      <TabsTrigger
+                        key={tab.key}
+                        value={tab.key}
+                        className="relative data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600/90 data-[state=active]:to-cyan-600/90 data-[state=active]:text-white data-[state=active]:shadow-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all duration-200 rounded-xl py-2 px-2 md:px-3"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <tab.icon className="w-4 h-4" />
+                          <span className="hidden sm:inline font-medium text-xs sm:text-sm">{tab.label}</span>
+                        </div>
+                        {/* 活跃指示器 */}
+                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 data-[state=active]:w-8 transition-all duration-300"></div>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
 
-              <div className="mt-6 flex-1 rounded-lg overflow-y-auto max-h-[700px]">
-                {activeTab === 'basic' && <BasicInfoTab />}
-                {activeTab === 'evidence' && (
-                  <EvidenceManager
-                    generateEvidenceImage={generateEvidenceImage}
-                    scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
-                  />
-                )}
-                {activeTab === 'characters' && (
-                  <CharacterManager
-                    scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
-                  />
-                )}
-                {activeTab === 'locations' && <LocationsTab />}
-                {activeTab === 'background' && <BackgroundTab />}
-              </div>
-            </Tabs>
+                {/* 内容区域 */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur-xl">
+                  <div className="p-6">
+                    {activeTab === 'basic' && <BasicInfoTab />}
+                    {activeTab === 'evidence' && (
+                      <EvidenceManager
+                        generateEvidenceImage={generateEvidenceImage}
+                        scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
+                      />
+                    )}
+                    {activeTab === 'characters' && (
+                      <CharacterManager
+                        scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
+                      />
+                    )}
+                    {activeTab === 'locations' && (
+                      <LocationManager
+                        scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
+                      />
+                    )}
+                    {activeTab === 'background' && <BackgroundTab />}
+                  </div>
+                </div>
+              </Tabs>
+            </div>
           </div>
         </div>
-      </>
+      </div>
     );
   };
 

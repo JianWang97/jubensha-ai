@@ -30,6 +30,9 @@ class DatabaseManager:
             echo=False,  # 生产环境关闭SQL日志
             pool_pre_ping=True,  # 连接池预检查
             pool_recycle=3600,   # 连接回收时间
+            pool_size=config.pool_size,  # 连接池大小
+            max_overflow=20,  # 最大溢出连接数
+            pool_timeout=60,  # 连接池超时时间（秒）
         )
         
         # 创建会话工厂

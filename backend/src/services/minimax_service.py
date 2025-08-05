@@ -127,6 +127,7 @@ class MiniMaxClient:
         """关闭客户端"""
         if self.session and not self.session.closed:
             await self.session.close()
+            self.session = None
     
     async def __aenter__(self):
         return self
@@ -564,3 +565,17 @@ class MiniMaxTTSService(BaseTTSService):
         if self._client:
             await self._client.close()
             self._client = None
+    
+    def __del__(self):
+        """析构函数，确保资源被释放"""
+        if self._client and self._client.session:
+            import asyncio
+            try:
+                # 在析构函数中尝试关闭会话
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(self._client.close())
+                else:
+                    asyncio.run(self._client.close())
+            except Exception:
+                pass

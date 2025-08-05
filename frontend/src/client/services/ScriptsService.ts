@@ -2,6 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { CancelablePromise } from '../core/CancelablePromise';
+import { OpenAPI } from '../core/OpenAPI';
+import { request as __request } from '../core/request';
 import type { APIResponse_dict_ } from '../models/APIResponse_dict_';
 import type { APIResponse_Script_ } from '../models/APIResponse_Script_';
 import type { APIResponse_ScriptInfo_ } from '../models/APIResponse_ScriptInfo_';
@@ -13,9 +16,6 @@ import type { PaginatedResponse_ScriptInfo_ } from '../models/PaginatedResponse_
 import type { Script_Input } from '../models/Script_Input';
 import type { ScriptInfo } from '../models/ScriptInfo';
 import type { ScriptStatus } from '../models/ScriptStatus';
-import type { CancelablePromise } from '../core/CancelablePromise';
-import { OpenAPI } from '../core/OpenAPI';
-import { request as __request } from '../core/request';
 export class ScriptsService {
     /**
      * Generate Script Info

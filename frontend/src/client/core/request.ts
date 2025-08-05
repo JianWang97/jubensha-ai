@@ -277,7 +277,9 @@ export const catchErrorCodes = (options: ApiRequestOptions, result: ApiResult): 
                 // 获取auth store并执行登出
                 getAuthStore().then(store => {
                     const { logout } = store.getState();
-                    logout().catch(console.error);
+                    if (options.url !== '/api/auth/logout') {
+                        logout().catch(console.error);
+                    }
                 }).catch(console.error);
                 
                 // 延迟重定向到登录页

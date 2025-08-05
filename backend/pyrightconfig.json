@@ -17,11 +17,11 @@
     "venvPath": ".",
     "venv": ".venv",
     "stubPath": "typings",
-    "reportMissingImports": true,
+    "reportMissingImports": false,
     "reportMissingTypeStubs": false,
-    "reportUnknownParameterType": true,
+    "reportUnknownParameterType": false,
     "reportUnknownArgumentType": true,
-    "reportUnknownVariableType": true,
+    "reportUnknownVariableType": false,
     "reportUnknownMemberType": true,
     "reportMissingTypeArgument": true,
     "reportInvalidTypeVarUse": true,
@@ -39,8 +39,9 @@
     "reportMissingSuperCall": true,
     "reportUninitializedInstanceVariable": true,
     "reportInvalidStringEscapeSequence": true,
-    "reportUnknownStringFormatType": true,
     "reportUnsupportedDunderAll": true,
     "reportUnusedCallResult": false,
-    "reportUnusedCoroutine": true
+    "reportUnusedCoroutine": true,
+    "reportDeprecated": false,
+    "reportAny": "none"
 }

@@ -8,26 +8,31 @@ import re
 import logging
 from typing import Dict, Any, List, Optional, Union
 from pydantic import BaseModel
+
 from ..services.llm_service import llm_service, LLMMessage
-from ..schemas.script import Script, ScriptInfo, ScriptCharacter, ScriptEvidence, ScriptLocation
-from ..db.repositories import ScriptRepository
-from ..schemas.script_info import ScriptStatus
+from ..schemas.script import Script, ScriptCharacter, ScriptEvidence, ScriptLocation
 from ..schemas.script_evidence import EvidenceType
 
-# 配置日志
 logger = logging.getLogger(__name__)
 
 
+class InstructionCategory(BaseModel):
+    """指令分类结果"""
+    category: str
+    confidence: float
+    reasoning: str
+
+
 class EditInstruction(BaseModel):
-    """编辑指令模型"""
-    action: str  # 操作类型：add, update, delete, modify
-    target: str  # 目标类型：character, evidence, location, info, story
-    content: Dict[str, Any]  # 具体内容
-    description: str  # 操作描述
+    """编辑指令"""
+    action: str
+    target: str
+    content: Dict[str, Any]
+    description: str
 
 
 class EditResult(BaseModel):
-    """编辑结果模型"""
+    """编辑结果"""
     success: bool
     message: str
     data: Optional[Dict[str, Any]] = None
@@ -37,19 +42,404 @@ class EditResult(BaseModel):
 class ScriptEditorService:
     """剧本编辑服务"""
     
-    def __init__(self, script_repository: ScriptRepository):
+    def __init__(self, script_repository):
         self.script_repository = script_repository
-        
-    async def parse_user_instruction(self, instruction: str, script_id: int) -> List[EditInstruction]:
-        """解析用户的自然语言指令为具体的编辑操作"""
-        
+
+    async def categorize_instruction(self, instruction: str, script_id: int) -> InstructionCategory:
+        """对用户指令进行分类"""
         # 获取当前剧本信息用于上下文
         current_script = self.script_repository.get_script_by_id(script_id)
         if not current_script:
             raise ValueError(f"剧本 {script_id} 不存在")
         
         # 构建AI提示
-        system_prompt = """你是一个专业的剧本编辑助手，能够理解用户的自然语言指令并将其转换为具体的编辑操作。
+        system_prompt = """你是一个专业的指令分类助手，能够理解用户的自然语言指令并识别出操作类型和目标对象。
+
+请分析用户的指令，识别出：
+1. 操作类型：add(添加)、update(更新)、delete(删除)、modify(修改)中的一个
+2. 目标对象：character(角色)、evidence(证据)、location(场景)、story(背景故事)、info(剧本信息)中的一个
+
+只返回JSON格式的结果，包含：
+{
+  "category": "目标对象",
+  "confidence": "置信度（0-1之间的数字）",
+  "reasoning": "简短的分类理由"
+}
+
+示例：
+用户说"添加一个比较善良的角色"，你应该返回：
+{
+  "category": "character",
+  "confidence": 0.95,
+  "reasoning": "用户想要添加角色"
+}
+
+用户说"删除血迹证据"，你应该返回：
+{
+  "category": "evidence",
+  "confidence": 0.9,
+  "reasoning": "用户想要删除证据"
+}"""
+        
+        user_prompt = f"""用户指令：{instruction}
+
+请分析用户指令并返回分类结果。"""
+        
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt)
+        ]
+        
+        try:
+            response = await llm_service.chat_completion(messages, max_tokens=300, temperature=0.1)
+            
+            if not response.content:
+                raise ValueError("AI服务返回空内容")
+            
+            # 尝试解析JSON响应
+            category_data = json.loads(response.content.strip())
+            return InstructionCategory(**category_data)
+            
+        except json.JSONDecodeError as e:
+            logger.warning(f"[INSTRUCTION_CATEGORIZE] JSON解析失败: {e}")
+            # 返回默认分类
+            return InstructionCategory(
+                category="other",
+                confidence=0.5,
+                reasoning="无法解析分类结果，使用默认分类"
+            )
+        except Exception as e:
+            logger.error(f"[INSTRUCTION_CATEGORIZE] 分类失败: {e}")
+            # 返回默认分类
+            return InstructionCategory(
+                category="other",
+                confidence=0.5,
+                reasoning="分类过程出错，使用默认分类"
+            )
+
+    async def parse_user_instruction(self, instruction: str, script_id: int) -> List[EditInstruction]:
+        """解析用户的自然语言指令为具体的编辑操作"""
+        # 重试机制
+        max_retries = 3
+        last_error = None
+        base_temperature = 0.3
+        
+        # 首先对指令进行分类
+        logger.info(f"[INSTRUCTION_PARSE] 开始对指令进行分类: {instruction}")
+        category_result = await self.categorize_instruction(instruction, script_id)
+        logger.info(f"[INSTRUCTION_PARSE] 指令分类结果: {category_result.category}, 置信度: {category_result.confidence}")
+        
+        for attempt in range(max_retries):
+            try:
+                # 获取当前剧本信息用于上下文
+                current_script = self.script_repository.get_script_by_id(script_id)
+                if not current_script:
+                    raise ValueError(f"剧本 {script_id} 不存在")
+                
+                # 根据分类结果选择不同的系统提示
+                system_prompt = self._get_category_specific_prompt(category_result.category)
+                
+                # 构建当前剧本上下文，只包含与当前操作相关的上下文信息
+                script_context = self._get_category_specific_context(category_result.category, current_script)
+                
+                user_prompt = f"""剧本上下文：
+{script_context}
+
+用户指令：{instruction}
+
+请分析用户指令并返回对应的编辑操作JSON数组。"""
+                
+                messages = [
+                    LLMMessage(role="system", content=system_prompt),
+                    LLMMessage(role="user", content=user_prompt)
+                ]
+                
+                # 每次重试时增加temperature值
+                current_temperature = base_temperature + (attempt * 0.1)
+                
+                response = await llm_service.chat_completion(
+                    messages, 
+                    max_tokens=1000, 
+                    temperature=current_temperature  # 每次重试时temperature增加0.1
+                )
+                
+                if not response.content:
+                    raise ValueError("AI服务返回空内容")
+                
+                # 记录AI返回的原始内容
+                logger.info(f"[INSTRUCTION_PARSE] AI返回原始内容: {response.content[:500]}...")
+                
+                # 尝试解析JSON响应
+                instructions_data = json.loads(response.content.strip())
+                logger.info(f"[INSTRUCTION_PARSE] JSON解析结果: {instructions_data}")
+                
+                # 验证并转换为EditInstruction对象
+                instructions: List[EditInstruction] = []
+                if isinstance(instructions_data, list):
+                    for item in instructions_data:
+                        if isinstance(item, dict):
+                            instructions.append(EditInstruction(**item))
+                else:
+                    if isinstance(instructions_data, dict):
+                        instructions.append(EditInstruction(**instructions_data))
+                
+                return instructions
+                
+            except (json.JSONDecodeError, ValueError, Exception) as e:
+                last_error = e
+                logger.warning(f"[INSTRUCTION_PARSE] 第{attempt + 1}次尝试解析用户指令失败: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    # 在重试前调整提示词，强调之前失败的原因
+                    if "JSON" in str(e) or "格式" in str(e):
+                        user_prompt += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
+        
+        # 所有重试都失败了，使用备用解析方法
+        logger.error(f"[INSTRUCTION_PARSE] 解析用户指令失败，已重试{max_retries}次。最后错误: {str(last_error)}")
+        logger.info("[INSTRUCTION_PARSE] 尝试使用备用解析方法")
+        try:
+            fallback_instructions = self._fallback_parse_instruction(instruction)
+            logger.info(f"[INSTRUCTION_PARSE] 备用解析方法成功，生成 {len(fallback_instructions)} 个指令")
+            return fallback_instructions
+        except Exception as fallback_error:
+            logger.error(f"[INSTRUCTION_PARSE] 备用解析方法也失败了: {str(fallback_error)}")
+            raise ValueError(f"解析用户指令失败，已重试{max_retries}次。最后错误: {str(last_error)}")
+    
+    def _get_category_specific_context(self, category: str, script) -> str:
+        """根据分类获取特定的上下文信息"""
+        if category == "character":
+            return f"""当前剧本信息：
+标题：{script.info.title}
+描述：{script.info.description}
+
+现有角色：
+{self._format_characters(script.characters)}"""
+        
+        elif category == "evidence":
+            return f"""当前剧本信息：
+标题：{script.info.title}
+描述：{script.info.description}
+
+现有证据：
+{self._format_evidence(script.evidence)}"""
+        
+        elif category == "location":
+            return f"""当前剧本信息：
+标题：{script.info.title}
+描述：{script.info.description}
+
+现有场景：
+{self._format_locations(script.locations)}"""
+        
+        elif category == "story":
+            # 对于故事相关操作，提供完整上下文
+            return f"""当前剧本信息：
+标题：{script.info.title}
+描述：{script.info.description}
+
+现有角色：
+{self._format_characters(script.characters)}
+
+现有证据：
+{self._format_evidence(script.evidence)}
+
+现有场景：
+{self._format_locations(script.locations)}"""
+        
+        elif category == "info":
+            # 对于剧本信息操作，提供基本信息
+            return f"""当前剧本信息：
+标题：{script.info.title}
+描述：{script.info.description}
+分类：{script.info.category}
+难度：{script.info.difficulty}
+标签：{', '.join(script.info.tags) if script.info.tags else '无'}"""
+        
+        else:
+            # 默认提供完整上下文
+            return f"""当前剧本信息：
+标题：{script.info.title}
+描述：{script.info.description}
+
+现有角色：
+{self._format_characters(script.characters)}
+
+现有证据：
+{self._format_evidence(script.evidence)}
+
+现有场景：
+{self._format_locations(script.locations)}"""
+    
+    def _get_category_specific_prompt(self, category: str) -> str:
+        """根据分类获取特定的系统提示"""
+        prompts = {
+            "character": """你是一个专业的剧本角色编辑助手，专门处理与角色相关的操作。
+
+支持的操作类型：
+- add: 添加新角色
+- update: 更新现有角色
+- delete: 删除角色
+- modify: 修改角色
+
+请返回JSON格式的编辑指令数组，每个指令包含：
+{
+  "action": "操作类型",
+  "target": "character",
+  "content": {具体的编辑内容，必须包含角色的完整信息},
+  "description": "操作描述"
+}
+
+【重要】对于角色添加或更新指令，content字段必须包含以下完整信息：
+- name: 角色姓名（必填，不能为空）
+- profession: 职业（必填，如：侦探、医生、律师等，不能为空）
+- background: 角色背景（必填，详细描述角色的过往经历，至少100字，不能为空）
+- secret: 角色秘密（必填，与剧本相关的重要秘密，至少50字，不能为空）
+- objective: 角色目标（必填，角色在剧本中的目标，至少30字，不能为空）
+- gender: 性别（必填，只能是：男、女、中性，不能为空）
+- age: 年龄（可选，18-80之间的整数）
+- personality_traits: 性格特征（必填，3-5个特征词的数组，不能为空）
+- is_murderer: 是否为凶手（必填，布尔值）
+- is_victim: 是否为受害者（必填，布尔值）
+- avatar_url: 头像URL（可选）
+- voice_preference: 语音偏好（可选）
+- voice_id: TTS声音ID（可选）
+
+【特别注意】
+1. 所有必填字段都不能是空字符串或空数组
+2. background字段至少需要100个字符的详细描述
+3. secret字段至少需要50个字符的描述
+4. objective字段至少需要30个字符的描述
+5. personality_traits数组至少需要3个性格特征
+6. gender字段只能是"男"、"女"、"中性"中的一个
+
+示例（正确格式）：
+{
+  "action": "add",
+  "target": "character",
+  "content": {
+    "name": "张三",
+    "profession": "私家侦探",
+    "background": "张三是一名经验丰富的私家侦探，曾在警局工作十年，因为不满官僚作风而辞职自立门户。他擅长观察细节，逻辑推理能力强，但有时过于固执己见。在这个案件中，他被雇佣来调查一起神秘失踪案。",
+    "secret": "张三其实是失踪者的前同事，他们曾经因为一起案件产生过激烈冲突，张三一直对此耿耿于怀。",
+    "objective": "找出真相，证明自己当年的判断是正确的，同时为委托人解决案件。",
+    "gender": "男",
+    "age": 45,
+    "personality_traits": ["细心", "固执", "正义感强", "经验丰富"],
+    "is_murderer": false,
+    "is_victim": false
+  },
+  "description": "添加角色：张三（私家侦探）"
+}""",
+            
+            "evidence": """你是一个专业的剧本证据编辑助手，专门处理与证据相关的操作。
+
+支持的操作类型：
+- add: 添加新证据
+- update: 更新现有证据
+- delete: 删除证据
+- modify: 修改证据
+
+请返回JSON格式的编辑指令数组，每个指令包含：
+{
+  "action": "操作类型",
+  "target": "evidence",
+  "content": {具体的编辑内容，必须包含证据的完整信息},
+  "description": "操作描述"
+}
+
+【重要】对于证据添加或更新指令，content字段必须包含以下完整信息：
+- name: 证据名称（必填，不能为空）
+- description: 证据描述（必填，详细描述证据的具体内容和重要性，至少100字，不能为空）
+- location: 发现地点（必填，具体描述证据的位置，不能为空）
+- related_to: 相关角色（可选）
+- significance: 证据意义（必填，说明该证据对案件的重要性，至少50字，不能为空）
+- evidence_type: 证据类型（必填，可选值：PHYSICAL-物证, DOCUMENT-文件, VIDEO-视频, AUDIO-音频, IMAGE-图片）
+- importance: 重要程度（必填，可选值：关键证据、重要证据、普通证据）
+- is_hidden: 是否隐藏（必填，布尔值）
+- image_url: 证据图片URL（可选）""",
+            
+            "location": """你是一个专业的剧本场景编辑助手，专门处理与场景相关的操作。
+
+支持的操作类型：
+- add: 添加新场景
+- update: 更新现有场景
+- delete: 删除场景
+- modify: 修改场景
+
+请返回JSON格式的编辑指令数组，每个指令包含：
+{
+  "action": "操作类型",
+  "target": "location",
+  "content": {具体的编辑内容，必须包含场景的完整信息},
+  "description": "操作描述"
+}
+
+【重要】对于场景添加或更新指令，content字段必须包含以下完整信息：
+- name: 场景名称（必填，不能为空）
+- description: 场景描述（必填，详细描述场景的外观、氛围和重要特征，至少100字，不能为空）
+- searchable_items: 可搜索物品（必填，列出场景中的重要物品，数组格式，不能为空）
+- background_image_url: 背景图片URL（可选）
+- is_crime_scene: 是否为案发现场（必填，布尔值）""",
+            
+            "story": """你是一个专业的剧本背景故事编辑助手，专门处理与背景故事相关的操作。
+
+支持的操作类型：
+- add: 添加背景故事内容
+- update: 更新背景故事内容
+- delete: 删除背景故事内容
+- modify: 修改背景故事内容
+
+请返回JSON格式的编辑指令数组，每个指令包含：
+{
+  "action": "操作类型",
+  "target": "story",
+  "content": {具体的编辑内容},
+  "description": "操作描述"
+}
+
+对于背景故事更新，如果用户没有明确说明只更新特定字段，应该在content中添加"generate_missing": true，这样系统会智能生成其他相关的背景故事字段。
+
+背景故事应包含以下字段：
+- title: 标题
+- setting_description: 背景设定
+- incident_description: 事件描述
+- victim_background: 受害者背景
+- investigation_scope: 调查范围
+- rules_reminder: 规则提醒
+- murder_method: 作案手法
+- murder_location: 作案地点
+- discovery_time: 发现时间
+- victory_conditions: 胜利条件（可选，字典格式）""",
+            
+            "info": """你是一个专业的剧本基本信息编辑助手，专门处理与剧本基本信息相关的操作。
+
+支持的操作类型：
+- add: 添加基本信息
+- update: 更新现有信息
+- delete: 删除信息
+- modify: 修改信息
+
+请返回JSON格式的编辑指令数组，每个指令包含：
+{
+  "action": "操作类型",
+  "target": "info",
+  "content": {具体的编辑内容},
+  "description": "操作描述"
+}
+
+支持修改的剧本基本信息字段包括：
+- title: 剧本标题
+- description: 剧本描述
+- player_count: 玩家数量
+- estimated_duration: 预计游戏时长（分钟）
+- difficulty_level: 难度等级（可选值：easy, medium, hard）
+- tags: 标签列表
+- category: 剧本分类
+- is_public: 是否公开
+- price: 价格
+- cover_image_url: 封面图片URL""",
+            
+            "other": """你是一个专业的剧本编辑助手，能够理解用户的自然语言指令并将其转换为具体的编辑操作。
 
 你需要分析用户的指令，识别出要执行的操作类型和目标对象，然后返回结构化的编辑指令。
 
@@ -72,164 +462,10 @@ class ScriptEditorService:
   "target": "目标类型",
   "content": {具体的编辑内容},
   "description": "操作描述"
-}
-
-【重要】content字段必须始终是字典对象，不能是字符串或其他类型！
-
-【重要】对于证据添加指令，content字段必须包含以下完整信息：
-- name: 证据名称（必填）
-- description: 证据描述（必填，详细描述证据的具体内容和重要性，至少100字）
-- location: 发现地点（必填，具体描述证据的位置）
-- related_to: 相关角色（可选，与该证据相关的角色名称）
-- significance: 证据意义（必填，说明该证据对案件的重要性，至少50字）
-- evidence_type: 证据类型（必填，可选值：PHYSICAL-物证, DOCUMENT-文件, DIGITAL-电子数据, TESTIMONY-证词, PHOTO-照片）
-- importance: 重要程度（必填，可选值：关键证据、重要证据、普通证据）
-- is_hidden: 是否隐藏（必填，布尔值，表示是否需要特定条件才能发现）
-- discovery_condition: 发现条件（必填，详细描述如何发现该证据，至少50字）
-
-【重要】对于角色添加指令，content字段必须包含以下完整信息：
-- name: 角色姓名（必填）
-- profession: 职业（必填，如：侦探、医生、律师等）
-- background: 角色背景（必填，详细描述角色的过往经历，至少100字）
-- secret: 角色秘密（必填，与剧本相关的重要秘密，至少50字）
-- objective: 角色目标（必填，角色在剧本中的目标，至少30字）
-- gender: 性别（必填，只能是：男、女、中性）
-- age: 年龄（可选，18-80之间的整数）
-- personality_traits: 性格特征（必填，3-5个特征词的数组）
-- is_murderer: 是否为凶手（必填，布尔值）
-- is_victim: 是否为受害者（必填，布尔值）
-
-示例：
-1. 添加角色 - 用户说"添加一个名叫张三的角色，他是侦探"，应该返回：
-[{
-  "action": "add",
-  "target": "character",
-  "content": {
-    "name": "张三",
-    "profession": "私家侦探",
-    "background": "张三是一名经验丰富的私家侦探，曾在警局工作十年，因为不满官僚作风而辞职自立门户。他擅长观察细节，逻辑推理能力强，但有时过于固执己见。在这个案件中，他被雇佣来调查一起神秘失踪案。",
-    "secret": "张三其实是失踪者的前同事，他们曾经因为一起案件产生过激烈冲突，张三一直对此耿耿于怀。",
-    "objective": "找出真相，证明自己当年的判断是正确的，同时为委托人解决案件。",
-    "gender": "男",
-    "age": 45,
-    "personality_traits": ["细心", "固执", "正义感强", "经验丰富"],
-    "is_murderer": false,
-    "is_victim": false
-  },
-  "description": "添加角色：张三（私家侦探）"
-}]
-
-2. 删除角色 - 用户说"删除角色，名字叫新角色"，应该返回：
-[{
-  "action": "delete",
-  "target": "character",
-  "content": {
-    "name": "新角色"
-  },
-  "description": "删除角色：新角色"
-}]
-
-3. 添加证据 - 用户说"添加一个血迹证据"，应该返回：
-[{
-  "action": "add",
-  "target": "evidence",
-  "content": {
-    "name": "卧室地毯上的血迹",
-    "description": "在受害者卧室的米色地毯上发现一处不规则的暗红色血迹，经过初步鉴定确认是人血。血迹呈溅射状，表明当时可能发生过激烈的搏斗。血迹周围还发现了几处拖拽痕迹，显示有人试图清理现场。",
-    "location": "受害者卧室的地毯上，靠近床尾的位置",
-    "related_to": "受害者",
-    "significance": "这处血迹的形状和分布特征表明案发时受害者可能遭遇了暴力攻击，而拖拽痕迹则暗示凶手试图掩盖罪行。这是确定案发地点和还原案发经过的重要物证。",
-    "evidence_type": "PHYSICAL",
-    "importance": "关键证据",
-    "is_hidden": false,
-    "discovery_condition": "调查人员在对受害者卧室进行地毯式搜查时，需要使用鲁米诺试剂和紫外线灯，才能发现这处已经被人试图清理过的血迹。"
-  },
-  "description": "添加关键物证：卧室地毯血迹"
-}]
-
-4. 删除证据 - 用户说"删除证据血迹"，应该返回：
-[{
-  "action": "delete",
-  "target": "evidence",
-  "content": {
-    "name": "血迹"
-  },
-  "description": "删除证据：血迹"
-}]
-
-5. 更新背景故事 - 用户说"更新剧本的背景故事"或"修改背景故事"，应该返回：
-[{
-  "action": "update",
-  "target": "story",
-  "content": {
-    "story": "用户提供的新故事内容或指令",
-    "generate_missing": true
-  },
-  "description": "更新背景故事"
-}]
-
-注意：对于背景故事更新，如果用户没有明确说明只更新特定字段，应该在content中添加"generate_missing": true，这样系统会智能生成其他相关的背景故事字段。
-
-如果用户的指令信息不够详细，请根据剧本背景和常识进行合理补充，确保所有必填字段都有实际内容。"""
+}"""
+        }
         
-        # 构建当前剧本上下文
-        script_context = f"""当前剧本信息：
-标题：{current_script.info.title}
-描述：{current_script.info.description}
-
-现有角色：
-{self._format_characters(current_script.characters)}
-
-现有证据：
-{self._format_evidence(current_script.evidence)}
-
-现有场景：
-{self._format_locations(current_script.locations)}"""
-        
-        user_prompt = f"""剧本上下文：
-{script_context}
-
-用户指令：{instruction}
-
-请分析用户指令并返回对应的编辑操作JSON数组。"""
-        
-        messages = [
-            LLMMessage(role="system", content=system_prompt),
-            LLMMessage(role="user", content=user_prompt)
-        ]
-        
-        try:
-            response = await llm_service.chat_completion(messages, max_tokens=1000, temperature=0.3)
-            
-            if not response.content:
-                raise ValueError("AI服务返回空内容")
-            
-            # 记录AI返回的原始内容
-            logger.info(f"[INSTRUCTION_PARSE] AI返回原始内容: {response.content[:500]}...")
-            
-            # 尝试解析JSON响应
-            instructions_data = json.loads(response.content.strip())
-            logger.info(f"[INSTRUCTION_PARSE] JSON解析结果: {instructions_data}")
-            
-            # 验证并转换为EditInstruction对象
-            instructions: List[EditInstruction] = []
-            if isinstance(instructions_data, list):
-                for item in instructions_data:
-                    if isinstance(item, dict):
-                        instructions.append(EditInstruction(**item))
-            else:
-                if isinstance(instructions_data, dict):
-                    instructions.append(EditInstruction(**instructions_data))
-            
-            return instructions
-            
-        except json.JSONDecodeError as e:
-            # 如果JSON解析失败，尝试从文本中提取信息
-            logger.warning(f"[INSTRUCTION_PARSE] JSON解析失败，使用备用解析方法: {e}")
-            logger.info(f"[INSTRUCTION_PARSE] 原始响应内容: {response.content if 'response' in locals() else 'N/A'}")
-            return self._fallback_parse_instruction(instruction)
-        except Exception as e:
-            raise ValueError(f"解析指令失败: {str(e)}")
+        return prompts.get(category, prompts["other"])
     
     def _format_characters(self, characters: List[ScriptCharacter]) -> str:
         """格式化角色列表"""
@@ -265,7 +501,7 @@ class ScriptEditorService:
                     content={
                         "name": "新角色",
                         "profession": "待定职业",
-                        "background": "这是一个神秘的角色，背景有待进一步完善。他/他在剧本中扮演着的重要性，与其他角色有着复杂的关系。",
+                        "background": "这是一个神秘的角色，背景有待进一步完善。他/她在剧本中扮演着的重要性，与其他角色有着复杂的关系。",
                         "secret": "这个角色隐藏着一个重要的秘密，这个秘密可能与案件的真相有关。",
                         "objective": "角色的具体目标需要根据剧本发展来确定。",
                         "gender": "中性",
@@ -446,6 +682,50 @@ class ScriptEditorService:
         logger.info(f"[CHARACTER_EDIT] 处理角色指令 - 操作: {instruction.action}")
         
         if instruction.action == "add":
+            # 验证必填字段
+            required_fields = ["name", "profession", "background", "secret", "objective", "gender"]
+            missing_fields = []
+            for field in required_fields:
+                if not instruction.content.get(field):
+                    missing_fields.append(field)
+            
+            # 检查特殊必填字段
+            if not instruction.content.get("personality_traits"):
+                missing_fields.append("personality_traits")
+            
+            if len(missing_fields) > 0:
+                logger.warning(f"[CHARACTER_EDIT] 添加角色失败: 缺少必填字段 {missing_fields}")
+                return EditResult(
+                    success=False, 
+                    message=f"添加角色失败: 缺少必填字段 {missing_fields}，请提供完整信息"
+                )
+            
+            # 验证字段内容质量
+            content_issues = []
+            if len(instruction.content.get("background", "")) < 50:
+                content_issues.append("背景描述至少需要50个字符")
+            
+            if len(instruction.content.get("secret", "")) < 20:
+                content_issues.append("角色秘密至少需要20个字符")
+            
+            if len(instruction.content.get("objective", "")) < 15:
+                content_issues.append("角色目标至少需要15个字符")
+            
+            if not isinstance(instruction.content.get("personality_traits"), list) or \
+               len(instruction.content.get("personality_traits", [])) < 2:
+                content_issues.append("性格特征至少需要2个")
+            
+            gender = instruction.content.get("gender", "").lower()
+            if gender not in ["男", "女", "中性"]:
+                content_issues.append("性别必须是：男、女、中性之一")
+            
+            if content_issues:
+                logger.warning(f"[CHARACTER_EDIT] 添加角色失败: 内容质量问题 {content_issues}")
+                return EditResult(
+                    success=False,
+                    message=f"添加角色失败: {', '.join(content_issues)}"
+                )
+            
             # 添加新角色
             character_data = {
                 "script_id": script.info.id,
@@ -909,76 +1189,104 @@ class ScriptEditorService:
     
     async def _generate_missing_story_fields(self, existing_data: Dict[str, Any], script: Script) -> Dict[str, Any]:
         """基于现有数据智能生成缺失的背景故事字段"""
-        try:
-            from ..services.llm_service import llm_service, LLMMessage
-            
-            # 构建AI提示
-            system_prompt = """你是一个专业的剧本杀背景故事创作助手。基于已有的剧本信息和背景故事片段，
-            请生成完整的背景故事各个字段。确保内容逻辑一致、情节合理、适合剧本杀游戏。
-            
-            请按照以下JSON格式返回结果：
-            {
-                "setting_description": "背景设定描述",
-                "incident_description": "事件描述", 
-                "victim_background": "受害者背景",
-                "investigation_scope": "调查范围",
-                "rules_reminder": "规则提醒",
-                "murder_method": "作案手法",
-                "murder_location": "作案地点",
-                "discovery_time": "发现时间"
-            }"""
-            
-            # 构建上下文信息
-            context_info = f"""剧本信息：
-            标题：{script.info.title}
-            描述：{script.info.description}
-            玩家人数：{script.info.player_count}
-            
-            已有背景故事内容：
-            {existing_data}
-            
-            角色信息：
-            {[char.name + ': ' + char.background for char in script.characters[:3]]}
-            """
-            
-            messages = [
-                LLMMessage(role="system", content=system_prompt),
-                LLMMessage(role="user", content=context_info)
-            ]
-            
-            response = await llm_service.chat_completion(messages, max_tokens=1000, temperature=0.7)
-            
-            if response.content:
-                try:
-                    import json
-                    generated_data = json.loads(response.content)
-                    
-                    # 合并现有数据和生成数据，现有数据优先
-                    result_data = {**generated_data, **existing_data}
-                    
-                    logger.info(f"[STORY_EDIT] AI生成背景故事字段: {list(generated_data.keys())}")
-                    return result_data
-                    
-                except json.JSONDecodeError:
-                    logger.warning(f"[STORY_EDIT] AI返回内容不是有效JSON，使用原始数据")
-                    return existing_data
-            
-            return existing_data
-            
-        except Exception as e:
-            logger.error(f"[STORY_EDIT] AI生成背景故事字段失败: {str(e)}")
-            return existing_data
+        # 重试机制
+        max_retries = 3
+        last_error = None
+        base_temperature = 0.7
+        
+        for attempt in range(max_retries):
+            try:
+                from ..services.llm_service import llm_service, LLMMessage
+                
+                # 构建AI提示
+                system_prompt = """你是一个专业的剧本杀背景故事创作助手。基于已有的剧本信息和背景故事片段，
+                请生成完整的背景故事各个字段。确保内容逻辑一致、情节合理、适合剧本杀游戏。
+                
+                请按照以下JSON格式返回结果：
+                {
+                    "setting_description": "背景设定描述",
+                    "incident_description": "事件描述", 
+                    "victim_background": "受害者背景",
+                    "investigation_scope": "调查范围",
+                    "rules_reminder": "规则提醒",
+                    "murder_method": "作案手法",
+                    "murder_location": "作案地点",
+                    "discovery_time": "发现时间"
+                }"""
+                
+                # 构建上下文信息
+                context_info = f"""剧本信息：
+                标题：{script.info.title}
+                描述：{script.info.description}
+                玩家人数：{script.info.player_count}
+                
+                已有背景故事内容：
+                {existing_data}
+                
+                角色信息：
+                {[char.name + ': ' + char.background for char in script.characters[:3]]}
+                """
+                
+                messages = [
+                    LLMMessage(role="system", content=system_prompt),
+                    LLMMessage(role="user", content=context_info)
+                ]
+                
+                # 每次重试时增加temperature值
+                current_temperature = base_temperature + (attempt * 0.1)
+                
+                response = await llm_service.chat_completion(
+                    messages, 
+                    max_tokens=1000, 
+                    temperature=current_temperature  # 每次重试时temperature增加0.1
+                )
+                
+                if response.content:
+                    try:
+                        import json
+                        generated_data = json.loads(response.content)
+                        
+                        # 合并现有数据和生成数据，现有数据优先
+                        result_data = {**generated_data, **existing_data}
+                        
+                        logger.info(f"[STORY_EDIT] AI生成背景故事字段: {list(generated_data.keys())}")
+                        return result_data
+                        
+                    except json.JSONDecodeError:
+                        logger.warning(f"[STORY_EDIT] AI返回内容不是有效JSON，使用原始数据")
+                        return existing_data
+                
+                return existing_data
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"[STORY_EDIT] 第{attempt + 1}次尝试生成背景故事字段失败: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    # 在重试前调整提示词，强调之前失败的原因
+                    if "JSON" in str(e) or "格式" in str(e):
+                        context_info += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
+        
+        # 所有重试都失败了
+        logger.error(f"[STORY_EDIT] AI生成背景故事字段失败，已重试{max_retries}次。最后错误: {str(last_error)}")
+        return existing_data
     
     async def generate_ai_suggestion(self, script_id: int, context: str = "") -> str:
         """生成AI编辑建议"""
-        try:
-            # 获取当前剧本
-            current_script = self.script_repository.get_script_by_id(script_id)
-            if not current_script:
-                return "剧本不存在，无法生成建议"
-            
-            # 构建AI提示
-            system_prompt = """你是一个专业的剧本杀游戏设计师，能够分析剧本内容并提供改进建议。
+        # 重试机制
+        max_retries = 3
+        last_error = None
+        base_temperature = 0.7
+        
+        for attempt in range(max_retries):
+            try:
+                # 获取当前剧本
+                current_script = self.script_repository.get_script_by_id(script_id)
+                if not current_script:
+                    return "剧本不存在，无法生成建议"
+                
+                # 构建AI提示
+                system_prompt = """你是一个专业的剧本杀游戏设计师，能够分析剧本内容并提供改进建议。
 
 请分析当前剧本的结构和内容，提供具体的改进建议，包括：
 1. 角色设计的完善
@@ -988,8 +1296,8 @@ class ScriptEditorService:
 5. 游戏平衡性的调整
 
 请提供具体、可操作的建议。"""
-            
-            script_context = f"""剧本信息：
+                
+                script_context = f"""剧本信息：
 标题：{current_script.info.title}
 描述：{current_script.info.description}
 玩家人数：{current_script.info.player_count}
@@ -1004,18 +1312,35 @@ class ScriptEditorService:
 {self._format_locations(current_script.locations)}
 
 {context}"""
-            
-            messages = [
-                LLMMessage(role="system", content=system_prompt),
-                LLMMessage(role="user", content=script_context)
-            ]
-            
-            response = await llm_service.chat_completion(messages, max_tokens=800, temperature=0.7)
-            
-            return response.content or "无法生成建议，请稍后重试"
-            
-        except Exception as e:
-            return f"生成建议失败: {str(e)}"
+                
+                messages = [
+                    LLMMessage(role="system", content=system_prompt),
+                    LLMMessage(role="user", content=script_context)
+                ]
+                
+                # 每次重试时增加temperature值
+                current_temperature = base_temperature + (attempt * 0.1)
+                
+                response = await llm_service.chat_completion(
+                    messages, 
+                    max_tokens=800, 
+                    temperature=current_temperature  # 每次重试时temperature增加0.1
+                )
+                
+                return response.content or "无法生成建议，请稍后重试"
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"[AI_SUGGESTION] 第{attempt + 1}次尝试生成AI建议失败: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    # 在重试前调整提示词，强调之前失败的原因
+                    if "JSON" in str(e) or "格式" in str(e):
+                        script_context += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
+        
+        # 所有重试都失败了
+        logger.error(f"[AI_SUGGESTION] AI生成建议失败，已重试{max_retries}次。最后错误: {str(last_error)}")
+        return f"生成建议失败，请稍后重试。最后错误: {str(last_error)}"
     
     def _get_script_state_summary(self, script: Script) -> Dict[str, Any]:
         """获取剧本状态摘要"""

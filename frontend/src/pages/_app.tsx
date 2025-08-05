@@ -1,4 +1,5 @@
 import "@/styles/globals.css";
+import "@/styles/custom-scrollbar.css";
 import React from 'react';
 import type { AppProps } from "next/app";
 import { useEffect, useState } from 'react';

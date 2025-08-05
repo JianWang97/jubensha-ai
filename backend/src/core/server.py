@@ -128,9 +128,10 @@ async def startup_event():
 async def shutdown_event():
     """应用关闭时的清理"""
     try:
-        session = get_db_session()
-        session.close()
-        print("数据库连接已关闭")
+        # 关闭数据库连接池
+        from src.db.session import db_manager
+        db_manager.close()
+        print("数据库连接池已关闭")
     except Exception as e:
         print(f"数据库关闭失败: {e}")
 

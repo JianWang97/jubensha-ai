@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { Search, Plus, Lock, MapPin, User, FileText, Lightbulb, Image, Edit, Trash2, Minimize2, Maximize2, X } from 'lucide-react';
 
 interface EvidenceManagerProps {
   generateEvidenceImage?: (request: ImageGenerationRequest) => Promise<{ url: string }>;
@@ -23,7 +24,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   const [evidences, setEvidences] = useState<Evidence[]>([]);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
-  const [isEvidenceFormFullscreen, setIsEvidenceFormFullscreen] = useState(true);
+  const [isEvidenceFormFullscreen, setIsEvidenceFormFullscreen] = useState(false);
 
   // 使用 client services 替代 useApiClient
   const getScriptWithDetail = async (scriptId: number) => {
@@ -229,14 +230,14 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     try {
       const request: ImageGenerationRequest = {
         positive_prompt: imageGeneration.positive_prompt,
-        negative_prompt: imageGeneration.negative_prompt,
+        negative_prompt: '',
         script_id: Number(scriptId),
         target_id: editingEvidence.id,
-        width: imageGeneration.width,
-        height: imageGeneration.height,
-        steps: imageGeneration.steps,
-        cfg: imageGeneration.cfg_scale,
-        seed: imageGeneration.seed
+        width: 512,
+        height: 512,
+        steps: 20,
+        cfg: 7,
+        seed: -1
       };
       
       const result = await generateEvidenceImage(request);
@@ -256,17 +257,26 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   };
 
   return (
-    <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xl font-bold text-purple-200 flex items-center gap-2">
-            🔍 证据管理
-          </CardTitle>
+    <Card className="border-blue-500/30 shadow-2xl shadow-blue-500/10 modern-card">
+      <CardHeader className="relative overflow-hidden">
+        <div className="relative flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 rounded-lg border border-blue-500/30">
+              <Search className="w-6 h-6 text-blue-200" />
+            </div>
+            <div>
+              <CardTitle className="text-xl font-bold text-blue-200 flex items-center gap-2">
+                证据管理
+              </CardTitle>
+              <p className="text-sm text-blue-300/70 mt-1">管理剧本中的所有证据信息</p>
+            </div>
+          </div>
           <Button 
             onClick={() => setShowEvidenceForm(true)}
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500"
+            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg hover:shadow-blue-500/25 transition-all duration-300 modern-button"
           >
-            ➕ 添加证据
+            <Plus className="w-4 h-4 mr-2" />
+            添加证据
           </Button>
         </div>
       </CardHeader>
@@ -274,19 +284,31 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
         {/* 证据卡片网格 */}
         <div className="mb-6">
           {evidences.length === 0 ? (
-            <div className="text-purple-300 text-center py-12 bg-slate-700/30 rounded-xl border-2 border-dashed border-purple-500/30">
-              <div className="text-4xl mb-4">🔍</div>
-              <div className="text-lg">暂无证据</div>
-              <div className="text-sm mt-2 opacity-70">点击上方按钮添加第一个证据</div>
+            <div className="text-blue-300 text-center py-16 bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl border-2 border-dashed border-blue-500/30 backdrop-blur-sm modern-empty-state">
+              <div className="text-6xl mb-6 opacity-60"><Search className="w-16 h-16 mx-auto" /></div>
+              <div className="text-xl font-semibold mb-2">暂无证据</div>
+              <div className="text-sm opacity-70 mb-6">点击上方按钮添加第一个证据</div>
+              <div className="flex justify-center">
+                <Button 
+                  onClick={() => setShowEvidenceForm(true)}
+                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  立即添加
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {evidences.map((ev) => (
-                <div key={ev.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-xl p-6 border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10 group">
+                <div key={ev.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl p-6 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/20 hover:scale-[1.02] group modern-card evidence-card">
                   {/* 卡片头部 */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h4 className="text-lg font-semibold text-purple-200 mb-2 group-hover:text-purple-100 transition-colors">{ev.name}</h4>
+                      <h4 className="text-xl font-bold text-blue-200 mb-3 group-hover:text-blue-100 transition-colors flex items-center gap-2">
+                        <Search className="w-5 h-5" />
+                        {ev.name}
+                      </h4>
                       <div className="flex flex-wrap gap-2">
                         <Badge variant={ev.importance === '关键证据' ? 'destructive' : ev.importance === '重要证据' ? 'default' : 'secondary'}>
                           {ev.importance}
@@ -296,7 +318,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                         </Badge>
                         {ev.is_hidden && (
                           <Badge variant="outline" className="bg-orange-600/20 text-orange-300 border-orange-500/30">
-                            🔒 隐藏
+                            <Lock className="w-3 h-3 mr-1" /> 隐藏
                           </Badge>
                         )}
                       </div>
@@ -304,22 +326,22 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   </div>
 
                   {/* 图片区域 */}
-                  <div className="mb-4">
+                  <div className="mb-6">
                     {ev.image_url ? (
-                      <div className="w-full h-40 rounded-lg overflow-hidden border border-purple-500/30 bg-slate-800">
+                      <div className="w-full h-48 rounded-xl overflow-hidden border border-purple-500/30 bg-slate-800 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-300">
                         <img 
                           src={ev.image_url} 
                           alt={ev.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
                           }}
                         />
                       </div>
                     ) : (
-                      <div className="w-full h-40 rounded-lg border-2 border-dashed border-purple-500/30 flex items-center justify-center bg-slate-800/50">
+                      <div className="w-full h-48 rounded-xl border-2 border-dashed border-purple-500/30 flex items-center justify-center bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-sm">
                         <div className="text-center">
-                          <div className="text-3xl mb-2 opacity-50">🖼️</div>
+                          <div className="text-5xl mb-3 opacity-60">🖼️</div>
                           <div className="text-sm text-purple-300 opacity-70">暂无图片</div>
                         </div>
                       </div>
@@ -329,56 +351,56 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   {/* 证据信息 */}
                   <div className="space-y-3 mb-4">
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-purple-400">📍</span>
-                      <span className="text-purple-200 font-medium">位置:</span>
-                      <span className="text-purple-100 flex-1">{ev.location}</span>
+                      <MapPin className="w-4 h-4 text-blue-400" />
+                      <span className="text-blue-200 font-medium">位置:</span>
+                      <span className="text-blue-100 flex-1">{ev.location}</span>
                     </div>
                     
                     {ev.related_to && (
                       <div className="flex items-center gap-2 text-sm">
-                        <span className="text-purple-400">👤</span>
-                        <span className="text-purple-200 font-medium">关联:</span>
-                        <span className="text-purple-100 flex-1">{ev.related_to}</span>
+                        <User className="w-4 h-4 text-blue-400" />
+                        <span className="text-blue-200 font-medium">关联:</span>
+                        <span className="text-blue-100 flex-1">{ev.related_to}</span>
                       </div>
                     )}
                     
                     <div className="text-sm">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-purple-400">📝</span>
-                        <span className="text-purple-200 font-medium">描述:</span>
+                        <FileText className="w-4 h-4 text-blue-400" />
+                        <span className="text-blue-200 font-medium">描述:</span>
                       </div>
-                      <p className="text-purple-100 text-xs leading-relaxed pl-6 line-clamp-3">{ev.description}</p>
+                      <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-3">{ev.description}</p>
                     </div>
                     
                     {ev.significance && (
                       <div className="text-sm">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-purple-400">💡</span>
-                          <span className="text-purple-200 font-medium">重要性:</span>
+                          <Lightbulb className="w-4 h-4 text-blue-400" />
+                          <span className="text-blue-200 font-medium">重要性:</span>
                         </div>
-                        <p className="text-purple-100 text-xs leading-relaxed pl-6 line-clamp-2">{ev.significance}</p>
+                        <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{ev.significance}</p>
                       </div>
                     )}
                   </div>
                   
                   {/* 操作按钮 */}
-                  <div className="flex gap-2 pt-4 border-t border-purple-500/20">
+                  <div className="flex gap-3 pt-6 border-t border-blue-500/20">
                     <Button
                       onClick={() => handleEditEvidence(ev)}
                       variant="outline"
                       size="sm"
-                      className="flex-1 bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30"
+                      className="flex-1 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 border-blue-500/30 hover:from-blue-600/40 hover:to-cyan-600/40 hover:border-blue-400/50 transition-all duration-300 modern-button"
                     >
-                      <span>✏️</span>
+                      <Edit className="w-4 h-4 mr-1" />
                       <span>编辑</span>
                     </Button>
                     <Button
                       onClick={() => handleDeleteEvidence(ev.id!)}
                       variant="outline"
                       size="sm"
-                      className="flex-1 bg-red-600/20 text-red-300 border-red-500/30 hover:bg-red-600/30"
+                      className="flex-1 bg-gradient-to-r from-red-600/20 to-pink-600/20 text-red-300 border-red-500/30 hover:from-red-600/40 hover:to-pink-600/40 hover:border-red-400/50 transition-all duration-300 modern-button"
                     >
-                      <span>🗑️</span>
+                      <Trash2 className="w-4 h-4 mr-1" />
                       <span>删除</span>
                     </Button>
                   </div>
@@ -391,60 +413,102 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
         {/* 证据表单弹窗 */}
         <Dialog open={showEvidenceForm} onOpenChange={setShowEvidenceForm}>
           <DialogContent 
-            fullscreen={isEvidenceFormFullscreen}
-            className={isEvidenceFormFullscreen 
-              ? "bg-slate-800 border-purple-500/30 max-w-none w-full h-full overflow-y-auto"
-              : "bg-slate-800 border-purple-500/30 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-            }
+            className="bg-gradient-to-br from-slate-900/98 via-indigo-950/98 to-slate-900/98 backdrop-blur-xl border-indigo-500/40 !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden custom-scrollbar"
             showCloseButton={false}
           >
-            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-6">
-              <DialogTitle className="text-xl font-bold text-purple-200">
-                {editingEvidence ? '✏️ 编辑证据' : '➕ 添加证据'}
+            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-6 border-b border-indigo-500/20">
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-200 to-indigo-200 bg-clip-text text-transparent flex items-center gap-3">
+                {editingEvidence ? <><Edit className="w-6 h-6 text-blue-400" /> 编辑证据</> : <><Plus className="w-6 h-6 text-blue-400" /> 添加证据</>}
               </DialogTitle>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEvidenceFormFullscreen(!isEvidenceFormFullscreen)}
-                  className="text-purple-300 hover:text-purple-100 text-lg h-auto p-2"
-                  title={isEvidenceFormFullscreen ? '退出全屏' : '全屏显示'}
-                >
-                  {isEvidenceFormFullscreen ? '🗗' : '🗖'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={resetForm}
-                  className="text-purple-300 hover:text-purple-100 text-2xl h-auto p-1"
-                >
-                  ✕
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetForm}
+                className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 h-auto p-3 rounded-lg transition-all duration-200"
+              >
+                <X className="w-5 h-5" />
+              </Button>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-1">
+            <div className="flex-1 overflow-y-auto px-1 custom-scrollbar dialog-content-scroll max-h-[70vh]">
               <div className="space-y-4">
+                {/* 图片生成区域 - 移动到最顶部 */}
+                {generateEvidenceImage && (
+                  <div className="border border-purple-500/30 rounded-lg p-4 bg-slate-700/50">
+                    <h4 className="text-lg font-semibold text-purple-200 mb-4">🎨 AI图片生成</h4>
+                    <div className="flex gap-6">
+                      {/* 左侧：生成控件 */}
+                      <div className="flex-1 space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-purple-200 mb-2">正向提示词 *</label>
+                          <Textarea
+                            value={imageGeneration.positive_prompt}
+                            onChange={(e) => setImageGeneration(prev => ({ ...prev, positive_prompt: e.target.value }))}
+                            placeholder="描述你想要生成的图片内容..."
+                            rows={3}
+                            className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                          />
+                        </div>
+                        <div className="flex gap-3">
+                          <Button
+                            type="button"
+                            onClick={handlePromptGeneration}
+                            disabled={isGeneratingPrompt || !evidenceForm.name || !evidenceForm.description}
+                            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white"
+                          >
+                            {isGeneratingPrompt ? '🤖 生成中...' : '🤖 AI生成提示词'}
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleImageGeneration}
+                            disabled={isGeneratingImage || !imageGeneration.positive_prompt.trim()}
+                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
+                          >
+                            {isGeneratingImage ? '🎨 生成中...' : '🎨 生成图片'}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* 右侧：图片预览 */}
+                      {evidenceForm.image_url && (
+                        <div className="flex-shrink-0">
+                          <label className="block text-sm font-medium text-purple-200 mb-2">图片预览</label>
+                          <div className="w-32 h-32 rounded-lg overflow-hidden border border-purple-500/30">
+                            <img 
+                              src={evidenceForm.image_url} 
+                              alt="预览"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">证据名称</label>
+                    <label className="block text-sm font-medium text-blue-200 mb-2">证据名称</label>
                     <Input
                       type="text"
                       name="name"
                       value={evidenceForm.name}
                       onChange={handleEvidenceFormChange}
-                      className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                      className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
                       required
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">发现位置</label>
+                    <label className="block text-sm font-medium text-blue-200 mb-2">发现位置</label>
                     <Input
                       type="text"
                       name="location"
                       value={evidenceForm.location}
                       onChange={handleEvidenceFormChange}
-                      className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                      className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
                       required
                     />
                   </div>
@@ -488,143 +552,37 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">关联角色</label>
+                    <label className="block text-sm font-medium text-blue-200 mb-2">关联角色</label>
                     <Input
                       type="text"
                       name="related_to"
                       value={evidenceForm.related_to || ''}
                       onChange={handleEvidenceFormChange}
-                      className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                      className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
                     />
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">图片URL</label>
-                    <Input
-                      type="text"
-                      name="image_url"
-                      value={evidenceForm.image_url || ''}
-                      onChange={handleEvidenceFormChange}
-                      placeholder="图片URL（可通过下方生成功能获取）"
-                      className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                    />
-                  </div>
-                  
-                  {/* 图片生成区域 */}
-                  {generateEvidenceImage && (
-                    <div className="col-span-full border border-purple-500/30 rounded-lg p-4 bg-slate-700/50">
-                      <h4 className="text-lg font-semibold text-purple-200 mb-4">🎨 AI图片生成</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-purple-200 mb-2">正向提示词 *</label>
-                          <Textarea
-                            value={imageGeneration.positive_prompt}
-                            onChange={(e) => setImageGeneration(prev => ({ ...prev, positive_prompt: e.target.value }))}
-                            placeholder="描述你想要生成的图片内容..."
-                            rows={3}
-                            className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-purple-200 mb-2">反向提示词</label>
-                          <Textarea
-                            value={imageGeneration.negative_prompt}
-                            onChange={(e) => setImageGeneration(prev => ({ ...prev, negative_prompt: e.target.value }))}
-                            placeholder="描述你不想要的内容..."
-                            rows={3}
-                            className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-purple-200 mb-2">图片尺寸</label>
-                          <div className="flex gap-2">
-                            <Input
-                              type="number"
-                              value={imageGeneration.width}
-                              onChange={(e) => setImageGeneration(prev => ({ ...prev, width: parseInt(e.target.value) || 512 }))}
-                              placeholder="宽度"
-                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                            />
-                            <span className="text-purple-300 self-center">×</span>
-                            <Input
-                              type="number"
-                              value={imageGeneration.height}
-                              onChange={(e) => setImageGeneration(prev => ({ ...prev, height: parseInt(e.target.value) || 512 }))}
-                              placeholder="高度"
-                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-purple-200 mb-2">生成参数</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            <Input
-                              type="number"
-                              value={imageGeneration.steps}
-                              onChange={(e) => setImageGeneration(prev => ({ ...prev, steps: parseInt(e.target.value) || 20 }))}
-                              placeholder="步数"
-                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                            />
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={imageGeneration.cfg_scale}
-                              onChange={(e) => setImageGeneration(prev => ({ ...prev, cfg_scale: parseFloat(e.target.value) || 7 }))}
-                              placeholder="CFG"
-                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                            />
-                            <Input
-                              type="number"
-                              value={imageGeneration.seed}
-                              onChange={(e) => setImageGeneration(prev => ({ ...prev, seed: parseInt(e.target.value) || -1 }))}
-                              placeholder="种子"
-                              className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex gap-3">
-                        <Button
-                          type="button"
-                          onClick={handlePromptGeneration}
-                          disabled={isGeneratingPrompt || !evidenceForm.name || !evidenceForm.description}
-                          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white"
-                        >
-                          {isGeneratingPrompt ? '🤖 生成中...' : '🤖 AI生成提示词'}
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={handleImageGeneration}
-                          disabled={isGeneratingImage || !imageGeneration.positive_prompt.trim()}
-                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
-                        >
-                          {isGeneratingImage ? '🎨 生成中...' : '🎨 生成图片'}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-purple-200 mb-2">证据描述</label>
+                  <label className="block text-sm font-medium text-blue-200 mb-2">证据描述</label>
                   <Textarea
                     name="description"
                     value={evidenceForm.description}
                     onChange={handleEvidenceFormChange}
                     rows={3}
-                    className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                    className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
                     required
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-purple-200 mb-2">重要性说明</label>
+                  <label className="block text-sm font-medium text-blue-200 mb-2">重要性说明</label>
                   <Textarea
                     name="significance"
                     value={evidenceForm.significance || ''}
                     onChange={handleEvidenceFormChange}
                     rows={2}
-                    className="bg-slate-700 border-purple-500/30 focus:ring-purple-400 text-purple-100"
+                    className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
                   />
                 </div>
                 
@@ -636,38 +594,16 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                     onChange={handleEvidenceFormChange}
                     className="w-4 h-4 text-purple-600 bg-slate-700 border-purple-500/30 rounded focus:ring-purple-400"
                   />
-                  <label className="text-sm text-purple-200">隐藏证据（玩家初始不可见）</label>
+                  <label className="text-sm text-blue-200">隐藏证据（玩家初始不可见）</label>
                 </div>
                 
-                {/* 图片预览 */}
-                {evidenceForm.image_url && (
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">图片预览</label>
-                    <div className="w-32 h-32 rounded-lg overflow-hidden border border-purple-500/30">
-                      <img 
-                        src={evidenceForm.image_url} 
-                        alt="预览"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
+
               </div>
             </div>
-            <DialogFooter className="flex justify-end gap-3 mt-6 pt-4 border-t border-purple-500/20">
-              <Button
-                variant="secondary"
-                onClick={resetForm}
-                className="bg-gray-600 hover:bg-gray-500 text-white"
-              >
-                取消
-              </Button>
+            <DialogFooter className="flex justify-center mt-8 pt-6 border-t border-indigo-500/20">
               <Button
                 onClick={handleSaveEvidence}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white"
+                className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 {editingEvidence ? '保存修改' : '添加证据'}
               </Button>
