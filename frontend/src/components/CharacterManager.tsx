@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Combobox } from '@/components/ui/combobox';
+import { MultiSelect } from '@/components/ui/multi-select';
 import ImageSelector from '@/components/ImageSelector';
 import { 
   Users, 
@@ -22,7 +22,8 @@ import {
   Target, 
   Calendar, 
   VolumeX, 
-  Mic 
+  Mic,
+  X 
 } from 'lucide-react';
 import {  CharacterCreateRequest, CharacterUpdateRequest, ImageGenerationRequest, ImageType, ScriptCharacter } from '@/client';
 import { Service } from '@/client';
@@ -388,12 +389,26 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
 
       {/* 角色编辑对话框 */}
       <Dialog open={showCharacterForm} onOpenChange={setShowCharacterForm}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-blue-500/30 shadow-2xl shadow-blue-500/20 backdrop-blur-lg">
+        <DialogContent showCloseButton={false} className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-blue-500/30 shadow-2xl shadow-blue-500/20 backdrop-blur-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-blue-200 flex items-center gap-2">
-              <User className="w-6 h-6" />
-              {editingCharacter ? '编辑角色' : '添加角色'}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold text-blue-200 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                {editingCharacter ? '编辑角色' : '添加角色'}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowCharacterForm(false);
+                  setEditingCharacter(null);
+                  initCharacterForm();
+                }}
+                className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 h-auto p-3 rounded-lg transition-all duration-200"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
           </DialogHeader>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -451,7 +466,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
 
               <div className="space-y-2">
                 <Label className="text-blue-200 font-medium">性格特征</Label>
-                <Combobox
+                <MultiSelect
                   options={[
                     { value: '冷静', label: '冷静' },
                     { value: '热情', label: '热情' },
@@ -464,12 +479,11 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                     { value: '胆小', label: '胆小' },
                     { value: '幽默', label: '幽默' }
                   ]}
-                  value={characterForm.personality_traits?.join(',') || ''}
+                  selected={characterForm.personality_traits || []}
                   onChange={(traits) => {
                     setCharacterForm({ ...characterForm, personality_traits: traits.length > 0 ? traits : undefined });
                   }}
                   placeholder="选择性格特征"
-                  multiple
                 />
               </div>
 
@@ -478,6 +492,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                 <Select 
                   value={characterForm.voice_id || 'none'} 
                   onValueChange={(value) => setCharacterForm({ ...characterForm, voice_id: value === 'none' ? undefined : value })}
+                  searchable={true}
                 >
                   <SelectTrigger className="bg-slate-700/50 border-blue-500/30 text-blue-100">
                     <SelectValue placeholder="选择语音" />

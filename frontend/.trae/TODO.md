@@ -1,8 +1,8 @@
 # TODO:
 
-- [x] 1: 分析select和combobox组件的差异，确定集成方案 (priority: High)
-- [x] 2: 在select组件中添加搜索相关的props接口定义 (priority: High)
-- [x] 3: 修改SelectContent组件，添加条件性的搜索输入框 (priority: High)
-- [x] 4: 实现选项过滤逻辑，支持按label搜索 (priority: Medium)
-- [x] 5: 更新SelectItem组件以支持过滤后的选项渲染 (priority: Medium)
-- [x] 6: 测试新功能并确保向后兼容性 (priority: Medium)
+- [x] 1: 查看EvidenceManager组件的Dialog样式实现 (priority: High)
+- [x] 2: 查看CharacterManager组件的Dialog样式和关闭按钮实现 (priority: High)
+- [x] 3: 查看LocationManager组件的Dialog样式和关闭按钮实现 (priority: High)
+- [x] 4: 将LocationManager的绿色主题改为蓝色主题 (priority: Medium)
+- [x] 5: 统一CharacterManager的关闭按钮样式 (priority: Medium)
+- [x] 6: 验证三个组件的样式一致性 (priority: Low)

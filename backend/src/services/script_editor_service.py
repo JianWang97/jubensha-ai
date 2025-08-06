@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from ..services.llm_service import llm_service, LLMMessage
 from ..schemas.script import Script, ScriptCharacter, ScriptEvidence, ScriptLocation
+from ..schemas.script_evidence import EvidenceType
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,10 @@ class ScriptEditorService:
 1. 操作类型：add(添加)、update(更新)、delete(删除)、modify(修改)中的一个
 2. 目标对象：character(角色)、evidence(证据)、location(场景)、story(背景故事)、info(剧本信息)中的一个
 
+【重要区分】：
+- 如果用户提到"[角色名]的背景"或"[角色名]的背景故事"，这是在修改角色信息，应该归类为"character"
+- 只有当用户说"剧本背景故事"、"整体背景故事"或没有指明具体角色时，才归类为"story"
+
 只返回JSON格式的结果，包含：
 {
   "category": "目标对象",
@@ -78,6 +83,20 @@ class ScriptEditorService:
   "category": "evidence",
   "confidence": 0.9,
   "reasoning": "用户想要删除证据"
+}
+
+用户说"更新张助理的背景故事"，你应该返回：
+{
+  "category": "character",
+  "confidence": 0.9,
+  "reasoning": "用户想要更新特定角色的背景信息"
+}
+
+用户说"修改剧本的背景故事"，你应该返回：
+{
+  "category": "story",
+  "confidence": 0.9,
+  "reasoning": "用户想要修改整体剧本背景故事"
 }"""
         
         user_prompt = f"""用户指令：{instruction}
@@ -280,6 +299,8 @@ class ScriptEditorService:
 - delete: 删除角色
 - modify: 修改角色
 
+【重要】当用户说"更新[角色名]的背景故事"或"修改[角色名]的背景"时，这是在更新角色的background字段，不是剧本背景故事。
+
 请返回JSON格式的编辑指令数组，每个指令包含：
 {
   "action": "操作类型",
@@ -310,6 +331,18 @@ class ScriptEditorService:
 4. objective字段至少需要30个字符的描述
 5. personality_traits数组至少需要3个性格特征
 6. gender字段只能是"男"、"女"、"中性"中的一个
+
+【角色背景更新示例】
+用户说"更新张助理的背景故事"，应该返回：
+{
+  "action": "update",
+  "target": "character",
+  "content": {
+    "name": "张助理",
+    "background": "用户提供的新背景内容"
+  },
+  "description": "更新角色张助理的背景"
+}
 
 示例（正确格式）：
 {
@@ -593,7 +626,49 @@ class ScriptEditorService:
                 )]
         
         # 检查是否为背景故事相关指令
-        if "背景故事" in instruction or "剧本故事" in instruction or "故事背景" in instruction or "剧情" in instruction:
+        instruction_lower = instruction.lower()
+        
+        # 检查是否为角色背景故事更新（优先级较高）
+        # 匹配模式：[角色名] + 的 + 背景/背景故事
+        character_background_patterns = [
+            r'(\w+)的背景故事',
+            r'(\w+)的背景',
+            r'更新(\w+)的背景',
+            r'修改(\w+)的背景',
+            r'(\w+)角色背景',
+            r'(\w+)角色的背景'
+        ]
+        
+        for pattern in character_background_patterns:
+            import re
+            match = re.search(pattern, instruction)
+            if match:
+                character_name = match.group(1)
+                # 从指令中提取背景内容
+                background_content = instruction
+                # 如果指令包含具体的背景描述，尝试提取
+                if "：" in instruction:
+                    parts = instruction.split("：", 1)
+                    if len(parts) > 1:
+                        background_content = parts[1].strip()
+                elif "改为" in instruction:
+                    parts = instruction.split("改为", 1)
+                    if len(parts) > 1:
+                        background_content = parts[1].strip()
+                
+                return [EditInstruction(
+                    action="update",
+                    target="character",
+                    content={
+                        "name": character_name,
+                        "background": background_content
+                    },
+                    description=f"更新角色 {character_name} 的背景"
+                )]
+        
+        # 只有当明确指向剧本整体背景故事时才归类为story
+        if any(keyword in instruction for keyword in ["剧本背景故事", "整体背景故事", "剧本的背景故事", "剧情背景"]) or \
+           (("背景故事" in instruction or "故事背景" in instruction) and not any(char_keyword in instruction for char_keyword in ["的背景", "角色背景"])):
             return [EditInstruction(
                 action="update",
                 target="story",
@@ -601,7 +676,7 @@ class ScriptEditorService:
                     "story": instruction,
                     "generate_missing": True
                 },
-                description="更新背景故事"
+                description="更新剧本背景故事"
             )]
         
         # 默认返回修改剧本信息的指令
@@ -797,6 +872,35 @@ class ScriptEditorService:
             for key, value in instruction.content.items():
                 if hasattr(character, key) and key != "id" and key != "script_id":
                     old_value = getattr(character, key)
+                    
+                    # 根据字段类型进行适当的类型转换
+                    if key == "age" and value is not None:
+                        try:
+                            value = int(value) if isinstance(value, (int, str)) and str(value).isdigit() else None
+                        except (ValueError, TypeError):
+                            logger.warning(f"[CHARACTER_EDIT] 年龄字段类型转换失败: {value}")
+                            value = old_value
+                    elif key in ["name", "profession", "background", "secret", "objective", "gender", "avatar_url", "voice_preference", "voice_id"] and value is not None:
+                        value = str(value)
+                    elif key == "personality_traits" and value is not None:
+                        if isinstance(value, list):
+                            value = [str(trait) for trait in value]
+                        elif isinstance(value, str):
+                            # 如果是字符串，尝试解析为列表
+                            try:
+                                import json
+                                value = json.loads(value)
+                                if isinstance(value, list):
+                                    value = [str(trait) for trait in value]
+                                else:
+                                    value = [str(value)]
+                            except:
+                                value = [str(value)]
+                        else:
+                            value = old_value
+                    elif key in ["is_murderer", "is_victim"] and value is not None:
+                        value = bool(value)
+                    
                     setattr(character, key, value)
                     updated_fields.append(f"{key}: {old_value} -> {value}")
             

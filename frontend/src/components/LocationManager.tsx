@@ -411,18 +411,18 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         <Dialog open={showLocationForm} onOpenChange={setShowLocationForm}>
           <DialogContent 
             showCloseButton={false}
-            className="bg-gradient-to-br from-slate-900/98 via-emerald-950/98 to-slate-900/98 backdrop-blur-xl border-emerald-500/40 min-h-[80vh] !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden text-blue-100 custom-scrollbar">
-            <DialogHeader className="border-b border-emerald-500/20 pb-6">
+            className="bg-gradient-to-br from-slate-900/98 via-blue-950/98 to-slate-900/98 backdrop-blur-xl border-blue-500/40 min-h-[80vh] !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden text-blue-100 custom-scrollbar">
+            <DialogHeader className="border-b border-blue-500/20 pb-6">
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-emerald-200 to-teal-200 bg-clip-text text-transparent flex items-center gap-3">
-                  <MapPin className="w-6 h-6 text-emerald-400" />
+                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-200 to-cyan-200 bg-clip-text text-transparent flex items-center gap-3">
+                  <MapPin className="w-6 h-6 text-blue-400" />
                   {editingLocation ? '编辑场景' : '添加场景'}
                 </DialogTitle>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={resetForm}
-                  className="text-emerald-300 hover:text-emerald-100 hover:bg-emerald-500/20 h-auto p-3 rounded-lg transition-all duration-200"
+                  className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 h-auto p-3 rounded-lg transition-all duration-200"
                 >
                   <X className="w-5 h-5" />
                 </Button>
@@ -531,11 +531,11 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             </div>
             </div>
 
-            <DialogFooter className="flex justify-center mt-8 pt-6 border-t border-emerald-500/20">
+            <DialogFooter className="flex justify-center mt-8 pt-6 border-t border-blue-500/20">
               <Button
                 onClick={handleSaveLocation}
                 disabled={isLoading || !locationForm.name?.trim() || !locationForm.description?.trim()}
-                className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 disabled:opacity-50 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-500 disabled:opacity-50 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 {isLoading ? (
                   <>
