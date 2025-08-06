@@ -438,6 +438,14 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                       imageType={ImageType.EVIDENCE}
                       scriptId={Number(scriptId)}
                       onImageChange={(url) => setEvidenceForm(prev => ({ ...prev, image_url: url }))}
+                      contextInfo={JSON.stringify({
+                        name: evidenceForm.name,
+                        type: evidenceForm.evidence_type,
+                        location: evidenceForm.location,
+                        description: evidenceForm.description,
+                        importance: evidenceForm.importance,
+                        related_to: evidenceForm.related_to
+                      })}
                       className="w-40"
                       imageHeight="h-40"
                     />

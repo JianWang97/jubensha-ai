@@ -6,12 +6,23 @@
 import json
 import re
 import logging
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from pydantic import BaseModel
 
 from ..services.llm_service import llm_service, LLMMessage
 from ..schemas.script import Script, ScriptCharacter, ScriptEvidence, ScriptLocation
 from ..schemas.script_evidence import EvidenceType
+
+if TYPE_CHECKING:
+    from ..db.repositories.script_repository import ScriptRepository
+else:
+    # 在运行时导入，避免循环导入
+    try:
+        from ..db.repositories.script_repository import ScriptRepository
+    except ImportError:
+        # 如果导入失败，定义一个占位符类
+        class ScriptRepository:
+            pass
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +53,7 @@ class EditResult(BaseModel):
 class ScriptEditorService:
     """剧本编辑服务"""
     
-    def __init__(self, script_repository):
+    def __init__(self, script_repository: ScriptRepository):
         self.script_repository = script_repository
 
     async def categorize_instruction(self, instruction: str, script_id: int) -> InstructionCategory:

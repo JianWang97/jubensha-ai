@@ -441,6 +441,12 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                     imageType={ImageType.SCENE}
                     scriptId={scriptId}
                     onImageChange={(url) => {setLocationForm(prev => ({ ...prev, background_image_url: url }));console.log('选择图片:', url);}}
+                    contextInfo={JSON.stringify({
+                      name: locationForm.name,
+                      description: locationForm.description,
+                      is_crime_scene: locationForm.is_crime_scene,
+                      searchable_items: locationForm.searchable_items
+                    })}
                     className="w-48"
                     imageHeight="h-48"
                   />

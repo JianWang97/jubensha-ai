@@ -539,6 +539,16 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   scriptId={scriptId}
                   url={characterForm.avatar_url || ''}
                   onImageChange={(url) => setCharacterForm(prev => ({ ...prev, avatar_url: url }))}
+                  contextInfo={JSON.stringify({
+                    name: characterForm.name,
+                    age: characterForm.age,
+                    gender: characterForm.gender,
+                    profession: characterForm.profession,
+                    personality_traits: characterForm.personality_traits,
+                    background: characterForm.background,
+                    is_victim: characterForm.is_victim,
+                    is_murderer: characterForm.is_murderer
+                  })}
                 />
               </div>
 

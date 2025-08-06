@@ -235,6 +235,15 @@ const ScriptEditPage = () => {
                   onImageChange={(url) => setBasicFormData(prev => ({ ...prev, cover_image_url: url }))}
                   className="w-108"
                   imageHeight="h-72"
+                  contextInfo={JSON.stringify({
+                    title: basicFormData.title,
+                    author: basicFormData.author,
+                    description: basicFormData.description,
+                    difficulty: basicFormData.difficulty,
+                    player_count: basicFormData.player_count,
+                    duration_minutes: basicFormData.duration_minutes,
+                    tags: basicFormData.tags
+                  })}
                 />
               </div>
             </div>

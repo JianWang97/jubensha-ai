@@ -24,6 +24,8 @@ interface ImageSelectorProps {
   className?: string;
   /** 图片容器高度类名 */
   imageHeight?: string;
+  /** 上下文信息JSON字符串，包含证据、背景、人物等信息 */
+  contextInfo?: string;
 }
 
 const ImageSelector: React.FC<ImageSelectorProps> = ({
@@ -32,7 +34,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
   scriptId,
   onImageChange,
   className = "w-full",
-  imageHeight = "h-48"
+  imageHeight = "h-48",
+  contextInfo
 }) => {
   const [imageUrl, setImageUrl] = useState(url);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -71,10 +74,17 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
   const handleGenerateImage = async () => {
     try {
       setGenerating(true);
+      
+      // 构建完整的正向提示词，如果有上下文信息则拼接
+      let fullPositivePrompt = generationParams.positive_prompt;
+      if (contextInfo) {
+        fullPositivePrompt = contextInfo + (generationParams.positive_prompt ? '\n\n' + generationParams.positive_prompt : '');
+      }
+      
       const request: ImageGenerationRequest = {
         image_type: imageType,
         script_id: scriptId as number,
-        positive_prompt: generationParams.positive_prompt,
+        positive_prompt: fullPositivePrompt,
         negative_prompt: generationParams.negative_prompt || null
       };
       
