@@ -327,6 +327,7 @@ def configure_services() -> DependencyContainer:
     from ..db.repositories.character_repository import CharacterRepository
     from ..db.repositories.evidence_repository import EvidenceRepository
     from ..db.repositories.location_repository import LocationRepository
+    from ..db.repositories.image_repository import ImageRepository
     from ..services.script_editor_service import ScriptEditorService
     from ..services.llm_service import LLMService, llm_service
     
@@ -352,6 +353,7 @@ def configure_services() -> DependencyContainer:
     container.register_scoped(CharacterRepository)
     container.register_scoped(EvidenceRepository)
     container.register_scoped(LocationRepository)
+    container.register_scoped(ImageRepository)
     
     # 注册服务（作用域）
     container.register_scoped(ScriptEditorService)

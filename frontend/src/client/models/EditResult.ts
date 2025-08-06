@@ -4,7 +4,7 @@
 /* eslint-disable */
 import type { Script_Output } from './Script_Output';
 /**
- * 编辑结果模型
+ * 编辑结果
  */
 export type EditResult = {
     success: boolean;

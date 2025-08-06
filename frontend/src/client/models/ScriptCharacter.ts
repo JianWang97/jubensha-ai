@@ -33,19 +33,19 @@ export type ScriptCharacter = {
     /**
      * 职业
      */
-    profession?: string;
+    profession?: (string | null);
     /**
      * 背景故事
      */
-    background?: string;
+    background?: (string | null);
     /**
      * 秘密
      */
-    secret?: string;
+    secret?: (string | null);
     /**
      * 目标
      */
-    objective?: string;
+    objective?: (string | null);
     /**
      * 性别
      */

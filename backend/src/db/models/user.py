@@ -29,6 +29,7 @@ class User(BaseSQLAlchemyModel):
     # 关联关系
     hosted_sessions = relationship("GameSession", back_populates="host_user")
     game_participations = relationship("GameParticipant", back_populates="user")
+    images = relationship("ImageDBModel", back_populates="author")
     
     def set_hashed_password(self, hashed_password: str) -> None:
         """设置加密密码"""

@@ -1,66 +1,56 @@
-import React, { useEffect, useState } from 'react';
-import { ScriptCharacter as Character, ImageGenerationRequestModel as ImageGenerationRequest } from '@/client';
-import { 
-  Service,
-  CharacterCreateRequest,
-  CharacterUpdateRequest,
-  CharacterPromptRequest,
-  ImageGenerationRequestModel
-} from '@/client';
-
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-import { Combobox, ComboboxOption } from '@/components/ui/combobox';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Combobox } from '@/components/ui/combobox';
+import ImageSelector from '@/components/ImageSelector';
+import { 
+  Users, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  User, 
+  Briefcase, 
+  Book, 
+  EyeOff, 
+  Target, 
+  Calendar, 
+  VolumeX, 
+  Mic 
+} from 'lucide-react';
+import {  CharacterCreateRequest, CharacterUpdateRequest, ImageGenerationRequest, ImageType, ScriptCharacter } from '@/client';
+import { Service } from '@/client';
 import { toast } from 'sonner';
-import { Users, Plus, User, Calendar, Briefcase, Book, EyeOff, Target, Mic, Edit, Trash2, VolumeX, FileText, Palette, Bot, Zap, Save, Minimize2, Maximize2, X } from 'lucide-react';
+import { useParams } from 'next/navigation';
 
-// 声音选项接口
+interface CharacterManagerProps {
+  scriptId: string;
+  onCharacterUpdate?: () => void;
+}
 interface VoiceOption {
   voice_id: string;
   voice_name: string;
   description?: string[];
   created_time: string;
 }
-
-interface CharacterManagerProps {
-  scriptId: string;
-}
-
-const CharacterManager: React.FC<CharacterManagerProps> = ({
-  scriptId
+const CharacterManager: React.FC<CharacterManagerProps> = ({ 
+  scriptId, 
+  onCharacterUpdate 
 }) => {
-  // 角色相关状态
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [showCharacterForm, setShowCharacterForm] = useState(false);
-  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
-  const [isCharacterFormFullscreen, setIsCharacterFormFullscreen] = useState(false);
-  
-  // 声音列表相关状态
+  const [characters, setCharacters] = useState<ScriptCharacter[]>([]);
   const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
-  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
-  
-  // 图片生成相关状态
-  const [imageGenParams, setImageGenParams] = useState({
-    positive_prompt: '',
-    negative_prompt: '',
-    width: 512,
-    height: 512,
-    steps: 20,
-    cfg_scale: 7,
-    seed: 1
-  });
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [showCharacterForm, setShowCharacterForm] = useState(false);
+  const [editingCharacter, setEditingCharacter] = useState<ScriptCharacter | null>(null);
+  const [characterForm, setCharacterForm] = useState<Partial<ScriptCharacter>>({});
 
-  // 使用 client services 替代 useApiClient
+  // 获取服务
+   // 使用 client services 替代 useApiClient
   const getCharacters = async (scriptId: number) => {
     const response = await Service.getCharactersApiCharactersScriptIdCharactersGet(scriptId);
     return response.data;
@@ -86,237 +76,115 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     return response.data;
   };
   
-  const generateCharacterPrompt = async (request: CharacterPromptRequest) => {
-    const response = await Service.generateCharacterPromptApiCharactersCharactersGeneratePromptPost(request);
-    return response.data;
-  };
   
-  const generateAvatarImage = async (request: ImageGenerationRequestModel) => {
-    const response = await Service.generateAvatarImageApiScriptsGenerateAvatarPost(request);
-    return response.data;
-  };
-
-  const [characterForm, setCharacterForm] = useState<Partial<Character>>({
-    name: '',
-    age: undefined,
-    profession: '',
-    background: '',
-    secret: '',
-    objective: '',
-    gender: '中性',
-    is_murderer: false,
-    is_victim: false,
-    personality_traits: [],
-    avatar_url: '',
-    voice_id: undefined
-  });
-  
-  // 获取声音列表
-  const fetchVoiceOptions = async () => {
-    setIsLoadingVoices(true);
-    try {
-      const options = await getVoiceOptions();
-      setVoiceOptions(options);
-    } finally {
-      setIsLoadingVoices(false);
-    }
-  };
-  
-  useEffect(() => {
-    console.log('useEffect', scriptId);
-    
-    initCharacterForm();
-    fetchVoiceOptions();
-  }, [scriptId]);
-  
-  // 当表单打开时获取声音列表
-  useEffect(() => {
-    if (showCharacterForm && voiceOptions.length === 0) {
-      fetchVoiceOptions();
-    }
-  }, [showCharacterForm]);
-
-  const initCharacterForm = async () => {
-    console.log('initCharacterForm', scriptId);
-    
-    if(scriptId){
-      const charactersData = await getCharacters(Number(scriptId));
-      if(charactersData){
-        setCharacters(charactersData);
-      }
-    }
-  };
-
-  // 添加或编辑角色
-  const handleSaveCharacter = async () => {
-    setIsLoading(true);
-    try {
-      if (editingCharacter) {
-        // 编辑模式 - 调用更新API
-        await updateCharacter(Number(scriptId), editingCharacter.id!, {
-          name: characterForm.name,
-          age: characterForm.age ?? null,
-          profession: characterForm.profession,
-          background: characterForm.background,
-          secret: characterForm.secret,
-          objective: characterForm.objective,
-          gender: characterForm.gender || '中性',
-          is_murderer: characterForm.is_murderer,
-          is_victim: characterForm.is_victim,
-          personality_traits: characterForm.personality_traits,
-          avatar_url: characterForm.avatar_url || '',
-          voice_id: characterForm.voice_id
-        });
-        toast('角色更新成功！');
-      } else {
-        // 添加模式 - 调用创建API
-        await createCharacter({
-          name: characterForm.name || '',
-          age: characterForm.age ?? 0,
-          profession: characterForm.profession,
-          background: characterForm.background,
-          secret: characterForm.secret,
-          objective: characterForm.objective,
-          gender: characterForm.gender || '中性',
-          is_murderer: characterForm.is_murderer,
-          is_victim: characterForm.is_victim,
-          personality_traits: characterForm.personality_traits,
-          voice_id: characterForm.voice_id
-        });
-        toast('角色创建成功！');
-      }
-      
-      // 重新加载角色列表
-      await initCharacterForm();
-      
-      // 重置表单
-      resetForm();
-    } catch (error) {
-      console.error('保存角色失败:', error);
-      toast('保存角色失败，请重试。');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 重置表单
-  const resetForm = () => {
+  // 初始化角色表单
+  const initCharacterForm = () => {
     setCharacterForm({
       name: '',
       age: undefined,
-      profession: '',
-      background: '',
-      secret: '',
-      objective: '',
-      gender: '中性',
-      is_murderer: false,
+      gender: undefined,
+      profession: undefined,
+      background: undefined,
+      secret: undefined,
+      objective: undefined,
+      personality_traits: undefined,
+      voice_id: undefined,
       is_victim: false,
-      personality_traits: [],
-      avatar_url: '',
-      voice_id: undefined
+      is_murderer: false,
+      avatar_url: undefined
     });
-    setEditingCharacter(null);
-    setShowCharacterForm(false);
   };
 
+  // 加载角色列表
+  const loadCharacters = async () => {
+    try {
+      if(scriptId){
+        const charactersData = await getCharacters(Number(scriptId));
+        if(charactersData){
+          setCharacters(charactersData);
+        }
+      }
+    } catch (error) {
+      console.error('加载角色失败:', error);
+      toast('加载角色失败');
+    }
+  };
+
+  // 加载语音选项
+  const loadVoiceOptions = async () => {
+    try {
+      const voices = await getVoiceOptions();
+      setVoiceOptions(voices || []);
+    } catch (error) {
+      console.error('加载语音选项失败:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (showCharacterForm && voiceOptions.length === 0) {
+      loadVoiceOptions();
+    }
+  }, [showCharacterForm]);
+
+  useEffect(() => {
+    if(scriptId){
+      loadCharacters();
+    }
+  }, [scriptId]);
+
   // 编辑角色
-  const handleEditCharacter = (character: Character) => {
-    setCharacterForm(character);
+  const handleEditCharacter = (character: ScriptCharacter) => {
     setEditingCharacter(character);
+    setCharacterForm({
+      ...character,
+      personality_traits: character.personality_traits || []
+    });
     setShowCharacterForm(true);
   };
 
-  // 删除角色
-  const handleDeleteCharacter = async (id: number) => {
-    if (confirm('确定要删除这个角色吗？')) {
-      try {
-        await deleteCharacter(Number(scriptId), id);
-        toast('角色删除成功！');
-        
-        // 重新加载角色列表
-        await initCharacterForm();
-      } catch (error) {
-        console.error('删除角色失败:', error);
-        toast('删除角色失败，请重试。');
+  // 保存角色
+  const handleSaveCharacter = async () => {
+    try {
+      const characterData = {
+        ...characterForm,
+        script_id: Number(scriptId)
+      };
+
+      if (editingCharacter) {
+        await updateCharacter(Number(scriptId),editingCharacter.id!, characterData);
+        toast('角色更新成功！');
+      } else {
+        await createCharacter(characterData as CharacterCreateRequest);
+        toast('角色创建成功！');
       }
+
+      setShowCharacterForm(false);
+      setEditingCharacter(null);
+      initCharacterForm();
+      loadCharacters();
+      onCharacterUpdate?.();
+    } catch (error) {
+      console.error('保存角色失败:', error);
+      toast('保存角色失败，请重试。');
+    }
+  };
+
+  // 删除角色
+  const handleDeleteCharacter = async (characterId: number) => {
+    try {
+      if (confirm('确定要删除这个角色吗？')) {
+        await deleteCharacter(Number(scriptId),characterId);
+        toast('角色删除成功！');
+        loadCharacters();
+        onCharacterUpdate?.();
+      }
+    } catch (error) {
+      console.error('删除角色失败:', error);
+      toast('删除角色失败，请重试。');
     }
   };
 
   // 生成提示词
-  const handlePromptGeneration = async () => {
-    if (!characterForm.name || !characterForm.background) {
-      toast('请先填写角色名称和背景故事');
-      return;
-    }
-
-    setIsGeneratingPrompt(true);
-    try {
-      const result = await generateCharacterPrompt({
-        character_name: characterForm.name,
-        character_description: characterForm.background || '',
-        profession: characterForm.profession || '',
-        age: characterForm.age,
-        gender: characterForm.gender || '中性',
-        personality_traits: characterForm.personality_traits || [],
-        script_context: '' // 可以从剧本信息中获取
-      });
-
-      if (result) {
-        // 更新图片生成参数
-        setImageGenParams(prev => ({
-          ...prev,
-          positive_prompt: result.prompt,
-        }));
-        toast('提示词生成成功！');
-      }
-    } catch (error) {
-      console.error('提示词生成失败:', error);
-      toast('提示词生成失败，请重试。');
-    } finally {
-      setIsGeneratingPrompt(false);
-    }
-  };
-
-  // 生成头像
-  const handleImageGeneration = async () => {
-    if (!generateAvatarImage) {
-      return;
-    }
-
-    if (!editingCharacter?.id) {
-      toast('请先保存角色后再生成头像');
-      return;
-    }
-
-    setIsGeneratingImage(true);
-    try {
-      const request: ImageGenerationRequest = {
-        positive_prompt: imageGenParams.positive_prompt,
-        negative_prompt: '',
-        script_id: Number(scriptId),
-        target_id: editingCharacter.id,
-        width: 512,
-        height: 512,
-        steps: 20,
-        cfg: 7,
-        seed: -1
-      };
-      
-      const result = await generateAvatarImage(request);
-      if (result && result.url) {
-        setCharacterForm(prev => ({ ...prev, avatar_url: result.url }));
-        initCharacterForm();
-        toast('头像生成成功！');
-      } else {
-        throw new Error('生成结果无效');
-      }
-    } catch (error) {
-      console.error('头像生成失败:', error);
-      toast('头像生成失败，请重试。');
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
 
   return (
     <Card className="border-blue-500/30 shadow-2xl shadow-blue-500/10 modern-card">
@@ -346,20 +214,20 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
         {/* 角色卡片网格 */}
         <div className="mb-6">
           {characters.length === 0 ? (
-          <div className="text-blue-300 text-center py-16 bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl border-2 border-dashed border-blue-500/30 backdrop-blur-sm modern-empty-state">
-            <div className="text-6xl mb-6 opacity-60"><Users className="w-16 h-16 mx-auto" /></div>
-            <div className="text-xl font-semibold mb-2">暂无角色</div>
-            <div className="text-sm opacity-70 mb-6">点击上方按钮添加第一个角色</div>
-            <div className="flex justify-center">
-              <Button 
-                onClick={() => setShowCharacterForm(true)}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                立即添加
-              </Button>
+            <div className="text-blue-300 text-center py-16 bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl border-2 border-dashed border-blue-500/30 backdrop-blur-sm modern-empty-state">
+              <div className="text-6xl mb-6 opacity-60"><Users className="w-16 h-16 mx-auto" /></div>
+              <div className="text-xl font-semibold mb-2">暂无角色</div>
+              <div className="text-sm opacity-70 mb-6">点击上方按钮添加第一个角色</div>
+              <div className="flex justify-center">
+                <Button 
+                  onClick={() => setShowCharacterForm(true)}
+                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  立即添加
+                </Button>
+              </div>
             </div>
-          </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {characters.map((character) => (
@@ -516,291 +384,209 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
             </div>
           )}
         </div>
-
-        {/* 角色表单对话框 */}
-        <Dialog open={showCharacterForm} onOpenChange={setShowCharacterForm}>
-          <DialogContent 
-            showCloseButton={false}
-            className="bg-gradient-to-br from-slate-900/98 via-blue-950/98 to-slate-900/98 backdrop-blur-xl border-blue-500/40 !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden custom-scrollbar"
-          >
-            <DialogHeader className="flex flex-row items-center justify-between border-b border-blue-500/20 pb-6">
-              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-200 to-cyan-200 bg-clip-text text-transparent flex items-center gap-3">
-                <User className="w-6 h-6 text-blue-400" />
-                {editingCharacter ? '编辑角色' : '添加角色'}
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetForm}
-                className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 h-auto p-3 rounded-lg transition-all duration-200"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </DialogHeader>
-          
-            <div className="space-y-6 overflow-y-auto custom-scrollbar dialog-content-scroll flex-1 max-h-[70vh]">
-              {/* AI头像生成 - 移动到最顶部 */}
-              <div className="bg-slate-700/30 rounded-xl p-6 border border-blue-500/20">
-                <h3 className="text-lg font-semibold text-blue-200 mb-4 flex items-center gap-2">
-                  <Palette className="w-5 h-5" /> AI头像生成
-                </h3>
-                <div className="flex gap-6">
-                  {/* 左侧：生成控件 */}
-                  <div className="flex-1 space-y-4">
-                    <div className="space-y-2">
-                      <label htmlFor="positive_prompt" className="text-blue-200 font-medium">正向提示词</label>
-                      <Textarea
-                        id="positive_prompt"
-                        value={imageGenParams.positive_prompt}
-                        onChange={(e) => setImageGenParams(prev => ({ ...prev, positive_prompt: e.target.value }))}
-                        rows={3}
-                        className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400 resize-none"
-                        placeholder="描述角色外观的正向提示词"
-                      />
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        onClick={handlePromptGeneration}
-                        disabled={isGeneratingPrompt || !characterForm.name || !characterForm.background}
-                        className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 disabled:opacity-50"
-                      >
-                        {isGeneratingPrompt ? (
-                          <>
-                            <Zap className="w-4 h-4 mr-2 animate-spin" />
-                            生成中...
-                          </>
-                        ) : (
-                          <>
-                            <Bot className="w-4 h-4 mr-2" />
-                            生成提示词
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={handleImageGeneration}
-                        disabled={isGeneratingImage || !imageGenParams.positive_prompt.trim()}
-                        className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50"
-                      >
-                        {isGeneratingImage ? (
-                          <>
-                            <Zap className="w-4 h-4 mr-2 animate-spin" />
-                            生成中...
-                          </>
-                        ) : (
-                          <>
-                            <Palette className="w-4 h-4 mr-2" />
-                            生成AI头像
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* 右侧：头像预览 */}
-                  {characterForm.avatar_url && (
-                    <div className="flex-shrink-0">
-                      <label className="block text-sm font-medium text-blue-200 mb-2">头像预览</label>
-                      <div className="w-32 h-32 rounded-lg overflow-hidden border border-blue-500/30 bg-slate-800">
-                        <img 
-                          src={characterForm.avatar_url} 
-                          alt="角色头像"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-                {/* 基本信息 */}
-                <div className="bg-slate-700/30 rounded-xl p-6 border border-blue-500/20">
-                  <h3 className="text-lg font-semibold text-blue-200 mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5" /> 基本信息
-                  </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="name" className="text-blue-200 font-medium">角色名称 *</label>
-                    <Input
-                      id="name"
-                      value={characterForm.name}
-                      onChange={(e) => setCharacterForm({ ...characterForm, name: e.target.value })}
-                      required
-                      className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400"
-                      placeholder="输入角色名称"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="age" className="text-blue-200 font-medium">年龄</label>
-                    <Input
-                      id="age"
-                      type="number"
-                      value={characterForm.age || ''}
-                      onChange={(e) => setCharacterForm({ ...characterForm, age: e.target.value ? parseInt(e.target.value) : undefined })}
-                      className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400"
-                      placeholder="输入年龄"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="gender" className="text-blue-200 font-medium">性别</label>
-                    <Select value={characterForm.gender || ''} onValueChange={(value) => setCharacterForm({ ...characterForm, gender: value || undefined })}>
-                      <SelectTrigger className="bg-slate-800/50 border-blue-500/30 text-blue-100 focus:border-blue-400">
-                        <SelectValue placeholder="选择性别" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-blue-500/30">
-                         <SelectItem value="男" className="text-blue-100 hover:bg-blue-600/20"><User className="w-4 h-4 inline mr-2" />男</SelectItem>
-                         <SelectItem value="女" className="text-blue-100 hover:bg-blue-600/20"><User className="w-4 h-4 inline mr-2" />女</SelectItem>
-                         <SelectItem value="中性" className="text-blue-100 hover:bg-blue-600/20"><User className="w-4 h-4 inline mr-2" />中性</SelectItem>
-                       </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="profession" className="text-blue-200 font-medium">职业</label>
-                    <Input
-                      id="profession"
-                      value={characterForm.profession || ''}
-                      onChange={(e) => setCharacterForm({ ...characterForm, profession: e.target.value || undefined })}
-                      className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400"
-                      placeholder="输入职业"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="voice_id" className="text-blue-200 font-medium">语音声音</label>
-                    <Combobox
-                      options={[
-                        { value: 'none', label: '🔇 无声音' },
-                        ...voiceOptions.map((voice) => ({
-                          value: voice.voice_id,
-                          label: `🎤 ${voice.voice_name}`,
-                          description: voice.description ? voice.description.join(', ') : undefined
-                        }))
-                      ]}
-                      value={characterForm.voice_id || 'none'}
-                      onValueChange={(value) => setCharacterForm({ ...characterForm, voice_id: value === 'none' ? undefined : value })}
-                      placeholder={isLoadingVoices ? "加载中..." : "选择语音声音"}
-                      searchPlaceholder="搜索语音声音..."
-                      emptyText="未找到匹配的语音"
-                      disabled={isLoadingVoices}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2 md:col-span-2">
-                    <label htmlFor="personality_traits" className="text-blue-200 font-medium">性格特征</label>
-                    <Input
-                      id="personality_traits"
-                      value={characterForm.personality_traits?.join(', ') || ''}
-                      onChange={(e) => {
-                        const traits = e.target.value.split(',').map(t => t.trim()).filter(t => t);
-                        setCharacterForm({ ...characterForm, personality_traits: traits.length > 0 ? traits : undefined });
-                      }}
-                      className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400"
-                      placeholder="例如: 聪明, 勇敢, 善良 (用逗号分隔)"
-                    />
-                  </div>
-                </div>
-                
-                {/* 角色标识 */}
-                <div className="mt-4 space-y-3">
-                  <label className="text-blue-200 font-medium">角色标识</label>
-                  <div className="flex gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="is_victim"
-                        checked={characterForm.is_victim || false}
-                        onCheckedChange={(checked) => setCharacterForm({ ...characterForm, is_victim: !!checked })}
-                        className="border-blue-500/30 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-500"
-                      />
-                      <label htmlFor="is_victim" className="text-red-300 font-medium cursor-pointer flex items-center gap-2"><VolumeX className="w-4 h-4" />受害者</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="is_murderer"
-                        checked={characterForm.is_murderer || false}
-                        onCheckedChange={(checked) => setCharacterForm({ ...characterForm, is_murderer: !!checked })}
-                        className="border-blue-500/30 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-500"
-                      />
-                      <label htmlFor="is_murderer" className="text-orange-300 font-medium cursor-pointer flex items-center gap-2"><Target className="w-4 h-4" />凶手</label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 详细信息 */}
-              <div className="bg-slate-700/30 rounded-xl p-6 border border-blue-500/20">
-                <h3 className="text-lg font-semibold text-blue-200 mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5" /> 详细信息
-                </h3>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="background" className="text-blue-200 font-medium">背景故事</label>
-                    <Textarea
-                      id="background"
-                      value={characterForm.background || ''}
-                      onChange={(e) => setCharacterForm({ ...characterForm, background: e.target.value || undefined })}
-                      rows={4}
-                      className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400 resize-none"
-                      placeholder="描述角色的背景故事..."
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="secret" className="text-blue-200 font-medium">秘密</label>
-                    <Textarea
-                      id="secret"
-                      value={characterForm.secret || ''}
-                      onChange={(e) => setCharacterForm({ ...characterForm, secret: e.target.value || undefined })}
-                      rows={3}
-                      className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400 resize-none"
-                      placeholder="角色隐藏的秘密..."
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="objective" className="text-blue-200 font-medium">目标</label>
-                    <Textarea
-                      id="objective"
-                      value={characterForm.objective || ''}
-                      onChange={(e) => setCharacterForm({ ...characterForm, objective: e.target.value || undefined })}
-                      rows={3}
-                      className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400 resize-none"
-                      placeholder="角色的目标和动机..."
-                    />
-                  </div>
-                </div>
-              </div>
-              
-
-            </div>
-         
-            <DialogFooter className="flex justify-center mt-8 pt-6 border-t border-blue-500/20">
-              <Button
-                type="button"
-                onClick={handleSaveCharacter}
-                disabled={isLoading || !characterForm.name}
-                className="bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 hover:from-blue-500 hover:via-cyan-500 hover:to-teal-500 disabled:opacity-50 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                {isLoading ? (
-                  <>
-                    <Zap className="w-4 h-4 mr-2 animate-spin" />
-                    保存中...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    {editingCharacter ? '更新角色' : '创建角色'}
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </CardContent>
+
+      {/* 角色编辑对话框 */}
+      <Dialog open={showCharacterForm} onOpenChange={setShowCharacterForm}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-blue-500/30 shadow-2xl shadow-blue-500/20 backdrop-blur-lg">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-blue-200 flex items-center gap-2">
+              <User className="w-6 h-6" />
+              {editingCharacter ? '编辑角色' : '添加角色'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 左侧：基本信息 */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-blue-200 font-medium">角色名称 *</Label>
+                <Input
+                  id="name"
+                  value={characterForm.name || ''}
+                  onChange={(e) => setCharacterForm({ ...characterForm, name: e.target.value })}
+                  className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50"
+                  placeholder="输入角色名称"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="age" className="text-blue-200 font-medium">年龄</Label>
+                  <Input
+                    id="age"
+                    type="number"
+                    value={characterForm.age || ''}
+                    onChange={(e) => setCharacterForm({ ...characterForm, age: e.target.value ? parseInt(e.target.value) : undefined })}
+                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50"
+                    placeholder="年龄"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-blue-200 font-medium">性别</Label>
+                  <Select value={characterForm.gender || ''} onValueChange={(value) => setCharacterForm({ ...characterForm, gender: value || undefined })}>
+                    <SelectTrigger className="bg-slate-700/50 border-blue-500/30 text-blue-100">
+                      <SelectValue placeholder="选择性别" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="男">男</SelectItem>
+                      <SelectItem value="女">女</SelectItem>
+                      <SelectItem value="其他">其他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profession" className="text-blue-200 font-medium">职业</Label>
+                <Input
+                  id="profession"
+                  value={characterForm.profession || ''}
+                  onChange={(e) => setCharacterForm({ ...characterForm, profession: e.target.value || undefined })}
+                  className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50"
+                  placeholder="输入职业"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-blue-200 font-medium">性格特征</Label>
+                <Combobox
+                  options={[
+                    { value: '冷静', label: '冷静' },
+                    { value: '热情', label: '热情' },
+                    { value: '谨慎', label: '谨慎' },
+                    { value: '冲动', label: '冲动' },
+                    { value: '聪明', label: '聪明' },
+                    { value: '善良', label: '善良' },
+                    { value: '狡猾', label: '狡猾' },
+                    { value: '勇敢', label: '勇敢' },
+                    { value: '胆小', label: '胆小' },
+                    { value: '幽默', label: '幽默' }
+                  ]}
+                  value={characterForm.personality_traits?.join(',') || ''}
+                  onChange={(traits) => {
+                    setCharacterForm({ ...characterForm, personality_traits: traits.length > 0 ? traits : undefined });
+                  }}
+                  placeholder="选择性格特征"
+                  multiple
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-blue-200 font-medium">语音</Label>
+                <Select 
+                  value={characterForm.voice_id || 'none'} 
+                  onValueChange={(value) => setCharacterForm({ ...characterForm, voice_id: value === 'none' ? undefined : value })}
+                >
+                  <SelectTrigger className="bg-slate-700/50 border-blue-500/30 text-blue-100">
+                    <SelectValue placeholder="选择语音" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">无语音</SelectItem>
+                    {voiceOptions.map((voice) => (
+                      <SelectItem key={voice.voice_id} value={voice.voice_id}>
+                        {voice.voice_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_victim"
+                    checked={characterForm.is_victim || false}
+                    onCheckedChange={(checked) => setCharacterForm({ ...characterForm, is_victim: !!checked })}
+                  />
+                  <Label htmlFor="is_victim" className="text-blue-200 font-medium">受害者</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_murderer"
+                    checked={characterForm.is_murderer || false}
+                    onCheckedChange={(checked) => setCharacterForm({ ...characterForm, is_murderer: !!checked })}
+                  />
+                  <Label htmlFor="is_murderer" className="text-blue-200 font-medium">凶手</Label>
+                </div>
+              </div>
+            </div>
+
+            {/* 右侧：头像和详细信息 */}
+            <div className="space-y-4">
+              {/* 头像选择器 */}
+              <div className="space-y-2">
+                <Label className="text-blue-200 font-medium">角色头像</Label>
+                <ImageSelector
+                  imageType={ImageType.CHARACTER}
+                  scriptId={scriptId}
+                  url={characterForm.avatar_url || ''}
+                  onImageChange={(url) => setCharacterForm(prev => ({ ...prev, avatar_url: url }))}
+                />
+              </div>
+
+              {/* 详细信息 */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="background" className="text-blue-200 font-medium">背景故事 *</Label>
+                  <Textarea
+                    id="background"
+                    value={characterForm.background || ''}
+                    onChange={(e) => setCharacterForm({ ...characterForm, background: e.target.value || undefined })}
+                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50 min-h-[100px]"
+                    placeholder="描述角色的背景故事..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="secret" className="text-blue-200 font-medium">秘密</Label>
+                  <Textarea
+                    id="secret"
+                    value={characterForm.secret || ''}
+                    onChange={(e) => setCharacterForm({ ...characterForm, secret: e.target.value || undefined })}
+                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50 min-h-[80px]"
+                    placeholder="角色隐藏的秘密..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="objective" className="text-blue-200 font-medium">目标</Label>
+                  <Textarea
+                    id="objective"
+                    value={characterForm.objective || ''}
+                    onChange={(e) => setCharacterForm({ ...characterForm, objective: e.target.value || undefined })}
+                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50 min-h-[80px]"
+                    placeholder="角色的目标和动机..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-3 pt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCharacterForm(false);
+                setEditingCharacter(null);
+                initCharacterForm();
+              }}
+              className="bg-slate-700/50 text-blue-300 border-blue-500/30 hover:bg-slate-600/50"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleSaveCharacter}
+              disabled={!characterForm.name || !characterForm.background}
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
+            >
+              {editingCharacter ? '更新角色' : '创建角色'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

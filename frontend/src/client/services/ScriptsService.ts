@@ -2,10 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CancelablePromise } from '../core/CancelablePromise';
-import { OpenAPI } from '../core/OpenAPI';
-import { request as __request } from '../core/request';
 import type { APIResponse_dict_ } from '../models/APIResponse_dict_';
+import type { APIResponse_Dict_str__str__ } from '../models/APIResponse_Dict_str__str__';
 import type { APIResponse_Script_ } from '../models/APIResponse_Script_';
 import type { APIResponse_ScriptInfo_ } from '../models/APIResponse_ScriptInfo_';
 import type { APIResponse_str_ } from '../models/APIResponse_str_';
@@ -16,17 +14,20 @@ import type { PaginatedResponse_ScriptInfo_ } from '../models/PaginatedResponse_
 import type { Script_Input } from '../models/Script_Input';
 import type { ScriptInfo } from '../models/ScriptInfo';
 import type { ScriptStatus } from '../models/ScriptStatus';
+import type { CancelablePromise } from '../core/CancelablePromise';
+import { OpenAPI } from '../core/OpenAPI';
+import { request as __request } from '../core/request';
 export class ScriptsService {
     /**
      * Generate Script Info
      * 根据主题生成剧本基础信息
      * @param requestBody
-     * @returns APIResponse_dict_ Successful Response
+     * @returns APIResponse_Dict_str__str__ Successful Response
      * @throws ApiError
      */
     public static generateScriptInfoApiScriptsGenerateInfoPost(
         requestBody: GenerateScriptInfoRequest,
-    ): CancelablePromise<APIResponse_dict_> {
+    ): CancelablePromise<APIResponse_Dict_str__str__> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/scripts/generate-info',

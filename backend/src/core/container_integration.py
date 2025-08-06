@@ -85,6 +85,7 @@ from ..db.repositories.script_repository import ScriptRepository
 from ..db.repositories.character_repository import CharacterRepository
 from ..db.repositories.evidence_repository import EvidenceRepository
 from ..db.repositories.location_repository import LocationRepository
+from ..db.repositories.image_repository import ImageRepository
 from ..services.script_editor_service import ScriptEditorService
 from sqlalchemy.orm import Session
 
@@ -110,6 +111,10 @@ def get_evidence_repo_depends():
 def get_location_repo_depends():
     """获取地点仓储的Depends对象"""
     return inject_scoped(LocationRepository)
+
+def get_image_repo_depends():
+    """获取图片仓储的Depends对象"""
+    return inject_scoped(ImageRepository)
 
 def get_script_editor_svc_depends():
     """获取脚本编辑服务的Depends对象"""

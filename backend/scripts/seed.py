@@ -17,8 +17,8 @@ from src.db.models.background_story import BackgroundStoryDBModel
 from src.db.models.evidence import EvidenceDBModel
 from src.db.models.location import LocationDBModel
 from src.db.models.game_phase import GamePhaseDBModel
-from src.schemas.script import GamePhaseEnum
-from src.schemas.script import EvidenceType
+from src.schemas.game_phase import GamePhaseEnum
+from src.schemas.script_evidence import EvidenceType
 
 def get_database_url():
     """从环境变量获取数据库URL"""

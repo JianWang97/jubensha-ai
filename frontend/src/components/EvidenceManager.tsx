@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ScriptEvidence as Evidence, EvidencePromptRequest, EvidenceType, ImageGenerationRequestModel as ImageGenerationRequest, ScriptEvidence } from '@/client';
+import { ScriptEvidence as Evidence, EvidencePromptRequest, EvidenceType,  ScriptEvidence, ImageType } from '@/client';
 import { ScriptsService, Service } from '@/client';
+import ImageSelector from '@/components/ImageSelector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,12 +13,11 @@ import { toast } from 'sonner';
 import { Search, Plus, Lock, MapPin, User, FileText, Lightbulb, Image, Edit, Trash2, Minimize2, Maximize2, X } from 'lucide-react';
 
 interface EvidenceManagerProps {
-  generateEvidenceImage?: (request: ImageGenerationRequest) => Promise<{ url: string }>;
   scriptId: string;
 }
 
 const EvidenceManager: React.FC<EvidenceManagerProps> = ({
-  generateEvidenceImage,
+
   scriptId
 }) => {
   // 证据相关状态
@@ -112,7 +112,9 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
           significance: evidenceForm.significance,
           related_to: evidenceForm.related_to,
           importance: evidenceForm.importance,
-          is_hidden: evidenceForm.is_hidden
+          is_hidden: evidenceForm.is_hidden,
+          image_url: evidenceForm.image_url,
+
         });
         toast('证据更新成功！');
       } else {
@@ -182,79 +184,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     }
   };
 
-  // 生成提示词
-  const handlePromptGeneration = async () => {
-    if (!evidenceForm.name || !evidenceForm.description) {
-      toast('请先填写证据名称和描述');
-      return;
-    }
 
-    setIsGeneratingPrompt(true);
-    try {
-      const result = await generateEvidencePrompt({
-        evidence_name: evidenceForm.name,
-        evidence_description: evidenceForm.description,
-        script_theme: evidenceForm.evidence_type || 'physical',
-        style_preference: evidenceForm.location || '',
-      });
-
-      if (result) {
-        // 更新图片生成参数
-        setImageGeneration(prev => ({
-          ...prev,
-          positive_prompt: result.prompt,
-        }));
-        toast('提示词生成成功！');
-      }
-    } catch (error) {
-      console.error('提示词生成失败:', error);
-      toast('提示词生成失败，请重试。');
-    } finally {
-      setIsGeneratingPrompt(false);
-    }
-  };
-
-  // 生成图片
-  const handleImageGeneration = async () => {
-    if (!generateEvidenceImage || !imageGeneration.positive_prompt.trim()) {
-      toast('请输入正向提示词');
-      return;
-    }
-
-    if (!editingEvidence?.id) {
-      toast('请先保存证据后再生成图片');
-      return;
-    }
-
-    setIsGeneratingImage(true);
-    try {
-      const request: ImageGenerationRequest = {
-        positive_prompt: imageGeneration.positive_prompt,
-        negative_prompt: '',
-        script_id: Number(scriptId),
-        target_id: editingEvidence.id,
-        width: 512,
-        height: 512,
-        steps: 20,
-        cfg: 7,
-        seed: -1
-      };
-      
-      const result = await generateEvidenceImage(request);
-      if (result && result.url) {
-        setEvidenceForm(prev => ({ ...prev, image_url: result.url }));
-        initEvidenceForm();
-        toast('图片生成成功！');
-      } else {
-        throw new Error('生成结果无效');
-      }
-    } catch (error) {
-      console.error('图片生成失败:', error);
-      toast('图片生成失败，请重试。');
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
 
   return (
     <Card className="border-blue-500/30 shadow-2xl shadow-blue-500/10 modern-card">
@@ -431,125 +361,90 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
             </DialogHeader>
             <div className="flex-1 overflow-y-auto px-1 custom-scrollbar dialog-content-scroll max-h-[70vh]">
               <div className="space-y-4">
-                {/* 图片生成区域 - 移动到最顶部 */}
-                {generateEvidenceImage && (
-                  <div className="border border-purple-500/30 rounded-lg p-4 bg-slate-700/50">
-                    <h4 className="text-lg font-semibold text-purple-200 mb-4">🎨 AI图片生成</h4>
-                    <div className="flex gap-6">
-                      {/* 左侧：生成控件 */}
-                      <div className="flex-1 space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-purple-200 mb-2">正向提示词 *</label>
-                          <Textarea
-                            value={imageGeneration.positive_prompt}
-                            onChange={(e) => setImageGeneration(prev => ({ ...prev, positive_prompt: e.target.value }))}
-                            placeholder="描述你想要生成的图片内容..."
-                            rows={3}
-                            className="bg-slate-600 border-purple-500/30 focus:ring-purple-400 text-purple-100"
-                          />
-                        </div>
-                        <div className="flex gap-3">
-                          <Button
-                            type="button"
-                            onClick={handlePromptGeneration}
-                            disabled={isGeneratingPrompt || !evidenceForm.name || !evidenceForm.description}
-                            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white"
-                          >
-                            {isGeneratingPrompt ? '🤖 生成中...' : '🤖 AI生成提示词'}
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={handleImageGeneration}
-                            disabled={isGeneratingImage || !imageGeneration.positive_prompt.trim()}
-                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
-                          >
-                            {isGeneratingImage ? '🎨 生成中...' : '🎨 生成图片'}
-                          </Button>
-                        </div>
+                {/* 第一行：左侧证据信息，右侧图片选择器 */}
+                <div className="flex gap-6">
+                  {/* 左侧：证据基本信息 */}
+                  <div className="flex-1 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-blue-200 mb-2">证据名称</label>
+                        <Input
+                          type="text"
+                          name="name"
+                          value={evidenceForm.name}
+                          onChange={handleEvidenceFormChange}
+                          className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
+                          required
+                        />
                       </div>
                       
-                      {/* 右侧：图片预览 */}
-                      {evidenceForm.image_url && (
-                        <div className="flex-shrink-0">
-                          <label className="block text-sm font-medium text-purple-200 mb-2">图片预览</label>
-                          <div className="w-32 h-32 rounded-lg overflow-hidden border border-purple-500/30">
-                            <img 
-                              src={evidenceForm.image_url} 
-                              alt="预览"
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      <div>
+                        <label className="block text-sm font-medium text-blue-200 mb-2">发现位置</label>
+                        <Input
+                          type="text"
+                          name="location"
+                          value={evidenceForm.location}
+                          onChange={handleEvidenceFormChange}
+                          className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-purple-200 mb-2">证据类型</label>
+                        <Select
+                          name="evidence_type"
+                          value={evidenceForm.evidence_type}
+                          onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'evidence_type', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
+                        >
+                          <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="physical">物理证据</SelectItem>
+                            <SelectItem value="document">文件证据</SelectItem>
+                            <SelectItem value="video">视频证据</SelectItem>
+                            <SelectItem value="audio">音频证据</SelectItem>
+                            <SelectItem value="image">图片证据</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-purple-200 mb-2">重要程度</label>
+                        <Select
+                          name="importance"
+                          value={evidenceForm.importance}
+                          onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'importance', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
+                        >
+                          <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="一般证据">一般证据</SelectItem>
+                            <SelectItem value="重要证据">重要证据</SelectItem>
+                            <SelectItem value="关键证据">关键证据</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
-                )}
+                  
+                  {/* 右侧：图片选择器 */}
+                  <div className="flex-shrink-0">
+                    <label className="block text-sm font-medium text-purple-200 mb-2">证据图片</label>
+                    <ImageSelector
+                      url={evidenceForm.image_url || ''}
+                      imageType={ImageType.EVIDENCE}
+                      scriptId={Number(scriptId)}
+                      onImageChange={(url) => setEvidenceForm(prev => ({ ...prev, image_url: url }))}
+                      className="w-40"
+                      imageHeight="h-40"
+                    />
+                  </div>
+                </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-blue-200 mb-2">证据名称</label>
-                    <Input
-                      type="text"
-                      name="name"
-                      value={evidenceForm.name}
-                      onChange={handleEvidenceFormChange}
-                      className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-blue-200 mb-2">发现位置</label>
-                    <Input
-                      type="text"
-                      name="location"
-                      value={evidenceForm.location}
-                      onChange={handleEvidenceFormChange}
-                      className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">证据类型</label>
-                    <Select
-                      name="evidence_type"
-                      value={evidenceForm.evidence_type}
-                      onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'evidence_type', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
-                    >
-                      <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="physical">物理证据</SelectItem>
-                        <SelectItem value="document">文件证据</SelectItem>
-                        <SelectItem value="video">视频证据</SelectItem>
-                        <SelectItem value="audio">音频证据</SelectItem>
-                        <SelectItem value="image">图片证据</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">重要程度</label>
-                    <Select
-                      name="importance"
-                      value={evidenceForm.importance}
-                      onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'importance', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
-                    >
-                      <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="一般证据">一般证据</SelectItem>
-                        <SelectItem value="重要证据">重要证据</SelectItem>
-                        <SelectItem value="关键证据">关键证据</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="grid grid-cols-1 gap-4">
                   
                   <div>
                     <label className="block text-sm font-medium text-blue-200 mb-2">关联角色</label>

@@ -24,11 +24,11 @@ import type { GameParticipantResponse } from '../models/GameParticipantResponse'
 import type { GameSessionCreate } from '../models/GameSessionCreate';
 import type { GameSessionResponse } from '../models/GameSessionResponse';
 import type { GenerateSuggestionRequest } from '../models/GenerateSuggestionRequest';
-import type { ImageGenerationRequestModel } from '../models/ImageGenerationRequestModel';
+import type { ImageGenerationRequest } from '../models/ImageGenerationRequest';
+import type { ImageResponse } from '../models/ImageResponse';
 import type { LocationPromptRequest } from '../models/LocationPromptRequest';
 import type { ParseInstructionRequest } from '../models/ParseInstructionRequest';
 import type { PasswordChange } from '../models/PasswordChange';
-import type { ScriptCoverPromptRequest } from '../models/ScriptCoverPromptRequest';
 import type { ScriptLocation } from '../models/ScriptLocation';
 import type { Token } from '../models/Token';
 import type { TTSRequest } from '../models/TTSRequest';
@@ -164,18 +164,21 @@ export class Service {
         });
     }
     /**
-     * 生成封面图片
-     * 生成剧本封面图片
+     * 生成图片
+     * 生成图片
+     * - image_type: 图片类型（cover, character, evidence, scene）必填
+     * - script_id: 剧本ID
+     * - positive_prompt: 提示词（可选，不填使用默认）
      * @param requestBody
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static generateCoverImageApiScriptsGenerateCoverPost(
-        requestBody: ImageGenerationRequestModel,
+    public static generateImageApiImagesGeneratePost(
+        requestBody: ImageGenerationRequest,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/scripts/generate/cover',
+            url: '/api/images/generate',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -184,80 +187,64 @@ export class Service {
         });
     }
     /**
-     * 生成剧本封面提示词
-     * 使用LLM生成剧本封面图片的提示词
-     * @param requestBody
-     * @returns any Successful Response
+     * 获取当前用户的图片
+     * 获取当前用户的所有图片
+     * - script_id: 可选，如果提供则只返回该剧本的图片
+     * @param scriptId
+     * @returns ImageResponse Successful Response
      * @throws ApiError
      */
-    public static generateScriptCoverPromptApiScriptsGenerateCoverPromptPost(
-        requestBody: ScriptCoverPromptRequest,
-    ): CancelablePromise<any> {
+    public static getMyImagesApiImagesMyImagesGet(
+        scriptId?: number,
+    ): CancelablePromise<Array<ImageResponse>> {
         return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/scripts/generate/cover-prompt',
-            body: requestBody,
-            mediaType: 'application/json',
+            method: 'GET',
+            url: '/api/images/my-images',
+            query: {
+                'script_id': scriptId,
+            },
             errors: {
                 422: `Validation Error`,
             },
         });
     }
     /**
-     * 生成角色头像
-     * 生成角色头像图片
-     * @param requestBody
+     * 删除图片
+     * 删除指定图片
+     * @param imageId
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static generateAvatarImageApiScriptsGenerateAvatarPost(
-        requestBody: ImageGenerationRequestModel,
+    public static deleteImageApiImagesImageIdDelete(
+        imageId: string,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/scripts/generate/avatar',
-            body: requestBody,
-            mediaType: 'application/json',
+            method: 'DELETE',
+            url: '/api/images/{image_id}',
+            path: {
+                'image_id': imageId,
+            },
             errors: {
                 422: `Validation Error`,
             },
         });
     }
     /**
-     * 生成证据图片
-     * 生成证据图片
-     * @param requestBody
+     * 删除剧本相关图片
+     * 删除剧本相关的所有图片（仅剧本作者可操作）
+     * @param scriptId
      * @returns any Successful Response
      * @throws ApiError
      */
-    public static generateEvidenceImageApiScriptsGenerateEvidencePost(
-        requestBody: ImageGenerationRequestModel,
+    public static deleteScriptImagesApiImagesScriptScriptIdDelete(
+        scriptId: number,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/scripts/generate/evidence',
-            body: requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: `Validation Error`,
+            method: 'DELETE',
+            url: '/api/images/script/{script_id}',
+            path: {
+                'script_id': scriptId,
             },
-        });
-    }
-    /**
-     * 生成场景背景图
-     * 生成场景背景图片
-     * @param requestBody
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public static generateSceneImageApiScriptsGenerateScenePost(
-        requestBody: ImageGenerationRequestModel,
-    ): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/scripts/generate/scene',
-            body: requestBody,
-            mediaType: 'application/json',
             errors: {
                 422: `Validation Error`,
             },

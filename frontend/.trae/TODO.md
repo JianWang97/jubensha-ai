@@ -1,5 +1,7 @@
 # TODO:
 
-- [x] 1: 为剧本编辑页面基础信息Tab添加AI封面图片生成功能，参考LocationManager实现 (priority: High)
-- [x] 2: 修复ChatEditor组件滚动条问题，确保内容过多时可以正常滚动 (priority: High)
-- [x] 3: 测试图片生成功能和滚动条修复效果 (priority: Medium)
+- [x] basic-info-layout: 修改剧本基本信息页面：将图片组件单独放在第一行居中，移除AI生成图片逻辑 (priority: High)
+- [x] evidence-layout: 修改证据编辑页面：第一行左边放证据信息字段，右边放图片选择器，移除生成图片逻辑 (priority: High)
+- [x] character-layout: 修改角色编辑页面：调整布局并移除生成图片逻辑 (priority: High)
+- [x] location-layout: 修改场景页面：第一行放图片居中 (priority: High)
+- [x] image-selector-ui: 优化图片选择器二级框：增大尺寸，提示词设为可选，优化关闭按钮避免白框 (priority: Medium)

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScriptLocation as Location, ImageGenerationRequestModel, LocationPromptRequest } from '@/client';
+import { ScriptLocation as Location, ImageGenerationRequestModel, LocationPromptRequest, ImageType } from '@/client';
 import { 
   Service,
 } from '@/client';
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, MapPin, Camera, Plus, Edit, Trash2, Search, Minimize2, Maximize2, X, Bot, Zap, Save } from 'lucide-react';
+import ImageSelector from '@/components/ImageSelector';
 
 interface LocationManagerProps {
   scriptId: string;
@@ -466,82 +467,20 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             </DialogHeader>
             
             <div className="space-y-6 overflow-y-auto custom-scrollbar dialog-content-scroll flex-1 max-h-[70vh]">
-              {/* AI图片生成 - 移动到最顶部 */}
+              {/* 第一行：场景图片居中 */}
               <div className="bg-slate-700/30 rounded-xl p-6 border border-blue-500/20">
-                <h3 className="text-lg font-semibold text-blue-200 mb-4 flex items-center gap-2">
-                  <Camera className="w-5 h-5" /> AI场景图片生成
+                <h3 className="text-lg font-semibold text-blue-200 mb-4 flex items-center justify-center gap-2">
+                  <Camera className="w-5 h-5" /> 场景图片
                 </h3>
-                <div className="flex gap-6">
-                  {/* 左侧：生成控件 */}
-                  <div className="flex-1 space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-blue-200 font-medium">正向提示词</label>
-                        <Button
-                          type="button"
-                          onClick={handleGenerateLocationPrompt}
-                          disabled={isGeneratingPrompt || !locationForm.name?.trim() || !locationForm.description?.trim()}
-                          size="sm"
-                          variant="outline"
-                          className="text-xs bg-gradient-to-r from-amber-600/20 to-orange-600/20 border-amber-500/30 text-amber-200 hover:bg-amber-600/30"
-                        >
-                          {isGeneratingPrompt ? (
-                            <>
-                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                              生成中...
-                            </>
-                          ) : (
-                            <>
-                              <Bot className="w-4 h-4 mr-1" />
-                              AI生成提示词
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                      <Textarea
-                        value={imageGenParams.positive_prompt}
-                        onChange={(e) => setImageGenParams(prev => ({ ...prev, positive_prompt: e.target.value }))}
-                        rows={3}
-                        className="bg-slate-800/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400 resize-none"
-                        placeholder="描述想要生成的场景图片，或点击上方按钮AI生成"
-                      />
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        onClick={handleGenerateLocationImage}
-                        disabled={isGeneratingImage || !imageGenParams.positive_prompt.trim()}
-                        className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50"
-                      >
-                        {isGeneratingImage ? (
-                          <>
-                            <Zap className="w-4 h-4 mr-2 animate-spin" />
-                            生成中...
-                          </>
-                        ) : (
-                          <>
-                            <Camera className="w-4 h-4 mr-2" />
-                            生成场景图片
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* 右侧：图片预览 */}
-                  {locationForm.background_image_url && (
-                    <div className="flex-shrink-0">
-                      <label className="block text-sm font-medium text-blue-200 mb-2">图片预览</label>
-                      <div className="w-32 h-32 rounded-lg overflow-hidden border border-blue-500/30 bg-slate-800">
-                        <img 
-                          src={locationForm.background_image_url} 
-                          alt="场景预览"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                  )}
+                <div className="flex justify-center">
+                  <ImageSelector
+                    url={locationForm.background_image_url || ''}
+                    imageType={ImageType.SCENE}
+                    scriptId={scriptId}
+                    onImageChange={(url) => {setLocationForm(prev => ({ ...prev, background_image_url: url }));console.log('选择图片:', url);}}
+                    className="w-48"
+                    imageHeight="h-48"
+                  />
                 </div>
               </div>
               

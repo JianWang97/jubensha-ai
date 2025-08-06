@@ -5,15 +5,16 @@ import EvidenceManager from '@/components/EvidenceManager';
 import CharacterManager from '@/components/CharacterManager';
 import LocationManager from '@/components/LocationManager';
 import ChatEditor from '@/components/ChatEditor';
+import ImageSelector from '@/components/ImageSelector';
 import {
   ScriptsService,
   Service,
   ScriptInfo,
-  ImageGenerationRequestModel,
-  ScriptStatus
+  ScriptStatus,
+  ImageType
 } from '@/client';
 
-import { Script_Output as Script, ScriptCoverPromptRequest } from '@/client';
+import { Script_Output as Script } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -71,20 +72,7 @@ const ScriptEditPage = () => {
     return response.data;
   };
 
-  const generateEvidenceImage = async (request: ImageGenerationRequestModel) => {
-    const response = await Service.generateEvidenceImageApiScriptsGenerateEvidencePost(request);
-    return response.data;
-  };
 
-  const generateCoverImage = async (request: ImageGenerationRequestModel) => {
-    const response = await Service.generateCoverImageApiScriptsGenerateCoverPost(request);
-    return response.data;
-  };
-
-  const generateScriptCoverPrompt = async (request: ScriptCoverPromptRequest) => {
-    const response = await Service.generateScriptCoverPromptApiScriptsGenerateCoverPromptPost(request);
-    return response.data;
-  };
   const [script, setScript] = useState<Script | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('basic');
 
@@ -204,11 +192,11 @@ const ScriptEditPage = () => {
       };
       
       await updateScript(parseInt(id), submitData);
-      alert('脚本更新成功！');
+      toast('脚本更新成功！');
       router.push('/script-manager');
     } catch (err) {
       console.error('更新脚本失败:', err);
-      alert('更新脚本失败，请重试。');
+      toast('更新脚本失败，请重试。');
     }
   };
 
@@ -219,85 +207,6 @@ const ScriptEditPage = () => {
       ...prev,
       [name]: value
     }));
-  };
-
-  // 处理标签变化
-  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const tags = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
-    setFormData(prev => ({ ...prev, tags }));
-  };
-
-  // 生成剧本封面提示词
-  const handlePromptGeneration = async () => {
-    if (!formData.title.trim() && !formData.description.trim()) {
-      toast('请至少填写剧本标题或描述');
-      return;
-    }
-
-    setIsGeneratingPrompt(true);
-    try {
-      const request: ScriptCoverPromptRequest = {
-        script_title: formData.title,
-        script_description: formData.description,
-        script_tags: null,
-        difficulty: formData.difficulty,
-        style_preference: '电影级别，高质量，专业摄影'
-      };
-
-      const result = await generateScriptCoverPrompt(request);
-      if (result && result.prompt) {
-        setImageGeneration(prev => ({ ...prev, positive_prompt: result.prompt }));
-        toast('提示词生成成功！');
-      } else {
-        throw new Error('生成结果无效');
-      }
-    } catch (error) {
-      console.error('提示词生成失败:', error);
-      toast('提示词生成失败，请重试。');
-    } finally {
-      setIsGeneratingPrompt(false);
-    }
-  };
-
-  // 生成封面图片
-  const handleCoverImageGeneration = async () => {
-    if (!imageGeneration.positive_prompt.trim()) {
-      toast('请输入正向提示词');
-      return;
-    }
-
-    if (!id || typeof id !== 'string') {
-      toast('剧本ID无效');
-      return;
-    }
-
-    setIsGeneratingImage(true);
-    try {
-      const request: ImageGenerationRequestModel = {
-        positive_prompt: imageGeneration.positive_prompt,
-        negative_prompt: imageGeneration.negative_prompt,
-        script_id: Number(id),
-        target_id: Number(id),
-        width: imageGeneration.width,
-        height: imageGeneration.height,
-        steps: imageGeneration.steps,
-        cfg: imageGeneration.cfg_scale,
-        seed: imageGeneration.seed
-      };
-
-      const result = await generateCoverImage(request);
-      if (result && result.url) {
-        setFormData(prev => ({ ...prev, cover_image_url: result.url }));
-        toast('封面图片生成成功！');
-      } else {
-        throw new Error('生成结果无效');
-      }
-    } catch (error) {
-      console.error('封面图片生成失败:', error);
-      toast('封面图片生成失败，请重试。');
-    } finally {
-      setIsGeneratingImage(false);
-    }
   };
 
   // Tab配置
@@ -331,87 +240,29 @@ const ScriptEditPage = () => {
             </div>
           </div>
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* AI封面图片生成模块 */}
+            {/* 封面图片 */}
             <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-lg relative overflow-hidden mb-8">
               <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
               <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-              <h3 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-3 relative z-10">
+              <h3 className="text-xl font-bold text-slate-100 mb-6 flex items-center justify-center gap-3 relative z-10">
                 <div className="w-8 h-8 bg-gradient-to-r from-purple-500/80 to-pink-500/80 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-sm">
                   <Camera className="w-4 h-4 text-white" />
                 </div>
-                AI封面图片生成
+                剧本封面
               </h3>
-              <div className="flex gap-6 relative z-10">
-                {/* 左侧：生成控件 */}
-                <div className="flex-1 space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-slate-200 font-medium">正向提示词</label>
-                      <Button
-                        type="button"
-                        onClick={handlePromptGeneration}
-                        disabled={isGeneratingPrompt || !formData.title?.trim()}
-                        size="sm"
-                        variant="outline"
-                        className="text-xs bg-gradient-to-r from-amber-600/20 to-orange-600/20 border-amber-500/30 text-amber-200 hover:bg-amber-600/30"
-                      >
-                        {isGeneratingPrompt ? (
-                          <>
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                            生成中...
-                          </>
-                        ) : (
-                          <>
-                            <Bot className="w-4 h-4 mr-1" />
-                            AI生成提示词
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <Textarea
-                      value={imageGeneration.positive_prompt}
-                      onChange={(e) => setImageGeneration(prev => ({ ...prev, positive_prompt: e.target.value }))}
-                      rows={3}
-                      className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 text-slate-100 placeholder-slate-400 rounded-xl transition-all duration-300 hover:bg-white/8 resize-none"
-                      placeholder="描述想要生成的封面图片，或点击上方按钮AI生成"
-                    />
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      onClick={handleCoverImageGeneration}
-                      disabled={isGeneratingImage || !imageGeneration.positive_prompt.trim()}
-                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50"
-                    >
-                      {isGeneratingImage ? (
-                        <>
-                          <Zap className="w-4 h-4 mr-2 animate-spin" />
-                          生成中...
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="w-4 h-4 mr-2" />
-                          生成封面图片
-                        </>
-                      )}
-                    </Button>
-                  </div>
+              <div className="flex justify-center relative z-10">
+                {/* 图片预览 */}
+                <div className="text-center">
+                  <label className="block text-sm font-medium text-slate-200 mb-4">封面预览</label>
+                  <ImageSelector
+                    url={formData.cover_image_url}
+                    imageType={ImageType.COVER}
+                    scriptId={Number(id)}
+                    onImageChange={(url) => setFormData(prev => ({ ...prev, cover_image_url: url }))}
+                    className="w-48"
+                    imageHeight="h-48"
+                  />
                 </div>
-                
-                {/* 右侧：图片预览 */}
-                {formData.cover_image_url && (
-                  <div className="flex-shrink-0">
-                    <label className="block text-sm font-medium text-slate-200 mb-2">封面预览</label>
-                    <div className="w-32 h-32 rounded-lg overflow-hidden border border-white/20 bg-slate-800">
-                      <img 
-                        src={formData.cover_image_url} 
-                        alt="封面预览"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -897,7 +748,6 @@ const ScriptEditPage = () => {
                     {activeTab === 'basic' && <BasicInfoTab />}
                     {activeTab === 'evidence' && (
                       <EvidenceManager
-                        generateEvidenceImage={generateEvidenceImage}
                         scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
                       />
                     )}

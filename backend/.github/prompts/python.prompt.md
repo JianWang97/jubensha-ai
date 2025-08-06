@@ -1,5 +1,5 @@
 ---
-trigger: always_on
+mode: agent
 ---
 
 fastapi项目，请保持良好的架构规则

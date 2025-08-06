@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
- * 编辑指令模型
+ * 编辑指令
  */
 export type EditInstruction = {
     action: string;

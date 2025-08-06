@@ -39,3 +39,4 @@ class ScriptDBModel(BaseSQLAlchemyModel):
     locations = relationship("LocationDBModel", back_populates="script", cascade="all, delete-orphan")
     background_stories = relationship("BackgroundStoryDBModel", back_populates="script", cascade="all, delete-orphan")
     game_phases = relationship("GamePhaseDBModel", back_populates="script", cascade="all, delete-orphan")
+    images = relationship("ImageDBModel", back_populates="script", cascade="all, delete-orphan")

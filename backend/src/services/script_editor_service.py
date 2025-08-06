@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from ..services.llm_service import llm_service, LLMMessage
 from ..schemas.script import Script, ScriptCharacter, ScriptEvidence, ScriptLocation
-from ..schemas.script_evidence import EvidenceType
 
 logger = logging.getLogger(__name__)
 
