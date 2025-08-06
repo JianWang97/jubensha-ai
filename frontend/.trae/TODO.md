@@ -1,7 +1,8 @@
 # TODO:
 
-- [x] basic-info-layout: 修改剧本基本信息页面：将图片组件单独放在第一行居中，移除AI生成图片逻辑 (priority: High)
-- [x] evidence-layout: 修改证据编辑页面：第一行左边放证据信息字段，右边放图片选择器，移除生成图片逻辑 (priority: High)
-- [x] character-layout: 修改角色编辑页面：调整布局并移除生成图片逻辑 (priority: High)
-- [x] location-layout: 修改场景页面：第一行放图片居中 (priority: High)
-- [x] image-selector-ui: 优化图片选择器二级框：增大尺寸，提示词设为可选，优化关闭按钮避免白框 (priority: Medium)
+- [x] 1: 分析select和combobox组件的差异，确定集成方案 (priority: High)
+- [x] 2: 在select组件中添加搜索相关的props接口定义 (priority: High)
+- [x] 3: 修改SelectContent组件，添加条件性的搜索输入框 (priority: High)
+- [x] 4: 实现选项过滤逻辑，支持按label搜索 (priority: Medium)
+- [x] 5: 更新SelectItem组件以支持过滤后的选项渲染 (priority: Medium)
+- [x] 6: 测试新功能并确保向后兼容性 (priority: Medium)

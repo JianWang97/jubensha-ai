@@ -81,8 +81,8 @@ export function Combobox({
             className="bg-slate-700/50 border-purple-500/30 text-purple-100 placeholder-purple-400/50 focus:border-purple-400"
           />
         </div>
-        <ScrollArea className="max-h-60">
-          <div className="p-1">
+        <ScrollArea>
+          <div className="p-1 h-[200px] overflow-y-auto">
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-purple-400/70">
                 {emptyText}

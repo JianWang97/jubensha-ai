@@ -388,7 +388,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
 
       {/* 角色编辑对话框 */}
       <Dialog open={showCharacterForm} onOpenChange={setShowCharacterForm}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-blue-500/30 shadow-2xl shadow-blue-500/20 backdrop-blur-lg">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-blue-500/30 shadow-2xl shadow-blue-500/20 backdrop-blur-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-blue-200 flex items-center gap-2">
               <User className="w-6 h-6" />

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWebSocket, GameState } from '@/stores/websocketStore';
 import { Script_Output as Script, ScriptCharacter, Service } from '@/client';
 import { ScriptsService } from '@/client';
+import { toast } from 'sonner';
 
 export interface GameLogEntry {
   character: string;
@@ -108,7 +109,7 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
   // 开始游戏
   const handleStartGame = useCallback(() => {
     if (!selectedScript) {
-      alert('请先选择一个剧本！');
+      toast('请先选择一个剧本！');
       return;
     }
     startGame(selectedScript.info.id!.toString());

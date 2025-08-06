@@ -77,7 +77,7 @@ const ScriptEditPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>('basic');
 
   // 基础信息表单数据
-  const [formData, setFormData] = useState({
+  const [basicFormData, setBasicFormData] = useState({
     title: '',
     description: '',
     author: '',
@@ -88,20 +88,6 @@ const ScriptEditPage = () => {
     status: 'DRAFT' as ScriptStatus,
     cover_image_url: ''
   });
-
-  // 图片生成相关状态
-  const [imageGeneration, setImageGeneration] = useState({
-    positive_prompt: '',
-    negative_prompt: '',
-    width: 512,
-    height: 512,
-    steps: 20,
-    cfg_scale: 7,
-    seed: -1
-  });
-
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
   // WebSocket连接
   const { connect, disconnect, isConnected } = useWebSocketStore();
@@ -135,7 +121,7 @@ const ScriptEditPage = () => {
             return;
           }
           setScript(scriptData);
-          setFormData({
+          setBasicFormData({
             title: scriptData.info.title || '',
             description: scriptData.info.description || '',
             author: scriptData.info.author || '',
@@ -176,24 +162,23 @@ const ScriptEditPage = () => {
   }, [id, connect, disconnect]);
 
 
-  // 处理表单提交
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 基础信息提交
+  const handleBasicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || typeof id !== 'string') return;
 
     try {
       // 确保数字字段为有效数字
       const submitData = {
-        ...formData,
-        player_count: typeof formData.player_count === 'string' ? 
-          (formData.player_count === '' ? 0 : parseInt(formData.player_count) || 0) : formData.player_count,
-        duration_minutes: typeof formData.duration_minutes === 'string' ? 
-          (formData.duration_minutes === '' ? 0 : parseInt(formData.duration_minutes) || 0) : formData.duration_minutes
+        ...basicFormData,
+        player_count: typeof basicFormData.player_count === 'string' ? 
+          (basicFormData.player_count === '' ? 0 : parseInt(basicFormData.player_count) || 0) : basicFormData.player_count,
+        duration_minutes: typeof basicFormData.duration_minutes === 'string' ? 
+          (basicFormData.duration_minutes === '' ? 0 : parseInt(basicFormData.duration_minutes) || 0) : basicFormData.duration_minutes
       };
       
       await updateScript(parseInt(id), submitData);
       toast('脚本更新成功！');
-      router.push('/script-manager');
     } catch (err) {
       console.error('更新脚本失败:', err);
       toast('更新脚本失败，请重试。');
@@ -203,7 +188,7 @@ const ScriptEditPage = () => {
   // 处理输入变化
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setBasicFormData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -232,37 +217,25 @@ const ScriptEditPage = () => {
                 <FileText className="w-5 h-5" /> 剧本基础信息
               </h3>
               <Button
-                onClick={handleSubmit}
+                onClick={handleBasicSubmit}
                 className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
               >
                 <Save className="w-4 h-4 mr-1" /> 保存基础信息
               </Button>
             </div>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleBasicSubmit} className="space-y-8">
             {/* 封面图片 */}
             <div className="bg-white/5 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-lg relative overflow-hidden mb-8">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
-              <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-              <h3 className="text-xl font-bold text-slate-100 mb-6 flex items-center justify-center gap-3 relative z-10">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500/80 to-pink-500/80 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-sm">
-                  <Camera className="w-4 h-4 text-white" />
-                </div>
-                剧本封面
-              </h3>
-              <div className="flex justify-center relative z-10">
-                {/* 图片预览 */}
-                <div className="text-center">
-                  <label className="block text-sm font-medium text-slate-200 mb-4">封面预览</label>
-                  <ImageSelector
-                    url={formData.cover_image_url}
-                    imageType={ImageType.COVER}
-                    scriptId={Number(id)}
-                    onImageChange={(url) => setFormData(prev => ({ ...prev, cover_image_url: url }))}
-                    className="w-48"
-                    imageHeight="h-48"
-                  />
-                </div>
+              <div className="flex justify-center items-center">
+                <ImageSelector
+                  url={basicFormData.cover_image_url}
+                  imageType={ImageType.COVER}
+                  scriptId={Number(id)}
+                  onImageChange={(url) => setBasicFormData(prev => ({ ...prev, cover_image_url: url }))}
+                  className="w-108"
+                  imageHeight="h-72"
+                />
               </div>
             </div>
 
@@ -286,7 +259,7 @@ const ScriptEditPage = () => {
                   <Input
                     type="text"
                     name="title"
-                    value={formData.title}
+                    value={basicFormData.title}
                     onChange={handleInputChange}
                     className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-slate-100 placeholder-slate-400 rounded-xl transition-all duration-300 hover:bg-white/8"
                     placeholder="输入剧本标题..."
@@ -302,7 +275,7 @@ const ScriptEditPage = () => {
                   <Input
                     type="text"
                     name="author"
-                    value={formData.author}
+                    value={basicFormData.author}
                     onChange={handleInputChange}
                     className="bg-white/3 backdrop-blur-sm border-white/15 text-slate-200 rounded-xl opacity-75"
                     required
@@ -318,7 +291,7 @@ const ScriptEditPage = () => {
                   <Input
                     type="number"
                     name="player_count"
-                    value={formData.player_count}
+                    value={basicFormData.player_count}
                     onChange={handleInputChange}
                     min="1"
                     className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8"
@@ -335,7 +308,7 @@ const ScriptEditPage = () => {
                   <Input
                     type="number"
                     name="duration_minutes"
-                    value={formData.duration_minutes}
+                    value={basicFormData.duration_minutes}
                     onChange={handleInputChange}
                     min="1"
                     className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8"
@@ -349,7 +322,7 @@ const ScriptEditPage = () => {
                     <span className="w-2 h-2 bg-cyan-500 rounded-full shadow-sm"></span>
                     <Target className="w-4 h-4" /> 难度等级
                   </label>
-                  <Select value={formData.difficulty} onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value }))}>
+                  <Select value={basicFormData.difficulty} onValueChange={(value) => setBasicFormData(prev => ({ ...prev, difficulty: value }))}>
                     <SelectTrigger className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-orange-400/60 focus:ring-2 focus:ring-orange-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8">
                       <SelectValue placeholder="请选择难度等级" />
                     </SelectTrigger>
@@ -366,7 +339,7 @@ const ScriptEditPage = () => {
                     <span className="w-2 h-2 bg-cyan-600 rounded-full shadow-sm"></span>
                     <BarChart3 className="w-4 h-4" /> 发布状态
                   </label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as ScriptStatus }))}>
+                  <Select value={basicFormData.status} onValueChange={(value) => setBasicFormData(prev => ({ ...prev, status: value as ScriptStatus }))}>
                     <SelectTrigger className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-rose-400/60 focus:ring-2 focus:ring-rose-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8">
                       <SelectValue placeholder="请选择发布状态" />
                     </SelectTrigger>
@@ -701,7 +674,7 @@ const ScriptEditPage = () => {
                   // 更新本地剧本状态
                   setScript(updatedScript);
                   if (updatedScript.info) {
-                    setFormData({
+                    setBasicFormData({
                       title: updatedScript.info.title || '',
                       description: updatedScript.info.description || '',
                       author: updatedScript.info.author || '',

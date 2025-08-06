@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScriptLocation as Location, ImageGenerationRequestModel, LocationPromptRequest, ImageType } from '@/client';
+import { ScriptLocation as Location, LocationPromptRequest, ImageType } from '@/client';
 import { 
   Service,
 } from '@/client';
@@ -52,10 +52,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     return response.data;
   };
   
-  const generateLocationImage = async (request: ImageGenerationRequestModel) => {
-    const response = await Service.generateSceneImageApiScriptsGenerateScenePost(request);
-    return response.data;
-  };
+
   
   const generateLocationPrompt = async (request: LocationPromptRequest) => {
     const response = await Service.generateLocationPromptApiLocationsLocationsGeneratePromptPost(request);
@@ -272,41 +269,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     }
   };
 
-  // 生成场景图片
-  const handleGenerateLocationImage = async () => {
-    if (!imageGenParams.positive_prompt.trim()) {
-      toast('请输入正向提示词');
-      return;
-    }
 
-    setIsGeneratingImage(true);
-    try {
-      const request: ImageGenerationRequestModel = {
-        positive_prompt: imageGenParams.positive_prompt,
-        negative_prompt: '',
-        script_id: Number(scriptId),
-        target_id: editingLocation?.id || 0,
-        width: 512,
-        height: 512,
-        steps: 20,
-        cfg: 7,
-        seed: -1
-      };
-
-      const result = await generateLocationImage(request);
-      if (result && result.url) {
-        setLocationForm(prev => ({ ...prev, background_image_url: result.url }));
-        toast('场景图片生成成功！');
-      } else {
-        throw new Error('生成结果无效');
-      }
-    } catch (error) {
-      console.error('场景图片生成失败:', error);
-      toast('场景图片生成失败，请重试。');
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
 
   return (
     <Card className="border-blue-500/30 shadow-2xl shadow-blue-500/10 modern-card">
