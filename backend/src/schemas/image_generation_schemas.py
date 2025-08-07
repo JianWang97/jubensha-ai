@@ -15,7 +15,7 @@ class ImageGenerationRequest(BaseModel):
     image_type: ImageType
     script_id: int
     positive_prompt: Optional[str] = None  # 可选，如果不填使用默认提示词
-    negative_prompt: Optional[str] = ""
+    negative_prompt: Optional[str] = None
 
 class ImageGenerationRequestModel(BaseModel):
     positive_prompt: str
@@ -49,7 +49,7 @@ class ScriptCoverPromptRequest(BaseModel):
     """剧本封面提示词生成请求模型"""
     script_title: str
     script_description: str
-    script_tags: Optional[list] = None
+    script_tags: Optional[List[str]] = None
     difficulty: Optional[str] = None
     style_preference: Optional[str] = None
 

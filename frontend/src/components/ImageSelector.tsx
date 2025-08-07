@@ -42,10 +42,26 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
   const [images, setImages] = useState<ImageResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  // 每种图片类型的专用英文反向提示词
+  const imageTypeNegativePrompts = {
+    [ImageType.COVER]: 'low quality, blurry, distorted, ugly, bad composition, poor lighting, watermark, text, signature, logo, copyright, cluttered background, unprofessional',
+    [ImageType.CHARACTER]: 'low quality, blurry, distorted, ugly, bad anatomy, extra limbs, missing limbs, deformed, extra fingers, missing fingers, bad hands, bad face, asymmetrical face, multiple people, two people, group, crowd, several people, many people, strange pose, weird gesture, inappropriate action, awkward pose, unnatural position, bizarre posture, odd stance, weird movement, strange behavior, inappropriate gesture, watermark, text, signature, logo, copyright',
+    [ImageType.EVIDENCE]: 'low quality, blurry, distorted, unclear details, poor focus, bad lighting, watermark, text overlay, signature, logo, copyright, artistic style, fantasy elements',
+    [ImageType.SCENE]: 'low quality, blurry, distorted, ugly, bad composition, poor perspective, unrealistic lighting, watermark, text, signature, logo, copyright, cluttered, chaotic'
+  };
+  
   const [generationParams, setGenerationParams] = useState({
     positive_prompt: '',
-    negative_prompt: ''
+    negative_prompt: imageTypeNegativePrompts[imageType]
   });
+
+  // 监听imageType变化，自动更新反向提示词
+  useEffect(() => {
+    setGenerationParams(prev => ({
+      ...prev,
+      negative_prompt: imageTypeNegativePrompts[imageType]
+    }));
+  }, [imageType]);
 
   // 图片类型标签映射
   const imageTypeLabels = {
@@ -81,11 +97,18 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
         fullPositivePrompt = contextInfo + (generationParams.positive_prompt ? '\n\n' + generationParams.positive_prompt : '');
       }
       
+      // 获取当前图片类型的默认反向提示词
+      const defaultNegativePrompt = imageTypeNegativePrompts[imageType];
+      // 如果用户修改了反向提示词，则使用用户的内容，否则使用默认的
+      const finalNegativePrompt = generationParams.negative_prompt.trim() === defaultNegativePrompt 
+        ? defaultNegativePrompt 
+        : generationParams.negative_prompt.trim() || defaultNegativePrompt;
+      
       const request: ImageGenerationRequest = {
         image_type: imageType,
         script_id: scriptId as number,
         positive_prompt: fullPositivePrompt,
-        negative_prompt: generationParams.negative_prompt || null
+        negative_prompt: finalNegativePrompt
       };
       
       const responseData = await Service.generateImageApiImagesGeneratePost(request);
@@ -218,7 +241,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                             <Textarea
                               value={generationParams.negative_prompt}
                               onChange={(e) => setGenerationParams(prev => ({ ...prev, negative_prompt: e.target.value }))}
-                              placeholder="描述您不想要的内容（可选）..."
+                              placeholder={`已为${imageTypeLabels[imageType]}类型设置专用英文反向提示词，您可以自定义修改...`}
                               className="bg-gray-800/60 border-gray-600/60 text-gray-200 min-h-[80px] focus:border-gray-500/60 transition-colors"
                             />
                           </div>

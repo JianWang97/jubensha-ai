@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Set, Union, Any, Dict
+from typing import Set, Union, Any, Dict, Optional
 from datetime import datetime
 from abc import ABC, abstractmethod
 
@@ -10,7 +10,9 @@ from src.core import GameEngine
 from src.schemas.game_phase import GamePhaseEnum as GamePhase
 from src.services.script_editor_service import ScriptEditorService, EditInstruction, EditResult
 from src.db.repositories import ScriptRepository
+from src.db.repositories.game_session_repository import GameSessionRepository
 from src.db.session import get_db_session, db_manager
+from src.db.models.game_session import GameSession as DBGameSession, GameSessionStatus
 import os
 from dotenv import load_dotenv
 import uuid
@@ -856,9 +858,28 @@ class GameWebSocketServer:
         
         return self.sessions[session_id]
     
-    async def register_client(self, websocket: Any, session_id: str = None, script_id: int = 1):
+    async def register_client(self, websocket: Any, script_id: int = 1, user_id: Optional[int] = None):
         """注册新的WebSocket客户端到指定会话"""
-        session = self.get_or_create_session(session_id, script_id)
+        # 基于用户ID和剧本ID自动管理会话，不需要前端传递session_id
+        actual_session_id = None
+        
+        # 如果提供了用户ID，使用GameSessionRepository处理会话
+        if user_id is not None:
+            with db_manager.session_scope() as db:
+                repo = GameSessionRepository(db)
+                
+                # 创建或恢复会话（完全基于用户ID和剧本ID）
+                db_session = repo.create_or_resume_session(user_id, script_id, None)
+                actual_session_id = str(db_session.session_id)
+                
+                logger.info(f"[SESSION] 用户 {user_id} 的会话处理完成: {actual_session_id}, 状态: {db_session.status}")
+        else:
+            # 如果没有用户ID，创建临时会话
+            actual_session_id = str(uuid.uuid4())
+            logger.info(f"[SESSION] 创建临时会话: {actual_session_id}")
+        
+        # 获取或创建内存中的游戏会话
+        session = self.get_or_create_session(actual_session_id, script_id)
         session.clients.add(websocket)
         self.client_sessions[websocket] = session.session_id
         
@@ -868,6 +889,20 @@ class GameWebSocketServer:
         
         # 发送当前游戏状态给新客户端
         logger.debug(f"[MESSAGE] 向新客户端发送游戏状态, 会话: {session.session_id}")
+        
+        # 发送游戏状态和会话信息
+        await self.send_to_client(websocket, {
+            "type": "session_connected",
+            "data": {
+                "session_id": session.session_id,
+                "script_id": script_id,
+                "user_id": user_id,
+                "message": "已连接到游戏会话"
+            },
+            "session_id": session.session_id
+        })
+        
+        # 发送游戏状态
         await self.send_to_client(websocket, {
             "type": "game_state",
             "data": session.game_engine.game_state,

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { useEffect } from 'react';
 import { useConfigStore } from './configStore';
 import { useTTSStore } from './ttsStore';
+import { authService } from '@/services/authService';
 
 export interface GameState {
   phase: string;
@@ -31,7 +32,6 @@ interface WebSocketState {
   // 连接状态
   isConnected: boolean;
   gameState: GameState | null;
-  currentSessionId: string | null;
 
   // WebSocket实例
   ws: WebSocket | null;
@@ -40,12 +40,11 @@ interface WebSocketState {
   // Actions
   setIsConnected: (connected: boolean) => void;
   setGameState: (state: GameState | null) => void;
-  setCurrentSessionId: (sessionId: string | null) => void;
   setWebSocket: (ws: WebSocket | null) => void;
   setReconnectTimeout: (timeout: NodeJS.Timeout | null) => void;
 
   // WebSocket操作
-  connect: (sessionId?: string, scriptId?: number) => void;
+  connect: (scriptId?: number) => void;
   disconnect: () => void;
   sendMessage: (message: Record<string, unknown>) => void;
 
@@ -56,7 +55,6 @@ interface WebSocketState {
 
   // 辅助方法
   handleMessage: (message: WebSocketMessage) => void;
-  generateRoomId: () => string;
 }
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
@@ -64,14 +62,12 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   isConnected: false,
   gameState: null,
   voiceMapping: {},
-  currentSessionId: null,
   ws: null,
   reconnectTimeout: null,
 
   // 基础状态设置
   setIsConnected: (connected) => set({ isConnected: connected }),
   setGameState: (state) => set({ gameState: state }),
-  setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
   setWebSocket: (ws) => set({ ws }),
   setReconnectTimeout: (timeout) => set({ reconnectTimeout: timeout }),
 
@@ -79,23 +75,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   // 处理WebSocket消息
   handleMessage: (message: WebSocketMessage) => {
     console.log('收到消息:', message);
-    
-    const state = get();
-
-    // 验证session_id
-    const messageSessionId = message.data?.session_id || (message as unknown as { session_id: string }).session_id;
-
-    // 如果消息包含session_id且与当前session_id不匹配，则忽略该消息
-    if (messageSessionId && state.currentSessionId && messageSessionId !== state.currentSessionId) {
-      console.warn(`忽略来自不同会话的消息: 消息session_id=${messageSessionId}, 当前session_id=${state.currentSessionId}`);
-      return;
-    }
-
-    // 如果消息包含session_id但当前没有session_id，则更新当前session_id
-    if (messageSessionId && !state.currentSessionId) {
-      console.log(`更新当前session_id: ${messageSessionId}`);
-      set({ currentSessionId: messageSessionId as string});
-    }
 
     switch (message.type) {
       case 'game_state':
@@ -283,15 +262,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     }
   },
 
-  // 生成唯一的房间ID
-  generateRoomId: () => {
-    const timestamp = Date.now().toString(36);
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    return `room_${timestamp}_${randomStr}`;
-  },
-
   // 连接WebSocket
-  connect: (sessionId?: string, scriptId?: number) => {
+  connect: (scriptId?: number) => {
     const state = get();
 
     // 如果已经有连接且状态正常，不重复连接
@@ -305,32 +277,22 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       state.ws.close();
     }
 
-    // 如果没有传入sessionId且当前也没有sessionId，自动生成一个
-    let finalSessionId = sessionId;
-    if (!finalSessionId && !state.currentSessionId) {
-      finalSessionId = get().generateRoomId();
-      console.log('自动生成房间ID:', finalSessionId);
-    }
-
-    // 如果传入了sessionId或生成了新的sessionId，更新当前sessionId
-    if (finalSessionId && finalSessionId !== state.currentSessionId) {
-      set({ currentSessionId: finalSessionId });
-    }
-
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // 从API配置中提取后端端口
     const config = useConfigStore.getState();
     const apiUrl = new URL(config.api.baseUrl);
     const backendPort = apiUrl.port || '8010';
 
-    // 构建WebSocket URL，包含session_id和script_id参数
+    // 构建WebSocket URL，包含script_id和token参数
     const params = new URLSearchParams();
-    const currentSessionId = finalSessionId || state.currentSessionId;
-    if (currentSessionId) {
-      params.append('session_id', currentSessionId);
-    }
     if (scriptId) {
       params.append('script_id', scriptId.toString());
+    }
+    
+    // 添加token参数用于身份验证
+    const token = authService.getToken();
+    if (token) {
+      params.append('token', token);
     }
 
     const wsUrl = `${protocol}//${apiUrl.hostname}:${backendPort}/ws${params.toString() ? '?' + params.toString() : ''}`;
@@ -366,7 +328,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       if (get().ws === ws) {
         const timeout = setTimeout(() => {
           console.log('尝试重新连接WebSocket...');
-          get().connect(sessionId, scriptId);
+          get().connect(scriptId);
         }, 3000);
         set({ reconnectTimeout: timeout });
       }
@@ -400,12 +362,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     const state = get();
 
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-      // 在消息中添加session_id
-      const messageWithSession = {
-        ...message,
-        session_id: state.currentSessionId
-      };
-      state.ws.send(JSON.stringify(messageWithSession));
+      state.ws.send(JSON.stringify(message));
     } else {
       console.error('WebSocket未连接');
     }
@@ -428,11 +385,10 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 }));
 
 // WebSocket Hook - 兼容原有的useWebSocket接口
-export const useWebSocket = (sessionId?: string, scriptId?: number) => {
+export const useWebSocket = (scriptId?: number) => {
   const {
     isConnected,
     gameState,
-    currentSessionId,
     connect,
     disconnect,
     sendMessage,
@@ -443,8 +399,8 @@ export const useWebSocket = (sessionId?: string, scriptId?: number) => {
 
   // 连接WebSocket
   useEffect(() => {
-    connect(sessionId, scriptId);
-  }, [sessionId, scriptId]);
+    connect(scriptId);
+  }, [scriptId]);
 
   // 组件卸载时断开连接
   useEffect(() => {
@@ -456,7 +412,6 @@ export const useWebSocket = (sessionId?: string, scriptId?: number) => {
   return {
     isConnected,
     gameState,
-    currentSessionId,
     sendMessage,
     startGame,
     nextPhase,

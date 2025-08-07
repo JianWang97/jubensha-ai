@@ -43,6 +43,7 @@ IMAGE_SIZES = {
 
 async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, user_prompt: str = None) -> str:
     """使用LLM优化图片提示词"""
+    import json
     try:
         # 构建系统提示
         system_prompt = "你是一个专业的AI图片生成提示词优化专家，擅长为剧本杀游戏优化和完善图片描述。"
@@ -72,21 +73,52 @@ async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, use
 6. 只返回优化后的英文提示词，不要其他解释"""
 
         elif image_type == ImageType.CHARACTER:
-            llm_prompt = f"""请优化以下角色头像图片的英文提示词：
+            # 解析角色信息JSON
+            character_info = {}
+            try:
+                # 尝试解析user_prompt是否为角色JSON
+                if user_prompt and user_prompt.strip().startswith('{'):
+                    character_info = json.loads(user_prompt)
+            except (json.JSONDecodeError, ValueError):
+                # 如果不是有效JSON，保持原样
+                pass
+            
+            # 构建角色描述
+            character_desc = ""
+            if character_info:
+                name = character_info.get('name', '')
+                age = character_info.get('age', '')
+                gender = character_info.get('gender', '')
+                profession = character_info.get('profession', '')
+                background = character_info.get('background', '')
+                is_murderer = character_info.get('is_murderer', False)
+                is_victim = character_info.get('is_victim', False)
+                
+                character_desc = f"""
+角色信息：
+- 姓名：{name}
+- 年龄：{age}岁
+- 性别：{gender}
+- 职业：{profession}
+- 背景：{background}
+- 身份：{'凶手' if is_murderer else '受害者' if is_victim else '普通角色'}
+"""
+            
+            llm_prompt = f"""请为剧本杀角色生成专业的英文图片描述提示词：
 
-当前提示词：{base_prompt}
-
+基础提示词：{base_prompt}
+{character_desc}
 剧本信息：
 - 标题：{script_info.get('title', '未知剧本')}
 - 类型：{script_info.get('category', '推理')}
 - 标签：{', '.join(script_info.get('tags', [])) if script_info.get('tags') else '推理'}
 
-请根据剧本信息优化提示词，要求：
-1. 保留原有提示词的核心内容
-2. 结合剧本类型添加角色特征
-3. 体现剧本杀游戏的角色设定感
-4. 优化人物形象和神秘感
-5. 确保适合头像图片生成
+请根据角色信息生成提示词，要求：
+1. 根据年龄生成相应的面部特征（如45岁应体现中年特征）
+2. 根据性别和职业添加合适的着装和气质
+3. 根据角色身份（凶手/受害者/普通角色）调整表情和氛围
+4. 体现角色的专业背景和社会地位
+5. 确保年龄特征准确，避免年龄与外貌不符
 6. 只返回优化后的英文提示词，不要其他解释"""
 
         elif image_type == ImageType.EVIDENCE:

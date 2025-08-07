@@ -86,6 +86,9 @@ from ..db.repositories.character_repository import CharacterRepository
 from ..db.repositories.evidence_repository import EvidenceRepository
 from ..db.repositories.location_repository import LocationRepository
 from ..db.repositories.image_repository import ImageRepository
+from ..db.repositories.background_story_repository import BackgroundStoryRepository
+from ..db.repositories.game_phase_repository import GamePhaseRepository
+from ..db.repositories.game_session_repository import GameSessionRepository
 from ..services.script_editor_service import ScriptEditorService
 from sqlalchemy.orm import Session
 
@@ -119,6 +122,18 @@ def get_image_repo_depends():
 def get_script_editor_svc_depends():
     """获取脚本编辑服务的Depends对象"""
     return inject_scoped(ScriptEditorService)
+
+def get_background_story_repo_depends():
+    """获取背景故事仓储的Depends对象"""
+    return inject_scoped(BackgroundStoryRepository)
+
+def get_game_phase_repo_depends():
+    """获取游戏阶段仓储的Depends对象"""
+    return inject_scoped(GamePhaseRepository)
+
+def get_game_session_repo_depends():
+    """获取游戏会话仓储的Depends对象"""
+    return inject_scoped(GameSessionRepository)
 
 # 注意：不要在模块级别创建Depends对象，这会导致在容器配置之前就尝试解析依赖
 # 使用上面的工厂函数在需要时创建Depends对象

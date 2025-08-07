@@ -220,7 +220,9 @@ class DependencyContainer(IDependencyContainer):
     def _get_service_descriptor(self, service_type: Type[T]) -> ServiceDescriptor:
         """获取服务描述符"""
         if service_type not in self._services:
-            raise ValueError(f"服务类型 {service_type.__name__} 未注册")
+            # 更好的错误信息，处理字符串类型的情况
+            type_name = getattr(service_type, '__name__', str(service_type))
+            raise ValueError(f"服务类型 {type_name} 未注册")
         return self._services[service_type]
     
     def _resolve_with_scope(self, service_type: Type[T], scope: Optional[ServiceScope]) -> T:
@@ -261,17 +263,26 @@ class DependencyContainer(IDependencyContainer):
         sig = inspect.signature(factory)
         args = []
         
+        # 获取类型注解，这会解析字符串类型注解
+        try:
+            type_hints = get_type_hints(factory)
+        except Exception:
+            type_hints = {}
+        
         for param_name, param in sig.parameters.items():
             # 跳过有默认值的参数
             if param.default != inspect.Parameter.empty:
                 continue
-                
-            if param.annotation != inspect.Parameter.empty:
+            
+            # 优先使用解析后的类型注解
+            param_type = type_hints.get(param_name, param.annotation)
+            
+            if param_type != inspect.Parameter.empty:
                 # 解析参数依赖
                 if scope:
-                    arg_value = scope.resolve(param.annotation)
+                    arg_value = scope.resolve(param_type)
                 else:
-                    arg_value = self.resolve(param.annotation)
+                    arg_value = self.resolve(param_type)
                 args.append(arg_value)
         
         return factory(*args)
@@ -282,6 +293,12 @@ class DependencyContainer(IDependencyContainer):
         sig = inspect.signature(implementation_type.__init__)
         args = []
         
+        # 获取类型注解，这会解析字符串类型注解
+        try:
+            type_hints = get_type_hints(implementation_type.__init__)
+        except Exception:
+            type_hints = {}
+        
         for param_name, param in sig.parameters.items():
             if param_name == 'self':
                 continue
@@ -289,13 +306,16 @@ class DependencyContainer(IDependencyContainer):
             # 跳过有默认值的参数
             if param.default != inspect.Parameter.empty:
                 continue
-                
-            if param.annotation != inspect.Parameter.empty:
+            
+            # 优先使用解析后的类型注解
+            param_type = type_hints.get(param_name, param.annotation)
+            
+            if param_type != inspect.Parameter.empty:
                 # 解析构造函数参数依赖
                 if scope:
-                    arg_value = scope.resolve(param.annotation)
+                    arg_value = scope.resolve(param_type)
                 else:
-                    arg_value = self.resolve(param.annotation)
+                    arg_value = self.resolve(param_type)
                 args.append(arg_value)
         
         return implementation_type(*args)
@@ -328,6 +348,9 @@ def configure_services() -> DependencyContainer:
     from ..db.repositories.evidence_repository import EvidenceRepository
     from ..db.repositories.location_repository import LocationRepository
     from ..db.repositories.image_repository import ImageRepository
+    from ..db.repositories.background_story_repository import BackgroundStoryRepository
+    from ..db.repositories.game_phase_repository import GamePhaseRepository
+    from ..db.repositories.game_session_repository import GameSessionRepository
     from ..services.script_editor_service import ScriptEditorService
     from ..services.llm_service import LLMService, llm_service
     
@@ -354,6 +377,9 @@ def configure_services() -> DependencyContainer:
     container.register_scoped(EvidenceRepository)
     container.register_scoped(LocationRepository)
     container.register_scoped(ImageRepository)
+    container.register_scoped(BackgroundStoryRepository)
+    container.register_scoped(GamePhaseRepository)
+    container.register_scoped(GameSessionRepository)
     
     # 注册服务（作用域）
     container.register_scoped(ScriptEditorService)

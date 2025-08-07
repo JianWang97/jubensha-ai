@@ -1,12 +1,15 @@
 """剧本数据访问层"""
+from __future__ import annotations
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import desc, or_
 
-from ...schemas.script import Script, ScriptInfo
-from ...schemas.script_info import ScriptStatus
+from ...schemas.script_info import ScriptInfo, ScriptStatus
 from ...schemas.base import PaginatedResponse
+
+if TYPE_CHECKING:
+    from ...schemas.script import Script
 from ..models.script_model import ScriptDBModel
 from ..models.character import CharacterDBModel
 from ..models.evidence import EvidenceDBModel
@@ -49,6 +52,8 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
     
     def create_complete_script(self, script: Script) -> Script:
         """创建完整剧本（包含所有关联数据）"""
+        from ...schemas.script import Script
+        
         # 创建主剧本
         db_data = script.info.to_db_dict()
         db_script = ScriptDBModel(**db_data)
@@ -94,11 +99,14 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
         self.db.flush()
         
         # 重新查询完整数据
-        return self.get_script_by_id(getattr(db_script, 'id'))
+        result = self.get_script_by_id(getattr(db_script, 'id'))
+        if result is None:
+            raise ValueError("Failed to retrieve created script")
+        return result
     
     def get_script_by_id(self, script_id: int) -> Optional[Script]:
         """根据ID获取完整剧本"""
-        from ...schemas.script import ScriptCharacter, ScriptEvidence, ScriptLocation, BackgroundStory, GamePhase
+        from ...schemas.script import Script, ScriptCharacter, ScriptEvidence, ScriptLocation, BackgroundStory, GamePhase
         
         db_script = self.db.query(ScriptDBModel).options(
             selectinload(ScriptDBModel.characters),

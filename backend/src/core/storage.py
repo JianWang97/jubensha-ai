@@ -212,6 +212,79 @@ class StorageManager:
             print(f"❌ 文件列表获取失败: {e}")
             return []
     
+    async def upload_tts_audio(
+        self, 
+        audio_data: bytes, 
+        session_id: str, 
+        character_name: str,
+        filename_suffix: str = ""
+    ) -> str | None:
+        """上传TTS音频文件到MinIO
+        
+        Args:
+            audio_data: 音频二进制数据
+            session_id: 游戏会话ID
+            character_name: 角色名称
+            filename_suffix: 文件名后缀
+            
+        Returns:
+            文件的公开访问URL
+        """
+        if not self.is_available or not self.client:
+            print("⚠️ 存储服务不可用，无法上传TTS音频")
+            return None
+            
+        try:
+            # 生成文件路径: tts/{session_id}/{character_name}/{timestamp}_{uuid}.mp3
+            import time
+            from datetime import datetime
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_id = uuid.uuid4().hex[:8]
+            filename = f"{timestamp}_{unique_id}{filename_suffix}.mp3"
+            object_name = f"tts/{session_id}/{character_name}/{filename}"
+            
+            # 上传文件
+            from io import BytesIO
+            audio_stream = BytesIO(audio_data)
+            
+            self.client.put_object(
+                bucket_name=self.config.bucket_name,
+                object_name=object_name,
+                data=audio_stream,
+                length=len(audio_data),
+                content_type="audio/mpeg"
+            )
+            
+            # 返回公开URL
+            file_url = f"{self.config.public_url}/{self.config.bucket_name}/{object_name}"
+            print(f"✅ TTS音频上传成功: {file_url}")
+            return file_url
+            
+        except Exception as e:
+            print(f"❌ TTS音频上传失败: {e}")
+            return None
+
+    async def get_tts_audio(self, file_url: str) -> bytes | None:
+        """从MinIO获取TTS音频文件"""
+        if not self.is_available or not self.client:
+            return None
+            
+        try:
+            # 从URL解析object_name
+            object_name = file_url.split(f"/{self.config.bucket_name}/")[-1]
+            
+            response = self.client.get_object(self.config.bucket_name, object_name)
+            audio_data = response.read()
+            response.close()
+            response.release_conn()
+            
+            return audio_data
+            
+        except Exception as e:
+            print(f"❌ 获取TTS音频失败: {e}")
+            return None
+
     def get_storage_stats(self) -> dict:
         """获取存储统计信息"""
         try:
@@ -220,6 +293,7 @@ class StorageManager:
                 "avatars": len(self.list_files("avatars")),  # type: ignore
                 "evidence": len(self.list_files("evidence")),  # type: ignore
                 "scenes": len(self.list_files("scenes")),  # type: ignore
+                "tts": len(self.list_files("tts")),  # type: ignore
                 "total": len(self.list_files())  # type: ignore
             }
             return stats

@@ -1,19 +1,9 @@
 """证据数据库模型"""
 from enum import Enum
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey,Enum as SqlEnum
+from sqlalchemy.orm import relationship,mapped_column
 from ..base import SQLAlchemyBase
-
-
-class EvidenceType(Enum):
-    """证据类型"""
-    PHYSICAL = "physical"  # 物理证据
-    DOCUMENT = "document"  # 文件证据
-    VIDEO = "video"  # 视频证据
-    AUDIO = "audio"  # 音频证据
-    IMAGE = "image"  # 图片证据
-
-
+from ...schemas.evidence_type import EvidenceType
 class EvidenceDBModel(SQLAlchemyBase):
     """证据数据库模型"""
     __tablename__ = 'evidence'
@@ -25,7 +15,7 @@ class EvidenceDBModel(SQLAlchemyBase):
     description = Column(Text)
     related_to = Column(String(100))
     significance = Column(Text)
-    evidence_type = Column(String(20), default='physical')
+    evidence_type = mapped_column(SqlEnum(EvidenceType), nullable=True)
     importance = Column(String(20), default='重要证据')
     image_url = Column(Text)
     is_hidden = Column(Boolean, default=False)

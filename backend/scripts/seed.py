@@ -14,11 +14,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.db.models.script_model import ScriptDBModel, ScriptStatus
 from src.db.models.character import CharacterDBModel
 from src.db.models.background_story import BackgroundStoryDBModel
-from src.db.models.evidence import EvidenceDBModel
+from src.db.models.evidence import EvidenceDBModel, EvidenceType
 from src.db.models.location import LocationDBModel
 from src.db.models.game_phase import GamePhaseDBModel
 from src.schemas.game_phase import GamePhaseEnum
-from src.schemas.script_evidence import EvidenceType
 
 def get_database_url():
     """从环境变量获取数据库URL"""
@@ -48,10 +47,10 @@ def seed_data():
             id=1,
             title="商业谋杀案",
             description="一场发生在繁华都市中心的商业谋杀案，背后隐藏着巨大的阴谋。",
-            author="匿名",
+            author="w415895535",
             player_count=6,
             duration_minutes=240,
-            difficulty="困难",
+            difficulty="PHYSICAL",
             tags=["现代", "商战", "悬疑"],
             status=ScriptStatus.PUBLISHED,
             cover_image_url="/static/images/business_murder_cover.jpg",
@@ -107,9 +106,9 @@ def seed_data():
 
         # 创建证据
         evidence_data = [
-            {"name": "毒药瓶", "location": "CEO办公室", "description": "一个空的毒药瓶，上面有赵技术总监的指纹。", "evidence_type": EvidenceType.PHYSICAL.value, "importance": "关键"},
-            {"name": "遗嘱", "location": "CEO办公室", "description": "一份修改过的遗嘱，将所有财产留给了张助理。", "evidence_type": EvidenceType.DOCUMENT.value, "importance": "重要"},
-            {"name": "邮件记录", "location": "王副总的电脑", "description": "王副总与竞争对手公司的邮件往来。", "evidence_type": EvidenceType.DOCUMENT.value, "importance": "一般"}
+            {"name": "毒药瓶", "location": "CEO办公室", "description": "一个空的毒药瓶，上面有赵技术总监的指纹。", "evidence_type": EvidenceType.PHYSICAL, "importance": "关键"},
+            {"name": "遗嘱", "location": "CEO办公室", "description": "一份修改过的遗嘱，将所有财产留给了张助理。", "evidence_type": EvidenceType.DOCUMENT, "importance": "重要"},
+            {"name": "邮件记录", "location": "王副总的电脑", "description": "王副总与竞争对手公司的邮件往来。", "evidence_type": EvidenceType.DOCUMENT, "importance": "一般"}
         ]
         for ev_data in evidence_data:
             evidence = EvidenceDBModel(script_id=1, **ev_data)

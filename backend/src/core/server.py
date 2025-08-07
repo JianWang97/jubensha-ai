@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +7,9 @@ import os
 import logging
 from dotenv import load_dotenv
 from src.core.websocket_server import game_server
+from src.services.auth_service import AuthService
+from src.db.session import init_database, db_manager
+from typing import Optional
 
 # 导入剧本管理相关路由
 from src.api.routes.script_routes import router as script_management_router
@@ -24,7 +27,6 @@ from src.api.routes.file_routes import router as file_router
 from src.api.routes.tts_routes import router as tts_router
 # 导入用户认证路由
 from src.api.routes.auth_routes import router as auth_router
-from src.api.routes.user_routes import router as user_router
 
 from src.db.session import init_database, get_db_session
 
@@ -95,12 +97,49 @@ app.include_router(tts_router)
 app.include_router(asset_router)
 # 注册用户认证路由
 app.include_router(auth_router)
-app.include_router(user_router)
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, session_id: str = None, script_id: int = 1):
-    """WebSocket端点"""
+async def websocket_endpoint(websocket: WebSocket, script_id: int = 1, token: str = None):
+    """WebSocket端点 - 支持token认证，基于用户身份自动管理会话"""
+    from src.services.auth_service import AuthService
+    import logging
+    
+    logger = logging.getLogger(__name__)
     await websocket.accept()
-    await game_server.register_client(websocket, session_id, script_id)
+    
+    # 通过token获取当前用户
+    current_user = None
+    if token:
+        try:
+            # 验证令牌
+            token_data = AuthService.verify_token(token)
+            
+            # 获取数据库会话
+            db_gen = get_db_session()
+            db = next(db_gen)
+            
+            try:
+                # 获取用户
+                if token_data.username:
+                    current_user = AuthService.get_user_by_username(db, token_data.username)
+                    
+                if current_user and not getattr(current_user, 'is_active', False):
+                    current_user = None
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"WebSocket token验证失败: {e}")
+            await websocket.close(code=1008, reason="Invalid token")
+            return
+    
+    if not current_user:
+        logger.warning("WebSocket连接缺少有效的用户认证")
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+    
+    # 使用验证后的用户ID注册客户端
+    user_id = getattr(current_user, 'id', None)
+    await game_server.register_client(websocket, script_id, user_id)
     
     try:
         while True:

@@ -16,6 +16,7 @@ from .file_schemas import *
 from .game_schemas import *
 from .image_generation_schemas import *
 from .tts_schemas import *
+from .evidence_type import * 
 
 __all__ = [
     # base
@@ -26,7 +27,6 @@ __all__ = [
     # user_schemas
     'UserLogin',
     'UserRegister',
-    'UserInfo',
     'Token',
     'TokenData',
     
@@ -42,9 +42,6 @@ __all__ = [
     # script_info
     'ScriptStatus',
     
-    # script_character
-    'CharacterType',
-    'CharacterGender',
     
     # script_evidence
     'EvidenceType',

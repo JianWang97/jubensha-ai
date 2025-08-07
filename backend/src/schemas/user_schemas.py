@@ -141,21 +141,6 @@ class GameHistoryResponse(BaseModel):
     created_at: datetime
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
-    participants: List[UserBrief] = []
-    
-    class Config:
-        from_attributes = True
-
-# 游戏参与者
-class GameParticipantResponse(BaseModel):
-    """游戏参与者响应模式"""
-    id: int
-    session_id: int
-    user_id: int
-    user: UserBrief
-    role: str
-    status: str
-    joined_at: datetime
     
     class Config:
         from_attributes = True

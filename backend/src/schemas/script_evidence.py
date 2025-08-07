@@ -1,17 +1,10 @@
 """剧本证据相关的Pydantic数据模型"""
 from typing import Optional, Type
-from enum import Enum
 from pydantic import Field
 from .base import BaseDataModel
+from .evidence_type import EvidenceType
 
 
-class EvidenceType(Enum):
-    """证据类型"""
-    PHYSICAL = "PHYSICAL"  # 物理证据
-    DOCUMENT = "DOCUMENT"  # 文件证据
-    VIDEO = "VIDEO"  # 视频证据
-    AUDIO = "AUDIO"  # 音频证据
-    IMAGE = "IMAGE"  # 图片证据
 
 
 class ScriptEvidence(BaseDataModel):
@@ -28,6 +21,6 @@ class ScriptEvidence(BaseDataModel):
     is_hidden: bool = Field(False, description="是否隐藏证据")
     
     @classmethod
-    def get_db_model(cls) -> Type:
+    def get_db_model(cls):
         from ..db.models.evidence import EvidenceDBModel
         return EvidenceDBModel

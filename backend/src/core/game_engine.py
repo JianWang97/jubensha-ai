@@ -5,14 +5,9 @@ import logging
 from typing import Dict, List, Optional, Any, Union
 
 from ..schemas.script import (
-    ScriptCharacter,
-    ScriptEvidence, 
-    ScriptLocation,
-    BackgroundStory,
-    GamePhase
+    ScriptCharacter
 )
 from ..schemas.game_phase import GamePhaseEnum
-from ..schemas.script_evidence import EvidenceType
 from ..schemas.base import BaseDataModel
 from ..agents import AIAgent
 from .evidence_manager import EvidenceManager
