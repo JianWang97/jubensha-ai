@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Card components removed - using div layout for better control
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Bot, User, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Send, Bot, User, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWebSocketStore } from '@/stores/websocketStore';
 
@@ -332,86 +332,85 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => 
   };
 
   return (
-    <Card className="relative bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 backdrop-blur-xl border-r border-slate-700/50 h-full flex flex-col shadow-2xl overflow-hidden">
-      {/* 背景装饰 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-600/5 via-transparent to-blue-600/5 pointer-events-none"></div>
-      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-purple-500/10 to-transparent rounded-full blur-xl"></div>
-      
-      <div className="pb-2 relative flex flex-row items-center justify-between space-y-0 px-4 flex-shrink-0 border-b border-slate-700/50">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="bg-gradient-to-br from-purple-500 to-blue-600 p-2 rounded-xl shadow-lg flex-shrink-0">
-            <span className="text-lg">💬</span>
+    <div className="h-full w-full flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      {/* 固定头部 */}
+      <div className="flex-shrink-0 flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
+            <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="min-w-0 flex-1">
-            <CardTitle className="text-lg font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent truncate">
-              AI 对话编辑
-            </CardTitle>
-          </div>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
+            AI 对话编辑
+          </h3>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          <div className="flex items-center gap-1.5">
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-            <Badge 
-              variant="outline"
-              className={`text-xs px-2 py-0.5 flex-shrink-0 ${isConnected ? 'border-green-400/50 text-green-300 bg-green-400/10' : 'border-red-400/50 text-red-300 bg-red-400/10'} backdrop-blur-sm`}
-            >
-              {isConnected ? '已连接' : '未连接'}
-            </Badge>
-          </div>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <Badge 
+            variant="outline"
+            className={`text-xs px-1.5 sm:px-2 py-0.5 ${isConnected ? 'border-green-200 text-green-700 bg-green-50 dark:border-green-800 dark:text-green-300 dark:bg-green-900/20' : 'border-red-200 text-red-700 bg-red-50 dark:border-red-800 dark:text-red-300 dark:bg-red-900/20'}`}
+          >
+            <span className="hidden sm:inline">{isConnected ? '已连接' : '未连接'}</span>
+            <span className="sm:hidden">{isConnected ? '连接' : '断开'}</span>
+          </Badge>
         </div>
       </div>
       
-      <CardContent className="relative flex-1 flex flex-col p-6 space-y-6 min-h-0">
-        {/* 消息列表 */}
-        <ScrollArea className="flex-1 pr-2 custom-scrollbar h-full max-h-[calc(100vh-300px)]">
-          <div className="space-y-6 pb-4">
+      {/* 消息列表区域 - 使用固定高度计算 */}
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full px-4">
+          <div className="space-y-4 py-4">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex items-start gap-4 animate-in slide-in-from-bottom-2 duration-300 ${
+                className={`flex items-start gap-3 ${
                   message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
                 }`}
               >
-                <div className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg border-2 ${
+                {/* 简化的头像 */}
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${
                   message.status === 'error'
-                    ? 'bg-red-600/90 border-red-400/50'
+                    ? 'bg-red-500'
                     : message.type === 'user' 
-                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-blue-400/50' 
+                    ? 'bg-blue-500' 
                     : message.type === 'assistant'
-                    ? 'bg-gradient-to-br from-purple-500 to-purple-600 border-purple-400/50'
-                    : 'bg-gradient-to-br from-gray-500 to-gray-600 border-gray-400/50'
+                    ? 'bg-purple-500'
+                    : 'bg-gray-500'
                 }`}>
                   {getMessageIcon(message)}
                 </div>
                 
-                <div className={`flex-1 max-w-[85%] ${
-                  message.type === 'user' ? 'text-right' : 'text-left'
-                }`}>
-                  <div className={`inline-block p-4 rounded-2xl shadow-lg backdrop-blur-sm transition-all duration-200 hover:shadow-xl ${
+                <div className={`flex-1 max-w-[85%] sm:max-w-[75%] md:max-w-[70%] ${
+                   message.type === 'user' ? 'text-right' : 'text-left'
+                 }`}>
+                  {/* 简化的消息气泡 */}
+                   <div className={`inline-block p-3 sm:p-4 rounded-lg text-sm sm:text-base ${
                     message.status === 'error'
-                      ? 'bg-red-700/60 text-red-100 border border-red-500/40'
+                      ? 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
                       : message.type === 'user'
-                      ? 'bg-gradient-to-br from-blue-600/90 to-blue-700/90 text-white border border-blue-400/30'
+                      ? 'bg-blue-500 text-white'
                       : message.type === 'assistant'
-                      ? 'bg-gradient-to-br from-purple-700/60 to-purple-800/60 text-purple-100 border border-purple-400/30'
-                      : 'bg-gradient-to-br from-gray-700/60 to-gray-800/60 text-gray-200 border border-gray-400/30'
+                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
+                      : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                   }`}>
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {message.content}
                     </div>
                     
-                    {/* 显示操作结果数据 */}
+                    {/* 操作结果数据 */}
                     {message.data && message.data.data && (
-                      <div className="mt-3 p-3 bg-black/30 rounded-xl text-xs border border-white/10">
-                        <div className="text-purple-300 font-medium mb-2">操作详情：</div>
-                        <pre className="text-purple-200 overflow-x-auto text-xs leading-relaxed">
+                      <div className="mt-3 p-2 bg-black/10 dark:bg-white/10 rounded text-xs border">
+                        <div className="font-medium mb-1">操作详情：</div>
+                        <pre className="overflow-x-auto text-xs">
                           {JSON.stringify(message.data.data, null, 2)}
                         </pre>
                       </div>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+                  {/* 时间戳和状态 */}
+                  <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400 ${
+                    message.type === 'user' ? 'justify-end' : 'justify-start'
+                  }`}>
                     <span>{message.timestamp.toLocaleTimeString()}</span>
                     {getStatusIcon(message.status)}
                   </div>
@@ -421,67 +420,66 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => 
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
+      </div>
         
-        {/* 输入区域 */}
-        <div className="relative pt-4 border-t border-slate-700/50 flex-shrink-0">
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"></div>
-          
-          <div className="flex items-end gap-3 mt-4">
-            <div className="flex-1 relative">
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="输入你的编辑指令，比如：添加一个侦探角色..."
-                className="bg-slate-800/60 border-slate-600/50 text-white placeholder-slate-400 focus:border-purple-400/70 focus:bg-slate-800/80 transition-all duration-200 rounded-2xl py-3 px-4 pr-12 backdrop-blur-sm"
-                disabled={isProcessing || !isConnected}
-              />
-              {inputValue && (
-                <button
-                  onClick={() => setInputValue('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isProcessing || !isConnected}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl px-6 py-3 shadow-lg transition-all duration-200 hover:shadow-xl"
-            >
-              {isProcessing ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </Button>
+      {/* 固定底部输入区域 */}
+      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 space-y-3 bg-white dark:bg-gray-900">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="输入编辑指令..."
+              className="pr-10 text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isProcessing || !isConnected}
+            />
+            {inputValue && (
+              <button
+                onClick={() => setInputValue('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg"
+              >
+                ×
+              </button>
+            )}
           </div>
+          <Button
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim() || isProcessing || !isConnected}
+            className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 px-3 sm:px-4 py-2 min-w-[44px]"
+          >
+            {isProcessing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
         </div>
         
         {/* 快捷指令 */}
-        <div className="flex flex-wrap gap-2 flex-shrink-0">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {[
-            { text: '添加侦探角色', icon: '🕵️' },
-            { text: '修改剧本标题', icon: '📝' },
-            { text: '添加关键证据', icon: '🔍' },
-            { text: '创建新场景', icon: '🎬' }
+            { text: '添加角色', fullText: '添加侦探角色', icon: '🕵️' },
+            { text: '修改标题', fullText: '修改剧本标题', icon: '📝' },
+            { text: '添加证据', fullText: '添加关键证据', icon: '🔍' },
+            { text: '创建场景', fullText: '创建新场景', icon: '🎬' }
           ].map((suggestion) => (
             <Button
-              key={suggestion.text}
+              key={suggestion.fullText}
               variant="outline"
               size="sm"
-              onClick={() => setInputValue(suggestion.text)}
-              className="text-xs bg-slate-800/40 border-slate-600/40 text-slate-300 hover:bg-purple-600/20 hover:border-purple-500/50 hover:text-white transition-all duration-200 rounded-xl backdrop-blur-sm"
+              onClick={() => setInputValue(suggestion.fullText)}
+              className="text-xs h-7 sm:h-8 px-2 sm:px-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0"
               disabled={isProcessing}
             >
-              <span className="mr-1.5">{suggestion.icon}</span>
-              {suggestion.text}
+              <span className="mr-1">{suggestion.icon}</span>
+              <span className="hidden sm:inline">{suggestion.fullText}</span>
+              <span className="sm:hidden">{suggestion.text}</span>
             </Button>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
