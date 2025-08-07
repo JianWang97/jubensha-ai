@@ -57,12 +57,20 @@ function DialogContent({
   const contentId = React.useId()
   const descriptionId = `${contentId}-description`
   
+  // Check if children contains a DialogDescription component
+  const hasDescription = React.Children.toArray(children).some(
+    (child) => 
+      React.isValidElement(child) && 
+      typeof child.type === 'function' &&
+      child.type.name === 'DialogDescription'
+  )
+  
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        aria-describedby={descriptionId}
+        aria-describedby={hasDescription ? undefined : descriptionId}
         className={cn(
           fullscreen
             ? "bg-slate-700/80 text-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 flex flex-col gap-4 border-0 p-6 shadow-md duration-200"
@@ -71,9 +79,11 @@ function DialogContent({
         )}
         {...props}
       >
-        <div id={descriptionId} className="sr-only">
-          Dialog content
-        </div>
+        {!hasDescription && (
+          <div id={descriptionId} className="sr-only">
+            Dialog content
+          </div>
+        )}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

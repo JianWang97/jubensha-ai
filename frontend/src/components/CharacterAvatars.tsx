@@ -16,10 +16,9 @@ interface CharacterAvatarsProps {
 
 const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsProps) => {
   // 从TTS store获取当前发言状态
-  const { currentSpeakingCharacter, currentSpeechText } = useTTSStore();
+  const { currentSpeakingCharacter } = useTTSStore();
   
   const speakingCharacter = currentSpeakingCharacter;
-  const speechBubble = currentSpeechText || '';
 
   const getCharacterAvatar = (character: ScriptCharacter) => {
     // 如果有头像URL，返回图片元素
@@ -66,10 +65,6 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
   if (characters.length === 0) {
     return null;
   }
-
-  // 分离当前发言角色和其他角色
-  const speakingChar = characters.find(char => char.name === speakingCharacter);
-  const otherCharacters = characters.filter(char => char.name !== speakingCharacter);
 
   const renderCharacter = (character: ScriptCharacter, isSpeaking: boolean) => {
     return (

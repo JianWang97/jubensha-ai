@@ -38,11 +38,12 @@ function Select({
     
     return React.Children.map(children, (child) => {
       if (React.isValidElement(child) && child.type === SelectContent) {
-        return React.cloneElement(child, {
-          ...child.props,
-          children: React.Children.map(child.props.children, (contentChild) => {
+        const childElement = child as React.ReactElement<any>
+        return React.cloneElement(childElement, {
+          ...childElement.props,
+          children: React.Children.map((childElement.props as any).children as React.ReactNode, (contentChild) => {
             if (React.isValidElement(contentChild) && contentChild.type === SelectItem) {
-              const itemText = React.Children.toArray(contentChild.props.children).join('').toLowerCase()
+              const itemText = React.Children.toArray((contentChild.props as any).children as React.ReactNode).join('').toLowerCase()
               if (itemText.includes(searchTerm.toLowerCase())) {
                 return contentChild
               }
@@ -196,7 +197,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "focus:bg-slate-600/80 focus:text-white hover:bg-slate-600/50 [&_svg:not([class*='text-'])]:text-gray-300 relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "focus:bg-slate-600/80 focus:text-white hover:bg-slate-600/50 [&_svg:not([class*='text-'])]:text-gray-300 relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_span:last-child]:flex [&_span:last-child]:items-center [&_span:last-child]:gap-2",
         className
       )}
       {...props}

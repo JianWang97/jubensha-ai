@@ -44,7 +44,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
 
   const filteredMobileNavItems = mobileNavItems.filter(item => 

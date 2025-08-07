@@ -24,7 +24,6 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   const [evidences, setEvidences] = useState<Evidence[]>([]);
   const [showEvidenceForm, setShowEvidenceForm] = useState(false);
   const [editingEvidence, setEditingEvidence] = useState<Evidence | null>(null);
-  const [isEvidenceFormFullscreen, setIsEvidenceFormFullscreen] = useState(false);
 
   // 使用 client services 替代 useApiClient
   const getScriptWithDetail = async (scriptId: number) => {
@@ -32,11 +31,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     return response.data;
   };
   
-  const generateEvidencePrompt = async (request: EvidencePromptRequest) => {
-    const response = await Service.generateEvidencePromptApiEvidenceEvidenceGeneratePromptPost(request);
-    return response.data;
-  };
-  
+
   const createEvidence = async (request: ScriptEvidence) => {
     const response = await Service.createEvidenceApiEvidenceScriptIdEvidencePost(request.script_id!, request as any);
     return response.data;
@@ -77,18 +72,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
   useEffect(() => {
     initEvidenceForm();
   }, [initEvidenceForm]);
-  // 图片生成相关状态
-  const [imageGeneration, setImageGeneration] = useState({
-    positive_prompt: '',
-    negative_prompt: '',
-    width: 512,
-    height: 512,
-    steps: 20,
-    cfg_scale: 7,
-    seed: 1
-  });
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+
 
   // 处理证据表单变化
   const handleEvidenceFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
