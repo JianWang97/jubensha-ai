@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import time
 from typing import Dict, List, Optional, Any, Union
 
 from ..schemas.script import (
@@ -14,35 +15,77 @@ from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
 from .conversation_flow_controller import ConversationFlowController
 from src.db.repositories.script_repository import ScriptRepository
+from ..services.tts_event_service import get_tts_event_service
 
 logger = logging.getLogger(__name__)
 
 class GameEngine:
     """剧本杀游戏引擎"""
-    
-    def __init__(self, script_id: Optional[int] = None):
-        self.script_id = script_id
+
+    def __init__(self, script_id: Optional[int] = None, session_id: Optional[str] = None):
+        # 基础标识
+        self.script_id: Optional[int] = script_id
+        self.session_id: Optional[str] = session_id  # 用于TTS会话
+
+        # 核心数据结构
         self.script_data: Optional[Dict[str, Any]] = None
         self.characters: List[ScriptCharacter] = []
         self.agents: Dict[str, AIAgent] = {}
-        self.current_phase = GamePhaseEnum.BACKGROUND
+        self.current_phase: GamePhaseEnum = GamePhaseEnum.BACKGROUND
+
+        # 历史事件 & 聊天
         self.events: List[Dict[str, Any]] = []
-        
-        # 初始化管理器（稍后在load_script_data中设置）
+        self.event_sequence: int = 0  # 自增事件ID
+        self.max_events: int = 5000
+        self.max_public_chat: int = 5000
+        self.public_chat: List[Dict[str, Any]] = []
+
+        # 管理器（延后初始化）
         self.evidence_manager: Optional[EvidenceManager] = None
         self.voting_manager: Optional[VotingManager] = None
         self.conversation_flow_controller: Optional[ConversationFlowController] = None
 
-        # 游戏状态
-        self.public_chat: List[Dict[str, Any]] = []
+        # 游戏状态快照（供AI与前端使用）
         self.game_state: Dict[str, Any] = {
-            "phase": self.current_phase.value if hasattr(self.current_phase, 'value') else str(self.current_phase),  # 使用枚举的值而不是枚举对象
-            "events": self.events if self.events is not None else [],
+            "phase": self.current_phase.value,
+            "events": self.events,
             "characters": [],
             "votes": {},
             "evidence": [],
             "discovered_evidence": [],
-            "public_chat": self.public_chat if self.public_chat is not None else []
+            "public_chat": self.public_chat,
+        }
+
+    def get_history(self, from_event_id: int = 0, limit: Optional[int] = None) -> Dict[str, Any]:
+        """获取历史事件与聊天（用于前端回看，不涉及断线状态恢复）
+
+        参数:
+            from_event_id: 起始事件ID（排除该ID，返回其后的事件；0 表示返回全部保留事件）
+            limit: 事件数量上限（None 表示不限制）
+        返回:
+            dict: {
+                events: [...],           # 满足条件的事件（已按时间顺序）
+                public_chat: [...],      # 当前保留的全部公开聊天（可在前端自行去重）
+                truncated: bool,         # 是否因为 limit 被截断
+                newest_event_id: int,    # 当前最新事件ID（供前端记录）
+                earliest_event_id: int   # 当前仍保留的最早事件ID（用于判断是否发生裁剪）
+            }
+        """
+        if from_event_id <= 0:
+            events_slice = self.events
+        else:
+            events_slice = [e for e in self.events if e.get("id", 0) > from_event_id]
+        truncated = False
+        if limit is not None and limit > 0 and len(events_slice) > limit:
+            truncated = True
+            events_slice = events_slice[-limit:]
+        earliest_id = self.events[0]["id"] if self.events else 0
+        return {
+            "events": events_slice,
+            "public_chat": self.public_chat,
+            "truncated": truncated,
+            "newest_event_id": self.event_sequence,
+            "earliest_event_id": earliest_id
         }
     
     async def load_script_data(self, script_id: int):
@@ -129,7 +172,7 @@ class GameEngine:
                 continue
         
         # 转换背景故事对象为字典，确保类型安全
-        background_story: dict[str, str | dict] = {}
+        background_story: Dict[str, Union[str, Dict[str, Any]]] = {}
         if full_script.background_story:
             try:
                 bg = full_script.background_story
@@ -386,34 +429,91 @@ class GameEngine:
     
     def add_event(self, character: str, content: str):
         """添加游戏事件"""
+        # 递增事件序号（保持单线程上下文内安全；如需并发扩展需加锁）
+        self.event_sequence += 1
         event = {
+            "id": self.event_sequence,
             "type": "action",
             "character": character,
             "content": content,
-            "timestamp": asyncio.get_event_loop().time()
+            "timestamp": time.time()
         }
         self.events.append(event)
+        # 超出容量时裁剪（保留最新）
+        if len(self.events) > self.max_events:
+            overflow = len(self.events) - self.max_events
+            if overflow > 0:
+                self.events = self.events[overflow:]
+        # 注意：裁剪后事件ID不会重置，前端若请求不存在的旧ID，需提示已被裁剪
         self.game_state["events"] = self.events
+
+    def get_events_since(self, last_event_id: int) -> List[Dict[str, Any]]:
+        """获取指定事件ID之后的增量事件列表
+
+        Args:
+            last_event_id: 客户端已接收的最后一个事件ID（若为0表示需要全部）
+        Returns:
+            List[事件字典]
+        """
+        if last_event_id <= 0:
+            return self.events
+        # events按追加顺序存储，可直接过滤
+        return [e for e in self.events if e.get("id", 0) > last_event_id]
     
-    def add_public_chat(self, character: str, message: str, message_type: str = "chat"):
+    def add_public_chat(self, character: str, message: str, message_type: str = "chat", 
+                       session_id: Optional[str] = None, voice_id: Optional[str] = None):
         """添加公开聊天信息"""
         chat_entry = {
             "character": character,
             "message": message,
             "type": message_type,  # chat, question, answer, accusation, defense
-            "timestamp": asyncio.get_event_loop().time()
+            "timestamp": time.time()
         }
         self.public_chat.append(chat_entry)
+        if len(self.public_chat) > self.max_public_chat:
+            overflow = len(self.public_chat) - self.max_public_chat
+            if overflow > 0:
+                self.public_chat = self.public_chat[overflow:]
         self.game_state["public_chat"] = self.public_chat
         
         # 同时添加到events中保持兼容性
         self.add_event(character, message)
+        
+        # 处理TTS事件（异步，不阻塞游戏流程）
+        if session_id and message.strip():
+            try:
+                tts_service = get_tts_event_service()
+                # 创建异步任务处理TTS，不等待完成
+                asyncio.create_task(
+                    tts_service.process_speech_event(
+                        session_id=session_id,
+                        character_name=character,
+                        content=message,
+                        event_type=message_type,
+                        voice_id=voice_id
+                    )
+                )
+                logger.debug(f"已启动TTS处理任务: {character} - {message[:50]}...")
+            except Exception as e:
+                logger.error(f"启动TTS处理任务失败: {e}")
+                # TTS失败不应该影响游戏进程，继续执行
     
     def get_recent_public_chat(self, limit: int = 15) -> List[Dict[str, Any]]:
         """获取最近的公开聊天记录"""
         return self.public_chat[-limit:] if self.public_chat else []
+
+    def get_public_chat_since(self, since_ts: float) -> List[Dict[str, Any]]:
+        """获取某时间戳后的公开聊天（用于断线重连增量同步）
+        Args:
+            since_ts: 客户端本地最后一条消息的timestamp（秒）
+        Returns:
+            List[聊天记录]
+        """
+        if since_ts <= 0:
+            return self.public_chat
+        return [c for c in self.public_chat if c.get("timestamp", 0) > since_ts]
     
-    async def run_phase(self, max_turns: int = None, action_callback=None) -> List[Dict[str, Any]]:
+    async def run_phase(self, max_turns: Optional[int] = None, action_callback=None) -> List[Dict[str, Any]]:
         """运行当前阶段，返回所有AI的行动
         
         Args:
@@ -459,7 +559,12 @@ class GameEngine:
                         message = template.format(content)
                     
                     # 添加到聊天记录和动作列表
-                    self.add_public_chat("系统", message, "background")
+                    self.add_public_chat(
+                        character="系统", 
+                        message=message, 
+                        message_type="background",
+                        session_id=self.session_id
+                    )
                     action_data = {
                         "character": "系统",
                         "action": message,
@@ -479,7 +584,12 @@ class GameEngine:
                 except Exception as e:
                     logger.error(f"处理背景故事部分 {key} 失败: {e}")
                     error_msg = f"{default_name}：数据处理失败"
-                    self.add_public_chat("系统", error_msg, "background")
+                    self.add_public_chat(
+                        character="系统", 
+                        message=error_msg, 
+                        message_type="background",
+                        session_id=self.session_id
+                    )
                     error_action_data = {
                         "character": "系统",
                         "action": error_msg,
@@ -609,8 +719,21 @@ class GameEngine:
                 elif self.current_phase == GamePhaseEnum.VOTING:
                     message_type = "vote"
                 
-                # 使用公开聊天系统记录
-                self.add_public_chat(next_speaker, action, message_type)
+                # 获取角色的voice_id
+                character_voice_id = None
+                for character in self.characters:
+                    if character.name == next_speaker:
+                        character_voice_id = character.voice_id
+                        break
+                
+                # 使用公开聊天系统记录，传递session_id和voice_id用于TTS
+                self.add_public_chat(
+                    character=next_speaker, 
+                    message=action, 
+                    message_type=message_type,
+                    session_id=self.session_id,
+                    voice_id=character_voice_id
+                )
                 
                 # 更新对话流控制器的发言频率
                 if self.conversation_flow_controller:
@@ -622,15 +745,13 @@ class GameEngine:
                 if self.current_phase == GamePhaseEnum.EVIDENCE_COLLECTION and self.evidence_manager:
                     discovered = self.evidence_manager.process_evidence_search(action, next_speaker)
                     if discovered:
-                        self.add_public_chat("系统", f"{next_speaker}发现了证据：{discovered['name']}", "system")
+                        self.add_public_chat(
+                            character="系统", 
+                            message=f"{next_speaker}发现了证据：{discovered['name']}", 
+                            message_type="system",
+                            session_id=self.session_id
+                        )
                         self.game_state["discovered_evidence"] = self.evidence_manager.get_discovered_evidence()
-                
-                # 获取角色的voice_id
-                character_voice_id = None
-                for character in self.characters:
-                    if character.name == next_speaker:
-                        character_voice_id = character.voice_id
-                        break
                 
                 action_data = {
                     "character": next_speaker,
@@ -664,7 +785,12 @@ class GameEngine:
                 
             except Exception as e:
                 logger.error(f"Agent {next_speaker} 执行错误: {e}", exc_info=True)
-                self.add_public_chat(next_speaker, "[思考中...]", "system")
+                self.add_public_chat(
+                    character=next_speaker, 
+                    message="[思考中...]", 
+                    message_type="system",
+                    session_id=self.session_id
+                )
                 turn_count += 1
         
         logger.info(f"{self.current_phase.value}阶段结束，共进行了 {turn_count} 轮发言")

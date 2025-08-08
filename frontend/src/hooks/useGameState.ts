@@ -190,6 +190,24 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
     }
   }, [gameState, getPhaseDisplayName, addLogEntry]); // 移除gameLog依赖，避免循环
 
+  // 监听历史聊天消息事件
+  useEffect(() => {
+    const handleHistoryChat = (event: CustomEvent) => {
+      const historyChatMessages = event.detail;
+      if (Array.isArray(historyChatMessages)) {
+        historyChatMessages.forEach((msg: { character: string; content: string }) => {
+          addLogEntry(msg.character, msg.content);
+        });
+      }
+    };
+
+    window.addEventListener('history_chat_received', handleHistoryChat as EventListener);
+    
+    return () => {
+      window.removeEventListener('history_chat_received', handleHistoryChat as EventListener);
+    };
+  }, [addLogEntry]);
+
   return {
     // 连接状态
     isConnected,

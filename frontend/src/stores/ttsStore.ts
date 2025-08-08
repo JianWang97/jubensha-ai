@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { useEffect } from 'react';
-import { useConfigStore } from './configStore';
 
 interface TTSQueueItem {
   character: string;
   text: string;
   voice?: string;
+  audioUrl?: string; // 仅支持已生成的音频URL
 }
 
 interface TTSState {
@@ -24,9 +24,8 @@ interface TTSState {
   // 核心功能
   initializeAudio: () => Promise<void>;
   playNext: () => void;
-  queueTTS: (character: string, text: string, voice?: string) => void;
+  queueTTS: (character: string, text: string, voice?: string, audioUrl?: string) => void;
   toggleTTS: () => void;
-  playAudioChunk: (audioData: string, encoding: string) => Promise<void>;
   startQueueProcessor: () => void;
   stopQueueProcessor: () => void;
 }
@@ -69,14 +68,14 @@ export const useTTSStore = create<TTSState>((set, get) => ({
   },
   
   // 添加到TTS队列
-  queueTTS: (character: string, text: string, voice?: string) => {
+  queueTTS: (character: string, text: string, voice?: string, audioUrl?: string) => {
     const state = get();
     
     if (!state.ttsEnabled || !text.trim()) return;
     
     // 简单的重复检查
     const isDuplicate = state.audioQueue.some(item => 
-      item.character === character && item.text === text
+      item.character === character && item.text === text && (!!item.audioUrl === !!audioUrl)
     );
     
     if (isDuplicate) return;
@@ -85,49 +84,12 @@ export const useTTSStore = create<TTSState>((set, get) => ({
     const processedText = text.length > 500 ? text.substring(0, 500) + '...' : text;
     
     set(state => ({
-      audioQueue: [...state.audioQueue, { character, text: processedText, voice }]
+      audioQueue: [...state.audioQueue, { character, text: processedText, voice, audioUrl }]
     }));
   },
   
   // 播放音频块
-  playAudioChunk: async (audioData: string, encoding: string='base64') => {
-    const state = get();
-    if (!state.audioContext) return;
-    
-    try {
-      let bytes: Uint8Array;
-      
-      if (encoding === 'hex') {
-        // 处理十六进制编码的音频数据
-        const hexString = audioData.replace(/\s/g, ''); // 移除空格
-        bytes = new Uint8Array(hexString.length / 2);
-        for (let i = 0; i < hexString.length; i += 2) {
-          bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
-        }
-      } else {
-        // 处理base64编码的音频数据
-        const binaryString = atob(audioData);
-        bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-      }
-      
-      // 使用Web Audio API解码音频数据
-      const audioBuffer = await state.audioContext.decodeAudioData(bytes.buffer.slice(0) as ArrayBuffer);
-      
-      const source = state.audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(state.audioContext.destination);
-      source.start();
-      
-      return new Promise<void>((resolve) => {
-        source.onended = () => resolve();
-      });
-    } catch (error) {
-      console.error('播放音频块失败:', error);
-    }
-  },
+  // 已移除流式音频块播放逻辑（统一通过已生成的URL播放）
   
   // 播放下一个队列项目
   playNext: async () => {
@@ -146,52 +108,30 @@ export const useTTSStore = create<TTSState>((set, get) => ({
     }));
     
     try {
-      const config = useConfigStore.getState();
-      // 使用voice mapping获取正确的voice_id，优先使用传入的voice，否则使用character
-      console.log(item.character, item.voice);
-      const voiceId = item.voice;
-      
-      // 获取认证token
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      
-      const response = await fetch(`${config.api.baseUrl}/api/tts/stream`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}) // 添加认证头
-        },
-        body: JSON.stringify({ text: item.text, voice: voiceId })
-      });
-      
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('无法获取响应流读取器');
-      
-      const decoder = new TextDecoder();
-      let buffer = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        
-        for (const line of lines) {
-          if (line.trim()) {
-            try {
-              const jsonData = JSON.parse(line.startsWith('data: ') ? line.substring(6) : line);
-              if (jsonData.audio) {
-                const encoding = jsonData.encoding || 'hex';
-                await get().playAudioChunk(jsonData.audio, encoding);
-              }
-            } catch (e) {
-              // 忽略解析错误
-            }
-          }
+      if (item.audioUrl) {
+        // 播放已生成音频
+        const resp = await fetch(item.audioUrl);
+        if (!resp.ok) throw new Error(`获取音频失败: ${resp.status}`);
+        const arrayBuf = await resp.arrayBuffer();
+        const ctx = get().audioContext;
+        if (ctx) {
+          const audioBuffer = await ctx.decodeAudioData(arrayBuf.slice(0));
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(ctx.destination);
+          source.start();
+          await new Promise<void>(resolve => source.onended = () => resolve());
+        } else {
+          await new Promise<void>((resolve, reject) => {
+            const audioEl = new Audio(item.audioUrl);
+            audioEl.onended = () => resolve();
+            audioEl.onerror = () => reject(new Error('HTMLAudio 播放失败'));
+            audioEl.play().catch(reject);
+          });
         }
+      } else {
+        // 没有音频URL则直接跳过播放
+        console.debug('[TTS] 跳过：无可播放音频URL');
       }
     } catch (error) {
       console.error('TTS播放错误:', error);

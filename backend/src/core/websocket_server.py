@@ -4,6 +4,7 @@ import logging
 from typing import Set, Union, Any, Dict, Optional
 from datetime import datetime
 from abc import ABC, abstractmethod
+import os
 
 from sqlalchemy.orm import Session
 from src.core import GameEngine
@@ -13,7 +14,7 @@ from src.db.repositories import ScriptRepository
 from src.db.repositories.game_session_repository import GameSessionRepository
 from src.db.session import get_db_session, db_manager
 from src.db.models.game_session import GameSession as DBGameSession, GameSessionStatus
-import os
+from src.core.game_tts_manager import GameTTSManager
 from dotenv import load_dotenv
 import uuid
 
@@ -67,7 +68,7 @@ class GameSession:
         self.session_id:str = session_id
         self.clients: set[Any] = set()
         self.script_id = script_id
-        self.game_engine = GameEngine()
+        self.game_engine = GameEngine(session_id=session_id)
         self.is_game_running = False
         self.game_initialized = False  # 修改：将保护属性改为公共属性
         # 剧本编辑相关
@@ -75,10 +76,48 @@ class GameSession:
         self.editor_service: ScriptEditorService|None = None
         self.editing_context: dict[str, Any] = {}  # 存储编辑上下文
         self.db_session:Session|None = None  # 数据库会话引用，类型为Session或None
+        
+        # TTS管理器
+        self.tts_manager: GameTTSManager|None = None
+        self._initialize_tts_manager()
+    
+    def _initialize_tts_manager(self):
+        """初始化TTS管理器"""
+        try:
+            # 从环境变量获取MiniMax配置
+            api_key = os.getenv("TTS_API_KEY")
+            group_id = os.getenv("MINIMAX_GROUP_ID")
+            
+            if api_key and group_id:
+                self.tts_manager = GameTTSManager(
+                    api_key=api_key,
+                    group_id=group_id,
+                    model="speech-02-turbo"
+                )
+                logger.info(f"[TTS] TTS管理器初始化成功: 会话={self.session_id}")
+            else:
+                logger.warning(f"[TTS] 缺少MiniMax配置，TTS功能不可用: 会话={self.session_id}")
+        except Exception as e:
+            logger.error(f"[TTS] TTS管理器初始化失败: {e}, 会话={self.session_id}")
+            self.tts_manager = None
     
     def cleanup(self):
         """清理会话资源，包括数据库连接"""
         try:
+            # 清理TTS管理器
+            if self.tts_manager:
+                try:
+                    # 创建异步任务来关闭TTS管理器
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        loop.create_task(self.tts_manager.close())
+                    logger.info(f"[CLEANUP] TTS管理器已清理: 会话={self.session_id}")
+                except Exception as e:
+                    logger.error(f"[ERROR] 清理TTS管理器失败: 会话={self.session_id}, 错误={e}")
+                finally:
+                    self.tts_manager = None
+            
             # 关闭数据库会话
             if self.db_session:
                 try:
@@ -211,6 +250,73 @@ class GenerateAISuggestionHandler(MessageHandler):
         logger.info(f"[EDITOR] AI建议生成请求: 会话={session_id}, 上下文长度={len(context)}字符")
         await EditModeHandler.generate_ai_suggestion(server, session_id, context)
 
+class GetTTSHistoryHandler(MessageHandler):
+    """处理获取TTS历史记录消息"""
+    
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        character_name = data.get("character_name")
+        limit = data.get("limit", 20)
+        
+        session = server.sessions.get(session_id)
+        if not session or not session.tts_manager:
+            await server.send_to_client(websocket, {
+                "type": "error",
+                "message": "TTS服务不可用",
+                "session_id": session_id
+            })
+            return
+        
+        try:
+            logger.info(f"[TTS] 获取TTS历史请求: 会话={session_id}, 角色={character_name}")
+            
+            history = await session.tts_manager.get_character_tts_history(
+                session_id=session_id,
+                character_name=character_name,
+                limit=limit
+            )
+            
+            await server.send_to_client(websocket, {
+                "type": "tts_history",
+                "data": {
+                    "session_id": session_id,
+                    "character_name": character_name,
+                    "history": history,
+                    "total_count": len(history)
+                },
+                "session_id": session_id
+            })
+            
+        except Exception as e:
+            logger.error(f"[ERROR] 获取TTS历史失败: 会话={session_id}, 错误={e}")
+            await server.send_to_client(websocket, {
+                "type": "error",
+                "message": f"获取TTS历史失败: {str(e)}",
+                "session_id": session_id
+            })
+
+class FetchHistoryHandler(MessageHandler):
+    """处理历史回看消息"""
+
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        from_event_id = int(data.get("from_event_id") or 0)
+        limit = data.get("limit")
+        try:
+            limit_val = int(limit) if limit is not None else None
+        except Exception:
+            limit_val = None
+        session = server.sessions.get(session_id)
+        if not session:
+            await server.send_to_client(websocket, {"type": "error", "message": "会话不存在", "session_id": session_id})
+            return
+        history = session.game_engine.get_history(from_event_id=from_event_id, limit=limit_val)
+        await server.send_to_client(websocket, {
+            "type": "history",
+            "data": history,
+            "session_id": session_id
+        })
+
 # 游戏模式处理器
 class GameModeHandler:
     """处理游戏模式相关业务逻辑"""
@@ -239,10 +345,8 @@ class GameModeHandler:
             session.game_engine = GameEngine()
             session.game_initialized = False  # 修改：使用公共属性game_initialized
         
-        # 确保游戏已初始化
         if not session.game_initialized:  # 修改：使用公共属性game_initialized
             await GameModeHandler.initialize_game(session)
-            
         session.is_game_running = True
         logger.info(f"[GAME] 游戏状态设置为运行中: 会话={session_id}")
         
@@ -404,7 +508,7 @@ class GameModeHandler:
                 
                 # 定义流式回调函数
                 async def action_callback(action):
-                    """每个角色发言完成后立即广播"""
+                    """每个角色发言完成后立即广播，并生成TTS"""
                     try:
                         # 确保action中的数据是可序列化的字符串
                         if isinstance(action, dict):
@@ -417,17 +521,49 @@ class GameModeHandler:
                                     action['action'] = str(action['action'])
                         
                         character = action.get('character', 'Unknown')
-                        action_text = action.get('action', '')[:50]
-                        logger.debug(f"[AI_ACTION] 角色行动: {character}: {action_text}..., 会话={session_id}")
-                        print(f"Streaming action: {character}: {action_text}...")
+                        action_text = action.get('action', '')
+                        action_preview = action_text[:50] if action_text else ''
+                        logger.debug(f"[AI_ACTION] 角色行动: {character}: {action_preview}..., 会话={session_id}")
+                        print(f"Streaming action: {character}: {action_preview}...")
                         
+                        # 合并AI动作与TTS：如果有TTS管理器则先生成TTS再一次性广播
+                        ai_action_payload = dict(action)  # 复制，避免外部引用被改
+                        if session.tts_manager and action_text and len(action_text.strip()) > 0:
+                            voice_id_candidate = None
+                            try:
+                                voice_id_candidate = session.tts_manager._get_character_voice(character, action.get('character_info'))
+                                tts_url = await session.tts_manager.generate_character_tts(
+                                    session_id=session_id,
+                                    character_name=character,
+                                    content=action_text,
+                                    character_info=action.get('character_info'),
+                                    event_metadata={
+                                        "game_phase": session.game_engine.current_phase.value,
+                                        "action_type": "ai_dialogue",
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                )
+                                if tts_url:
+                                    ai_action_payload["tts_url"] = tts_url
+                                    ai_action_payload["tts_voice"] = voice_id_candidate
+                                    ai_action_payload["tts_status"] = "completed"
+                                else:
+                                    ai_action_payload["tts_status"] = "failed"
+                            except Exception as e:
+                                logger.error(f"[TTS] 合并生成TTS失败: {e}, 角色={character}, 会话={session_id}")
+                                ai_action_payload["tts_status"] = "error"
+                        else:
+                            # 无TTS或空文本
+                            ai_action_payload["tts_status"] = "skipped"
+
                         await server.broadcast({
                             "type": "ai_action",
-                            "data": action,
+                            "data": ai_action_payload,
                             "session_id": session_id
                         }, session_id)
                         
                         await asyncio.sleep(1)  # 减少延迟，提高响应速度
+                        
                     except Exception as e:
                         logger.error(f"[ERROR] AI行动回调错误: {e}, 会话={session_id}")
                         print(f"Error in action callback: {e}")
@@ -831,6 +967,7 @@ class GameWebSocketServer:
         self.sessions: Dict[str, GameSession] = {}
         self.client_sessions: Dict[Any, str] = {}  # 客户端到会话的映射
         # 注册消息处理器
+        # 普通指令处理器（断线重连/增量同步单独处理）
         self.message_handlers: Dict[str, MessageHandler] = {
             "start_game": StartGameHandler(),
             "next_phase": NextPhaseHandler(),
@@ -842,9 +979,37 @@ class GameWebSocketServer:
             "edit_instruction": EditInstructionHandler(),
             "get_script_data": GetScriptDataHandler(),
             "generate_ai_suggestion": GenerateAISuggestionHandler(),
+            "get_tts_history": GetTTSHistoryHandler(),
+            "fetch_history": FetchHistoryHandler(),
         }
+        # 会话保留超时（秒）：断开后在该时间内保留以支持重连
+        self.session_retention_seconds: int = 600
+        # 记录会话最后活动时间，用于清理
+        self.session_last_active: Dict[str, float] = {}
+        # 后台任务引用
+        self._cleanup_task: Optional[asyncio.Task] = None
+
+    def start_background_tasks(self):
+        """启动服务器级后台任务（清理超时会话等）"""
+        if self._cleanup_task is None:
+            try:
+                loop = asyncio.get_running_loop()
+                self._cleanup_task = loop.create_task(self._cleanup_loop())
+                logger.info("[SERVER] 启动会话清理后台任务")
+            except RuntimeError:
+                # 事件循环尚未就绪，可在外部稍后调用
+                logger.warning("[SERVER] 事件循环未就绪，稍后再启动后台任务")
+
+    async def _cleanup_loop(self):
+        """定期执行空会话清理"""
+        while True:
+            try:
+                await self.cleanup_inactive_sessions()
+            except Exception as e:
+                logger.error(f"[SERVER] 清理任务出错: {e}")
+            await asyncio.sleep(60)
         
-    def get_or_create_session(self, session_id: str = None, script_id: int = 1) -> GameSession:
+    def get_or_create_session(self, session_id: Optional[str] = None, script_id: int = 1) -> GameSession:
         """获取或创建游戏会话"""
         if session_id is None:
             session_id = str(uuid.uuid4())
@@ -890,24 +1055,35 @@ class GameWebSocketServer:
         # 发送当前游戏状态给新客户端
         logger.debug(f"[MESSAGE] 向新客户端发送游戏状态, 会话: {session.session_id}")
         
-        # 发送游戏状态和会话信息
-        await self.send_to_client(websocket, {
+        # 只发送一次 session_connected 消息，并在其中告知是否有正在进行的游戏及其必要信息
+        active_game_info: dict[str, Any] | None = None
+        if session.is_game_running:
+            # 如果游戏正在运行，附加当前阶段与游戏状态（可按需裁剪）
+            try:
+                active_game_info = {
+                    "current_phase": getattr(session.game_engine.current_phase, "value", None),
+                    "game_state": session.game_engine.game_state,
+                }
+            except Exception as e:
+                logger.error(f"[SESSION] 收集进行中游戏信息失败: 会话={session.session_id}, 错误={e}")
+                active_game_info = {"error": "获取进行中游戏信息失败"}
+
+        payload = {
             "type": "session_connected",
             "data": {
                 "session_id": session.session_id,
                 "script_id": script_id,
                 "user_id": user_id,
-                "message": "已连接到游戏会话"
+                "message": "已连接到游戏会话",
+                "is_game_running": session.is_game_running,
+                "game_initialized": session.game_initialized,
             },
             "session_id": session.session_id
-        })
-        
-        # 发送游戏状态
-        await self.send_to_client(websocket, {
-            "type": "game_state",
-            "data": session.game_engine.game_state,
-            "session_id": session.session_id
-        })
+        }
+        if active_game_info:
+            payload["data"]["active_game"] = active_game_info
+
+        await self.send_to_client(websocket, payload)
     
     async def unregister_client(self, websocket: Any):
         """注销WebSocket客户端"""
@@ -919,21 +1095,18 @@ class GameWebSocketServer:
                 client_info = f"客户端地址: {getattr(websocket, 'remote_address', 'unknown')}"
                 logger.info(f"[CONNECTION] 客户端断开连接, 会话: {session_id}, {client_info}, 剩余客户端数: {len(session.clients)}")
                 print(f"Client disconnected from session {session_id}. Session clients: {len(session.clients)}")
-                
-                # 如果会话中没有客户端了，清理会话资源
+                # 更新最后活动时间
+                self.session_last_active[session_id] = asyncio.get_event_loop().time()
+                # 不再立即删除空会话，允许一定时间内重连
                 if len(session.clients) == 0:
-                    logger.warning(f"[SESSION] 会话 {session_id} 已无客户端连接，开始清理资源")
-                    print(f"Session {session_id} is now empty, cleaning up resources")
-                    # 调用cleanup方法清理数据库连接和其他资源
-                    session.cleanup()
-                    # 从sessions字典中移除会话
-                    del self.sessions[session_id]
+                    logger.warning(f"[SESSION] 会话 {session_id} 暂时无客户端，保留 {self.session_retention_seconds}s 以支持重连")
+                    print(f"Session {session_id} empty, retained for reconnection window")
             
             del self.client_sessions[websocket]
         else:
             logger.warning(f"[CONNECTION] 尝试注销未注册的客户端: {getattr(websocket, 'remote_address', 'unknown')}")
     
-    async def send_to_client(self, websocket, message: dict):
+    async def send_to_client(self, websocket, message: Dict[str, Any]):
         """发送消息给特定客户端"""
         try:
             # 尝试序列化消息以检查是否有序列化问题
@@ -974,7 +1147,7 @@ class GameWebSocketServer:
             # 处理连接关闭异常
             await self.unregister_client(websocket)
     
-    async def broadcast_to_session(self, session_id: str, message: dict):
+    async def broadcast_to_session(self, session_id: str, message: Dict[str, Any]):
         """向指定会话广播消息"""
         session = self.sessions.get(session_id)
         if not session or not session.clients:
@@ -1002,7 +1175,7 @@ class GameWebSocketServer:
             for client in disconnected:
                 await self.unregister_client(client)
     
-    async def broadcast(self, message: dict, session_id: str = None):
+    async def broadcast(self, message: Dict[str, Any], session_id: Optional[str] = None):
         """广播消息给所有客户端或指定会话的客户端"""
         if session_id:
             logger.debug(f"[BROADCAST] 广播消息到指定会话: 会话={session_id}, 消息类型={message.get('type', 'unknown')}")
@@ -1041,6 +1214,7 @@ class GameWebSocketServer:
             
             logger.debug(f"[HANDLER] 处理消息类型: {message_type}, 会话: {session_id}")
             
+            # 断线重连/增量同步特殊消息类型
             # 使用消息处理器处理消息
             handler = self.message_handlers.get(message_type)
             if handler:
@@ -1072,6 +1246,27 @@ class GameWebSocketServer:
         finally:
             await self.unregister_client(websocket)
 
+
+    async def cleanup_inactive_sessions(self):
+        """周期性清理超时未重连的空会话"""
+        now = asyncio.get_event_loop().time()
+        to_remove = []
+        for sid, session in self.sessions.items():
+            if len(session.clients) == 0:
+                last_active = self.session_last_active.get(sid, now)
+                if now - last_active > self.session_retention_seconds:
+                    to_remove.append(sid)
+        for sid in to_remove:
+            try:
+                sess = self.sessions.get(sid)
+                if sess:
+                    sess.cleanup()
+                del self.sessions[sid]
+                self.session_last_active.pop(sid, None)
+                logger.info(f"[SESSION] 清理过期会话: {sid}")
+            except Exception as e:
+                logger.error(f"[SESSION] 清理会话失败 {sid}: {e}")
+
 # 全局服务器实例
 game_server = GameWebSocketServer()
 
@@ -1081,7 +1276,10 @@ async def start_websocket_server(host="localhost", port=8765):
         raise ImportError("websockets library is not installed. Use 'pip install websockets' to install it.")
     
     print(f"WebSocket server starting on ws://{host}:{port}")
-    return await websockets.serve(game_server.handle_connection, host, port)
+    server = await websockets.serve(game_server.handle_connection, host, port)
+    # 启动后台任务
+    game_server.start_background_tasks()
+    return server
 
 if __name__ == "__main__":
     # 直接运行WebSocket服务器

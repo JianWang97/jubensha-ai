@@ -18,10 +18,25 @@ export interface GameState {
   }>;
 }
 
+export interface HistoryData {
+  events: Array<{
+    character: string;
+    content: string;
+  }>;
+  public_chat: Array<{
+    character: string;
+    content: string;
+  }>;
+  truncated: boolean;
+  newest_event_id: number;
+  earliest_event_id: number;
+}
+
 export interface WebSocketMessage {
   type: string;
   data?: Record<string, any>;
   message?: string;
+  start_mode?: 'new' | 'resume' | 'already_running';
 }
 
 export interface VoiceMapping {
@@ -32,6 +47,11 @@ interface WebSocketState {
   // 连接状态
   isConnected: boolean;
   gameState: GameState | null;
+  gameStartMode?: 'new' | 'resume' | 'already_running';
+  // 会话 / 游戏运行状态扩展
+  isGameRunning?: boolean; // 当前是否有进行中的游戏
+  gameInitialized?: boolean; // 是否已经初始化过（可以用于决定显示“开始”还是“继续”）
+  activeGame?: Record<string, any> | null; // 后端发来的 active_game 原始数据（仅在运行时）
 
   // WebSocket实例
   ws: WebSocket | null;
@@ -40,6 +60,7 @@ interface WebSocketState {
   // Actions
   setIsConnected: (connected: boolean) => void;
   setGameState: (state: GameState | null) => void;
+  setGameStartMode: (mode: 'new' | 'resume' | 'already_running' | undefined) => void;
   setWebSocket: (ws: WebSocket | null) => void;
   setReconnectTimeout: (timeout: NodeJS.Timeout | null) => void;
 
@@ -52,6 +73,7 @@ interface WebSocketState {
   startGame: (scriptId: string) => void;
   nextPhase: () => void;
   resetGame: () => void;
+  fetchHistory: () => void;
 
   // 辅助方法
   handleMessage: (message: WebSocketMessage) => void;
@@ -61,6 +83,10 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   // 初始状态
   isConnected: false,
   gameState: null,
+  gameStartMode: undefined,
+  isGameRunning: undefined,
+  gameInitialized: undefined,
+  activeGame: null,
   voiceMapping: {},
   ws: null,
   reconnectTimeout: null,
@@ -68,6 +94,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   // 基础状态设置
   setIsConnected: (connected) => set({ isConnected: connected }),
   setGameState: (state) => set({ gameState: state }),
+  setGameStartMode: (mode) => set({ gameStartMode: mode }),
   setWebSocket: (ws) => set({ ws }),
   setReconnectTimeout: (timeout) => set({ reconnectTimeout: timeout }),
 
@@ -82,32 +109,87 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         set({ gameState: message.data as GameState });
         break;
 
+      case 'session_connected': {
+        // 新的会话初始化消息，包含会话与游戏状态
+        const data = (message.data || {}) as Record<string, any>;
+        const { is_game_running, game_initialized, active_game } = data;
+        // 兼容字段解析
+        let derivedGameState: GameState | null = null;
+        if (active_game) {
+          // 后端可能直接把game_state展开或放在 active_game.game_state / active_game.state
+            derivedGameState = (active_game.game_state || active_game.state || null) as GameState | null;
+            // 如果没有嵌套但 active_game 自身就像 GameState，也做一次兜底判断（存在 phase 与 events）
+            if (!derivedGameState && active_game.phase && Array.isArray(active_game.events)) {
+              derivedGameState = {
+                phase: active_game.phase,
+                events: active_game.events || [],
+                discovered_evidence: active_game.discovered_evidence || active_game.evidence || []
+              } as GameState;
+            }
+        }
+        set({
+          isGameRunning: is_game_running,
+          gameInitialized: game_initialized,
+          activeGame: active_game || null,
+          gameState: derivedGameState
+        });
+        // 推送一个自定义事件，方便界面或其他逻辑监听
+        window.dispatchEvent(new CustomEvent('session_connected', {
+          detail: {
+            isGameRunning: is_game_running,
+            gameInitialized: game_initialized,
+            activeGame: active_game,
+            gameState: derivedGameState
+          }
+        }));
+        break;
+      }
+
       case 'game_started':
-        // 游戏开始处理
+        // 游戏开始 / 继续
+        set((state) => ({
+          gameStartMode: message.start_mode || state.gameStartMode,
+          isGameRunning: true,
+          gameInitialized: true
+        }));
         break;
 
       case 'ai_action':
         // AI行动处理 - 直接将action转换为事件格式
-        if (message.data && message.data.character && message.data.action) {
+        if (message.data && (message.data as any).character && (message.data as any).action) {
           set((state) => {
             if (!state.gameState) return state;
             // 创建新的事件
-            message.data = message.data as Record<string, any>;
+            const data = message.data as Record<string, any>;
             const newEvent = {
-              character: message.data.character,
-              content: message.data.action
+              character: data.character,
+              content: data.action
             };
             // 添加到现有事件列表中
             const updatedEvents = [...(state.gameState.events || []), newEvent];
             const ttsStore = useTTSStore.getState();
-            const voiceId = message.data.voice_id;
-            ttsStore.queueTTS(message.data.character, message.data.action, voiceId);
+            // 兼容多种可能字段: tts_status / tts_url / audio_url / speech_url / tts_voice / voice_id
+            const ttsStatus = data.tts_status || data.status;
+            const ttsUrl = data.tts_url || data.audio_url || data.speech_url || data.ttsAudioUrl;
+            const voiceId = data.tts_voice || data.voice_id || data.voice;
+            // 放宽条件：只要有可用的音频URL且启用tts就加入队列（若后端仍使用completed则保持兼容）
+            if (ttsStore.ttsEnabled && ttsUrl && (ttsStatus === 'completed' || !ttsStatus || ttsStatus === 'ready')) {
+              // 自动初始化音频（若尚未初始化）
+              if (!ttsStore.audioInitialized) {
+                ttsStore.initializeAudio().catch(() => {});
+              }
+              ttsStore.queueTTS(data.character, data.action, voiceId, ttsUrl);
+              // 确保队列处理器已启动
+              if (!ttsStore.queueTimer) {
+                ttsStore.startQueueProcessor();
+              }
+            }
             return {
               ...state,
               gameState: {
                 ...state.gameState,
                 events: updatedEvents,
-                discovered_evidence: message.data.discovered_evidence || state.gameState.discovered_evidence
+                discovered_evidence: data.discovered_evidence || state.gameState.discovered_evidence
               }
             };
           });
@@ -132,17 +214,15 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         console.log('游戏已结束:', message.data?.message);
         
         // 添加TTS语音播报
-        if (message.data?.message) {
-          const ttsStore = useTTSStore.getState();
-          ttsStore.queueTTS('系统', message.data.message, 'female-shaonv');
-        }
+  // 结束播报不再客户端生成语音，若需要请由后端提供tts_url再合并
         
-        // 可以在这里添加游戏结束的UI提示或其他处理逻辑
+  // 标记运行结束但保持已初始化状态，可显示“继续游戏”按钮
+  set({ isGameRunning: false, gameInitialized: true });
         break;
 
       case 'game_reset':
         // 游戏重置处理
-        set({ gameState: null });
+  set({ gameState: null, isGameRunning: false, gameInitialized: false });
         break;
 
       case 'instruction_processing':
@@ -254,6 +334,43 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
             }
           }
         }));
+        break;
+
+      case 'history':
+        // 处理历史消息
+        if (message.data) {
+          const historyData = message.data as HistoryData;
+          console.log('收到历史消息:', historyData);
+          
+          set((state) => {
+            if (!state.gameState) return state;
+            
+            // 合并历史事件到当前游戏状态，避免重复
+            const existingEvents = state.gameState.events || [];
+            const newEvents = historyData.events || [];
+            
+            // 简单去重：基于character和content的组合
+            const eventSet = new Set(existingEvents.map(e => `${e.character}:${e.content}`));
+            const uniqueNewEvents = newEvents.filter(e => !eventSet.has(`${e.character}:${e.content}`));
+            
+            const mergedEvents = [...existingEvents, ...uniqueNewEvents];
+            
+            return {
+              ...state,
+              gameState: {
+                ...state.gameState,
+                events: mergedEvents
+              }
+            };
+          });
+          
+          // 将public_chat添加到游戏日志中（通过自定义事件通知其他组件）
+          if (historyData.public_chat && historyData.public_chat.length > 0) {
+            window.dispatchEvent(new CustomEvent('history_chat_received', {
+              detail: historyData.public_chat
+            }));
+          }
+        }
         break;
 
       case 'error':
@@ -370,7 +487,14 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
   // 开始游戏
   startGame: (scriptId: string) => {
-    get().sendMessage({ type: 'start_game', script_id: scriptId });
+  // 乐观更新：立即标记游戏运行，避免按钮仍显示“开始”
+  set({ isGameRunning: true, gameInitialized: true });
+  get().sendMessage({ type: 'start_game', script_id: scriptId });
+    
+    // 游戏开始后自动获取历史消息
+    setTimeout(() => {
+      get().fetchHistory();
+    }, 500); // 延迟500ms确保游戏状态已更新
   },
 
   // 下一阶段
@@ -380,7 +504,12 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
   // 重置游戏
   resetGame: () => {
-    get().sendMessage({ type: 'reset_game' });
+  get().sendMessage({ type: 'reset_game' });
+  },
+
+  // 获取历史消息
+  fetchHistory: () => {
+    get().sendMessage({ type: 'fetch_history' });
   }
 }));
 
@@ -389,6 +518,8 @@ export const useWebSocket = (scriptId?: number) => {
   const {
     isConnected,
     gameState,
+  isGameRunning,
+  gameInitialized,
     connect,
     disconnect,
     sendMessage,
@@ -412,6 +543,8 @@ export const useWebSocket = (scriptId?: number) => {
   return {
     isConnected,
     gameState,
+  isGameRunning,
+  gameInitialized,
     sendMessage,
     startGame,
     nextPhase,
