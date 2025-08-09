@@ -31,12 +31,10 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/script-center', label: '剧本中心', icon: BookOpen },
-  { href: '/profile', label: '个人资料', icon: User, requireAuth: true },
+  { href: '/profile/game-history', label: '游戏历史', icon: History, requireAuth: true },
 ];
 
 const bottomNavItems: NavItem[] = [
-  { href: '/profile/game-history', label: '游戏历史', icon: History, requireAuth: true },
-  { href: '/profile/change-password', label: '设置', icon: Settings, requireAuth: true },
 ];
 
 const DockBar: React.FC<DockBarProps> = ({ className }) => {
@@ -106,35 +104,6 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
 
       {/* 底部功能区域 */}
       <div className="flex flex-col items-center pb-6 space-y-4 border-t border-gray-800 pt-4">
-        {/* 通知按钮 */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-12 w-12 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl p-0"
-          title="通知"
-        >
-          <Bell className="h-5 w-5" />
-        </Button>
-        
-        {/* 移动端下载 */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-12 w-12 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl p-0"
-          title="移动端"
-        >
-          <Smartphone className="h-5 w-5" />
-        </Button>
-        
-        {/* API */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-12 w-12 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl p-0"
-          title="API"
-        >
-          <Code className="h-5 w-5" />
-        </Button>
         
         {/* 底部导航项 */}
         {filteredBottomNavItems.map((item) => {

@@ -21,6 +21,7 @@ from src.api.routes.location_routes import router as location_router
 from src.api.routes.asset_routes import router as asset_router
 # 导入游戏管理API路由
 from src.api.routes.game_routes import router as game_router
+from src.api.routes.game_history_routes import router as game_history_router
 # 导入文件管理API路由
 from src.api.routes.file_routes import router as file_router
 # 导入TTS API路由
@@ -90,6 +91,7 @@ app.include_router(character_router)
 app.include_router(location_router)
 # 注册游戏管理API路由
 app.include_router(game_router)
+app.include_router(game_history_router)
 # 注册文件管理API路由
 app.include_router(file_router)
 # 注册TTS API路由

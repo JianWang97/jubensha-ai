@@ -90,13 +90,6 @@ const ChangePasswordPage: React.FC = () => {
         <div className="max-w-md mx-auto">
           {/* 返回按钮 */}
           <div className="mb-6">
-            <Link
-              href="/profile"
-              className="inline-flex items-center text-white hover:text-gray-300 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回个人资料
-            </Link>
           </div>
 
           {/* 页面标题 */}

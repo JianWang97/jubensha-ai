@@ -296,6 +296,7 @@ const ScriptEditPage = () => {
                   <label className="block text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 bg-blue-600 rounded-full shadow-sm"></span>
                     <Users className="w-4 h-4" /> 玩家人数
+                    <Users className="w-4 h-4" /> 角色配置
                   </label>
                   <Input
                     type="number"
@@ -304,7 +305,7 @@ const ScriptEditPage = () => {
                     onChange={handleInputChange}
                     min="1"
                     className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8"
-                    placeholder="建议3-8人"
+                    placeholder="AI角色数量（3-8个）"
                     required
                   />
                 </div>

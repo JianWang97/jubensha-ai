@@ -174,13 +174,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
           个人资料
         </DropdownMenuItem>
         
-        <DropdownMenuItem 
-          className="text-white hover:bg-white/10 cursor-pointer"
-          onClick={() => router.push('/profile/game-history')}
-        >
-          <History className="h-4 w-4 mr-2" />
-          游戏历史
-        </DropdownMenuItem>
         
         <DropdownMenuSeparator className="bg-gray-700" />
         

@@ -7,7 +7,8 @@ from abc import ABC, abstractmethod
 import os
 
 from sqlalchemy.orm import Session
-from src.core import GameEngine
+# 显式导入以避免依赖包级 __init__ 导出（已精简以规避循环导入）
+from src.core.game_engine import GameEngine
 from src.schemas.game_phase import GamePhaseEnum as GamePhase
 from src.services.script_editor_service import ScriptEditorService, EditInstruction, EditResult
 from src.db.repositories import ScriptRepository

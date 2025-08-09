@@ -22,8 +22,8 @@ export interface GameResult {
   vote_counts: { [name: string]: number };
 }
 
-export const useGameState = (sessionId?: string, scriptId?: number) => {
-  const { isConnected, gameState, currentSessionId, sendMessage, startGame, nextPhase, resetGame } = useWebSocket(sessionId, scriptId);
+export const useGameState = (scriptId?: number) => {
+  const { isConnected, gameState, sendMessage, startGame, nextPhase, resetGame } = useWebSocket(scriptId);
   // 使用 client services 替代 useApiClient
   const getCharacters = async (scriptId: number) => {
     const response = await Service.getCharactersApiCharactersScriptIdCharactersGet(scriptId);
@@ -221,7 +221,6 @@ export const useGameState = (sessionId?: string, scriptId?: number) => {
     gameResult,
     isGameStarted,
     gameState,
-    currentSessionId,
     
     // 操作函数
     handleSelectScript,

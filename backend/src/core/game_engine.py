@@ -15,7 +15,9 @@ from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
 from .conversation_flow_controller import ConversationFlowController
 from src.db.repositories.script_repository import ScriptRepository
-from ..services.tts_event_service import get_tts_event_service
+# 不能在模块顶层直接导入 TTS 服务，Alembic 迁移时会导致循环引用：
+# tts_event_service -> db.session -> core.config -> (可能) 引擎/服务
+# 在使用处进行延迟导入。
 
 logger = logging.getLogger(__name__)
 
@@ -482,18 +484,20 @@ class GameEngine:
         # 处理TTS事件（异步，不阻塞游戏流程）
         if session_id and message.strip():
             try:
+                # 延迟导入以避免 Alembic / 初始化阶段的循环依赖
+                from src.services.tts_event_service import get_tts_event_service  # type: ignore
                 tts_service = get_tts_event_service()
-                # 创建异步任务处理TTS，不等待完成
-                asyncio.create_task(
-                    tts_service.process_speech_event(
-                        session_id=session_id,
-                        character_name=character,
-                        content=message,
-                        event_type=message_type,
-                        voice_id=voice_id
+                if tts_service:
+                    asyncio.create_task(
+                        tts_service.process_speech_event(
+                            session_id=session_id,
+                            character_name=character,
+                            content=message,
+                            event_type=message_type,
+                            voice_id=voice_id
+                        )
                     )
-                )
-                logger.debug(f"已启动TTS处理任务: {character} - {message[:50]}...")
+                    logger.debug(f"已启动TTS处理任务: {character} - {message[:50]}...")
             except Exception as e:
                 logger.error(f"启动TTS处理任务失败: {e}")
                 # TTS失败不应该影响游戏进程，继续执行

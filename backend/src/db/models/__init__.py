@@ -8,6 +8,7 @@ from .game_phase import GamePhaseDBModel
 from .user import User
 from .game_session import GameSession
 from .game_event import GameEventDBModel
+from .user_game_participant import UserGameParticipant
 from .image import ImageDBModel, ImageType
 __all__ = [
     "ScriptDBModel",
@@ -19,6 +20,7 @@ __all__ = [
     "User",
     "GameSession",
     "GameEventDBModel",
+    "UserGameParticipant",
     "ImageDBModel",
     "ScriptStatus",
     "ImageType"

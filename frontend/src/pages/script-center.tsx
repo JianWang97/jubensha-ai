@@ -495,10 +495,8 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                         <div className="bg-slate-800/30 rounded-xl p-5">
                           <h4 className="font-semibold mb-4 text-white text-lg">注意事项</h4>
                           <ul className="list-disc list-inside space-y-2 text-slate-400 leading-relaxed">
-                            <li>请保持角色扮演的连贯性</li>
-                            <li>禁止私下交流游戏相关信息</li>
-                            <li>尊重其他玩家的游戏体验</li>
-                            <li>遵守游戏规则，营造良好的游戏氛围</li>
+                            <li>本剧本由 AI 角色自动演绎</li>
+                            <li>无需真人参与即可观看流程</li>
                           </ul>
                         </div>
                       </>
@@ -579,7 +577,8 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                         
                         <div className="text-center py-4">
                           <p className="text-slate-400 text-sm">暂无用户评价</p>
-                          <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的玩家</p>
+                          -                         <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的玩家</p>
+                          +                         <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的用户</p>
                         </div>
                       </>
                     )}

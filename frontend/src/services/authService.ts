@@ -165,7 +165,11 @@ class AuthService {
 
   // 获取用户游戏历史
   async getUserGameHistory(skip: number = 0, limit: number = 20): Promise<GameHistory[]> {
-    return this.request<GameHistory[]>(`/api/users/game-history?skip=${skip}&limit=${limit}`);
+  const raw = await this.request<any>(`/api/users/game-history?skip=${skip}&limit=${limit}`);
+  // 兼容：若后端返回 {success, data:{ items:[], ...}} 结构则解包
+  if (Array.isArray(raw)) return raw as GameHistory[];
+  if (raw?.data?.items && Array.isArray(raw.data.items)) return raw.data.items as GameHistory[];
+  return [];
   }
 
   // 检查是否已登录

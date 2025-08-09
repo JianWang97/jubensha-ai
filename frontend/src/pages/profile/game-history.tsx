@@ -13,6 +13,7 @@ import { GameHistoryResponse as GameHistory } from '@/client';
 import AppLayout from '@/components/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { toast } from 'sonner';
+import GameHistoryDrawer from '@/components/GameHistoryDrawer';
 
 const GameHistoryPage: React.FC = () => {
   const router = useRouter();
@@ -24,6 +25,12 @@ const GameHistoryPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 10;
+
+  // 抽屉相关状态
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
+  const [selectedScriptTitle, setSelectedScriptTitle] = useState<string | undefined>(undefined);
 
   // 检查认证状态
   useEffect(() => {
@@ -63,7 +70,8 @@ const GameHistoryPage: React.FC = () => {
 
   // 过滤游戏历史
   const filteredHistory = gameHistory.filter(game => {
-    const matchesSearch = game.script_title.toLowerCase().includes(searchTerm.toLowerCase());
+    const title = (game as any).script_title || '';
+    const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || game.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -75,15 +83,34 @@ const GameHistoryPage: React.FC = () => {
     }
   };
 
-  // 获取状态显示
+  // 获取状态显示（兼容大小写）
   const getStatusDisplay = (status: string) => {
+    const s = (status || '').toUpperCase();
     const statusMap: Record<string, { label: string; className: string }> = {
-      waiting: { label: '等待中', className: 'bg-yellow-500/20 text-yellow-400' },
-      playing: { label: '进行中', className: 'bg-blue-500/20 text-blue-400' },
-      finished: { label: '已完成', className: 'bg-green-500/20 text-green-400' },
-      cancelled: { label: '已取消', className: 'bg-red-500/20 text-red-400' },
+      PENDING: { label: '等待中', className: 'bg-yellow-500/20 text-yellow-400' },
+      STARTED: { label: '进行中', className: 'bg-blue-500/20 text-blue-400' },
+      PAUSED: { label: '已暂停', className: 'bg-orange-500/20 text-orange-400' },
+      ENDED: { label: '已结束', className: 'bg-green-500/20 text-green-400' },
+      CANCELED: { label: '已取消', className: 'bg-red-500/20 text-red-400' },
+      WAITING: { label: '等待中', className: 'bg-yellow-500/20 text-yellow-400' },
+      PLAYING: { label: '进行中', className: 'bg-blue-500/20 text-blue-400' },
+      FINISHED: { label: '已结束', className: 'bg-green-500/20 text-green-400' },
+      CANCELLED: { label: '已取消', className: 'bg-red-500/20 text-red-400' },
     };
-    return statusMap[status] || { label: status, className: 'bg-gray-500/20 text-gray-400' };
+    return statusMap[s] || { label: status, className: 'bg-gray-500/20 text-gray-400' };
+  };
+
+  const isActiveStatus = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return ['STARTED','PENDING','PAUSED','PLAYING','WAITING'].includes(s);
+  };
+  const isEndedStatus = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return ['ENDED','FINISHED'].includes(s);
+  };
+  const isCanceledStatus = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return ['CANCELED','CANCELLED'].includes(s);
   };
 
   // 格式化时间
@@ -119,17 +146,6 @@ const GameHistoryPage: React.FC = () => {
     <ProtectedRoute>
       <AppLayout title="游戏历史">
         <div className="max-w-6xl mx-auto">
-          {/* 返回按钮 */}
-          <div className="mb-6">
-            <Link
-              href="/profile"
-              className="inline-flex items-center text-white hover:text-gray-300 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              返回个人资料
-            </Link>
-          </div>
-
           {/* 搜索和过滤 */}
           <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-6">
             <CardContent className="pt-6">
@@ -140,7 +156,7 @@ const GameHistoryPage: React.FC = () => {
                     placeholder="搜索剧本名称或房间名称..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400"
+                    className="pl-10 bg白/10 border-white/20 text-white placeholder-gray-400"
                   />
                 </div>
                 <div className="sm:w-48">
@@ -151,10 +167,11 @@ const GameHistoryPage: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">全部状态</SelectItem>
-                      <SelectItem value="waiting">等待中</SelectItem>
-                      <SelectItem value="playing">进行中</SelectItem>
-                      <SelectItem value="finished">已完成</SelectItem>
-                      <SelectItem value="cancelled">已取消</SelectItem>
+                      <SelectItem value="PENDING">等待中</SelectItem>
+                      <SelectItem value="STARTED">进行中</SelectItem>
+                      <SelectItem value="PAUSED">已暂停</SelectItem>
+                      <SelectItem value="ENDED">已结束</SelectItem>
+                      <SelectItem value="CANCELED">已取消</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -171,7 +188,7 @@ const GameHistoryPage: React.FC = () => {
             <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardContent className="text-center py-12">
                 <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-white mb-2">暂无游戏记录</h3>
+                <h3 className="text-lg font-medium text白 mb-2">暂无游戏记录</h3>
                 <p className="text-gray-400 mb-4">
                   {searchTerm || statusFilter !== 'all' 
                     ? '没有找到符合条件的游戏记录' 
@@ -189,6 +206,12 @@ const GameHistoryPage: React.FC = () => {
             <div className="space-y-4">
               {filteredHistory.map((game) => {
                 const statusDisplay = getStatusDisplay(game.status);
+                const openDrawer = () => {
+                  setSelectedSessionId(game.session_id);
+                  setSelectedStatus(game.status);
+                  setSelectedScriptTitle((game as any).script_title);
+                  setDrawerOpen(true);
+                };
                 return (
                   <Card key={game.id} className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15 transition-colors">
                     <CardContent className="p-6">
@@ -196,7 +219,7 @@ const GameHistoryPage: React.FC = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-lg font-medium text-white">
-                              {game.script_title}
+                              {(game as any).script_title}
                             </h3>
                             <Badge className={statusDisplay.className}>
                               {statusDisplay.label}
@@ -208,91 +231,80 @@ const GameHistoryPage: React.FC = () => {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-500">
                             <div className="flex items-center">
                               <Calendar className="w-4 h-4 mr-1" />
-                              {new Date(game.created_at).toLocaleDateString()}
+                              {new Date((game as any).created_at || Date.now()).toLocaleDateString()}
                             </div>
                             <div className="flex items-center">
                               <Users className="w-4 h-4 mr-1" />
-                              {game.participants?.length || 0} players
+                              AI角色演绎
                             </div>
                             <div className="flex items-center">
                               <Trophy className="w-4 h-4 mr-1" />
                               {game.status}
                             </div>
                           </div>
-                          {game.script_title && (
+                          {(game as any).script_title && (
                             <p className="text-sm text-gray-600 mt-2">
-                              剧本: {game.script_title}
+                              剧本: {(game as any).script_title}
                             </p>
                           )}
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2">
-                          {game.status === 'playing' && (
+                          {isActiveStatus(game.status) && (
                             <Button
-                              onClick={() => router.push(`/game?sessionId=${game.id}&scriptId=${game.script_id}`)}
+                              onClick={() => router.push(`/game?script_id=${(game as any).script_id}`)}
                               className="bg-blue-600 hover:bg-blue-700 text-white"
                             >
                               继续游戏
                             </Button>
                           )}
+                          {isEndedStatus(game.status) && (
+                            <Button
+                              onClick={() => router.push(`/game-history/${encodeURIComponent(game.session_id)}/replay`)}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                              观看回放
+                            </Button>
+                          )}
+                          {!isActiveStatus(game.status) && !isEndedStatus(game.status) && isCanceledStatus(game.status) && (
+                            <Button
+                              variant="outline"
+                              disabled
+                              className="border-white/20 text-white/70"
+                            >
+                              已取消
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             className="border-white/20 text-white hover:bg-white/10"
-                            onClick={() => {
-                              // TODO: 实现游戏详情查看
-                              toast.info('游戏详情功能开发中');
-                            }}
+                            onClick={openDrawer}
                           >
                             查看详情
                           </Button>
                         </div>
                       </div>
-                      
-                      {/* 参与者列表 */}
-                      {game.participants && game.participants.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-white/20">
-                          <h4 className="text-sm font-medium text-white mb-2">参与者：</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {game.participants.map((participant, index) => (
-                              <div key={index} className="flex items-center gap-2 bg-white/10 rounded-full px-3 py-1">
-                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center text-xs font-medium">
-                                  {participant.nickname ? participant.nickname.charAt(0).toUpperCase() : participant.username.charAt(0).toUpperCase()}
-                                </div>
-                                <span className="text-sm text-white">
-                                  {participant.nickname || participant.username}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {/* 已移除参与者列表显示 */}
                     </CardContent>
                   </Card>
                 );
               })}
-              
-              {/* 加载更多按钮 */}
               {hasMore && (
-                <div className="text-center pt-6">
-                  <Button
-                    onClick={loadMore}
-                    disabled={isLoading}
-                    variant="outline"
-                    className="border-white/20 text-white hover:bg-white/10"
-                  >
-                    {isLoading ? (
-                      <div className="flex items-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        加载中...
-                      </div>
-                    ) : (
-                      '加载更多'
-                    )}
-                  </Button>
+                <div className="flex justify-center pt-2">
+                  <Button onClick={loadMore} variant="outline" className="border-white/20 text白 hover:bg-white/10">加载更多</Button>
                 </div>
               )}
             </div>
           )}
         </div>
+
+        {/* 游戏记录详情抽屉 */}
+        <GameHistoryDrawer
+          isOpen={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          sessionId={selectedSessionId}
+          gameStatus={selectedStatus}
+          scriptTitle={selectedScriptTitle}
+        />
       </AppLayout>
     </ProtectedRoute>
   );

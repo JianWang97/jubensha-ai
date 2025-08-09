@@ -22,7 +22,6 @@ interface ScriptDisplay {
 
 // 将后端数据转换为显示格式
 const convertScriptInfo = (scriptInfo: ScriptInfo): ScriptDisplay => {
-  const playerCount = scriptInfo.player_count || 0;
   const duration = scriptInfo.duration_minutes || 0;
   const difficulty = scriptInfo.difficulty || '未知';
   
@@ -31,10 +30,10 @@ const convertScriptInfo = (scriptInfo: ScriptInfo): ScriptDisplay => {
     title: scriptInfo.title || '未命名剧本',
     description: scriptInfo.description || '暂无描述',
     difficulty,
-    players: `${playerCount}人`,
+    players: `AI 自主演绎`,
     duration: `${Math.floor(duration / 60)}小时${duration % 60 > 0 ? `${duration % 60}分钟` : ''}`,
-    rating: Number(scriptInfo.rating) || 4.0, // 使用真实评分
-    playCount: scriptInfo.play_count || 0 // 使用真实游玩次数
+    rating: Number(scriptInfo.rating) || 4.0,
+    playCount: scriptInfo.play_count || 0
   };
 };
 
@@ -85,7 +84,7 @@ const HeroSection = () => {
         <div className="grid grid-cols-3 gap-8 max-w-md mx-auto">
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-400">10K+</div>
-            <div className="text-sm text-gray-400">活跃玩家</div>
+            <div className="text-sm text-gray-400">AI 角色</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-400">50+</div>
@@ -112,14 +111,14 @@ const FeaturesSection = () => {
     },
     {
       icon: <Users className="w-8 h-8" />,
-      title: "多人协作",
-      description: "支持多人在线协作推理，与朋友一起解开谜团",
+      title: "全自动演绎",
+      description: "无需真人参与，AI 角色自行推动剧情发展",
       color: "from-blue-500 to-cyan-500"
     },
     {
       icon: <TrendingUp className="w-8 h-8" />,
       title: "动态剧情",
-      description: "基于玩家选择的动态剧情发展，每次游戏都是独特的故事",
+      description: "基于AI推理的动态剧情发展，每次游戏都是独特的故事",
       color: "from-green-500 to-emerald-500"
     }
   ];
@@ -129,8 +128,9 @@ const FeaturesSection = () => {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-white mb-4">为什么选择我们</h2>
-          <p className="text-xl text-gray-400">体验下一代剧本杀游戏的魅力</p>
-        </div>
+-           <p className="text-xl text-gray-400">体验下一代剧本杀游戏的魅力</p>
++           <p className="text-xl text-gray-400">体验下一代由AI驱动的剧本杀</p>
+          </div>
         
         <div className="grid md:grid-cols-3 gap-8">
           {features.map((feature, index) => (
@@ -156,7 +156,6 @@ const FeaturesSection = () => {
 
 export default function HomePage() {
   const router = useRouter();
-  const [sessionId, setSessionId] = useState('');
   const [scriptId, setScriptId] = useState('1');
   const [scripts, setScripts] = useState<ScriptDisplay[]>([]);
   const [selectedScript, setSelectedScript] = useState<ScriptDisplay | null>(null);
@@ -214,9 +213,7 @@ export default function HomePage() {
   //   }
   // }, [scriptId, scripts]);
 
-  const gameUrl = sessionId 
-    ? `/game?session_id=${encodeURIComponent(sessionId)}&script_id=${scriptId}`
-    : `/game?script_id=${scriptId}`;
+  const gameUrl = `/game?script_id=${scriptId}`;
 
   return (
     <AppLayout showSidebar={false}>

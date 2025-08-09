@@ -6,19 +6,18 @@ import { useTTSService } from '@/stores/ttsStore';
 import { useWebSocketStore } from '@/stores/websocketStore';
 
 const GamePage = () => {
-  // 从URL参数获取session_id和script_id
+  // 从URL参数获取script_id
   const getUrlParams = () => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       return {
-        sessionId: urlParams.get('session_id') || undefined,
         scriptId: urlParams.get('script_id') ? parseInt(urlParams.get('script_id')!) : undefined
       };
     }
-    return { sessionId: undefined, scriptId: undefined };
+    return { scriptId: undefined };
   };
 
-  const { sessionId, scriptId } = getUrlParams();
+  const { scriptId } = getUrlParams();
   const router = (typeof window !== 'undefined') ? require('next/router').useRouter() : null;
 
   const {
@@ -28,7 +27,7 @@ const GamePage = () => {
     isGameStarted, // 仍保留但将逐步替换为ws标志
     handleSelectScript,
     handleStartGame
-  } = useGameState(sessionId, scriptId);
+  } = useGameState(scriptId);
 
   // WebSocket store for game control
   const { nextPhase, gameState, isGameRunning, gameInitialized, startGame, fetchHistory } = useWebSocketStore() as any;
@@ -89,7 +88,7 @@ const GamePage = () => {
       
       // 添加欢迎语音到队列
       setTimeout(() => {
-        queueTTS('系统', '游戏开始！欢迎来到剧本杀的世界，请各位玩家准备好开始这场精彩的推理之旅！', 'female-shaonv');
+        queueTTS('系统', '游戏开始！欢迎来到剧本杀的世界，本次由AI角色自主演绎，我们一起见证故事的展开。', 'female-shaonv');
       }, 500); // 延迟500ms确保游戏状态已更新
     } catch (error) {
       console.error('启动游戏时出错:', error);

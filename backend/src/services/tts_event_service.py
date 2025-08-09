@@ -13,7 +13,6 @@ from datetime import datetime
 from .tts_service import TTSService
 from .base_tts import TTSRequest
 from ..core.config import config
-from ..db.session import db_manager
 from ..db.models.game_event import GameEventDBModel, TTSGeneratedStatus
 from ..db.repositories.game_session_repository import GameSessionRepository
 
@@ -61,6 +60,8 @@ class TTSEventService:
             创建的游戏事件对象，如果创建失败则返回None
         """
         try:
+            # 延迟导入以避免循环依赖（Alembic迁移时）
+            from ..db.session import db_manager  # type: ignore
             # 创建游戏事件记录
             with db_manager.session_scope() as db:
                 game_event = GameEventDBModel(
@@ -190,6 +191,7 @@ class TTSEventService:
     async def _update_tts_success(self, event_id: int, file_url: str, voice_id: Optional[str]):
         """更新TTS成功状态"""
         try:
+            from ..db.session import db_manager  # type: ignore
             with db_manager.session_scope() as db:
                 event = db.query(GameEventDBModel).filter(GameEventDBModel.id == event_id).first()
                 if event:
@@ -201,6 +203,7 @@ class TTSEventService:
     async def _mark_tts_failed(self, event_id: int, error_msg: str):
         """标记TTS失败"""
         try:
+            from ..db.session import db_manager  # type: ignore
             with db_manager.session_scope() as db:
                 event = db.query(GameEventDBModel).filter(GameEventDBModel.id == event_id).first()
                 if event:
@@ -213,6 +216,7 @@ class TTSEventService:
     async def _skip_tts(self, event_id: int, reason: str):
         """跳过TTS生成"""
         try:
+            from ..db.session import db_manager  # type: ignore
             with db_manager.session_scope() as db:
                 event = db.query(GameEventDBModel).filter(GameEventDBModel.id == event_id).first()
                 if event:
@@ -225,6 +229,7 @@ class TTSEventService:
     async def get_event_audio_url(self, event_id: int) -> Optional[str]:
         """获取事件的音频URL"""
         try:
+            from ..db.session import db_manager  # type: ignore
             with db_manager.session_scope() as db:
                 event = db.query(GameEventDBModel).filter(GameEventDBModel.id == event_id).first()
                 if event and event.tts_status == TTSGeneratedStatus.COMPLETED:
