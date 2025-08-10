@@ -1,20 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useTTSStore } from '@/stores/ttsStore';
+'use client';
 import { ScriptCharacter } from '@/client';
-
-interface GameLogEntry {
-  character: string;
-  content: string;
-  type?: string;
-  timestamp?: Date;
-}
+import { useTTSStore } from '@/stores/ttsStore';
+import Image from 'next/image';
 
 interface CharacterAvatarsProps {
   characters: ScriptCharacter[];
-  gameLog: GameLogEntry[];
 }
 
-const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsProps) => {
+const CharacterAvatars = ({ characters = [] }: CharacterAvatarsProps) => {
   // 从TTS store获取当前发言状态
   const { currentSpeakingCharacter } = useTTSStore();
   
@@ -24,9 +17,11 @@ const CharacterAvatars = ({ characters = [], gameLog = [] }: CharacterAvatarsPro
     // 如果有头像URL，返回图片元素
     if (character.avatar_url) {
       return (
-        <img 
-          src={character.avatar_url} 
-          alt={character.name}
+        <Image 
+          src={character.avatar_url || ''} 
+          alt={character.name || ''}
+          width={64}
+          height={64}
           className="w-full h-full object-cover rounded-full"
           onError={(e) => {
             // 图片加载失败时显示默认emoji

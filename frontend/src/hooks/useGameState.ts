@@ -27,15 +27,15 @@ export const useGameState = (scriptId?: number) => {
   // 使用 client services 替代 useApiClient
   const getCharacters = async (scriptId: number) => {
     const response = await Service.getCharactersApiCharactersScriptIdCharactersGet(scriptId);
-    if(!response.success){
+    if (!response.success) {
       throw new Error(response.message);
     }
     return response.data;
   };
-  
+
   const getScript = async (scriptId: number) => {
     const response = await ScriptsService.getScriptApiScriptsScriptIdGet(scriptId);
-    if(!response.success){
+    if (!response.success) {
       throw new Error(response.message);
     }
     return response.data;
@@ -176,7 +176,7 @@ export const useGameState = (scriptId?: number) => {
   useEffect(() => {
     if (gameState) {
       setCurrentPhase(getPhaseDisplayName(gameState.phase));
-      
+
       // 处理游戏事件 - 使用ref跟踪已处理的事件数量
       if (gameState.events && gameState.events.length > processedEventsCountRef.current) {
         // 只处理新增的事件
@@ -202,7 +202,7 @@ export const useGameState = (scriptId?: number) => {
     };
 
     window.addEventListener('history_chat_received', handleHistoryChat as EventListener);
-    
+
     return () => {
       window.removeEventListener('history_chat_received', handleHistoryChat as EventListener);
     };
@@ -211,7 +211,7 @@ export const useGameState = (scriptId?: number) => {
   return {
     // 连接状态
     isConnected,
-    
+
     // 游戏状态
     selectedScript,
     characters,
@@ -221,14 +221,14 @@ export const useGameState = (scriptId?: number) => {
     gameResult,
     isGameStarted,
     gameState,
-    
+
     // 操作函数
     handleSelectScript,
     handleStartGame,
     handleNextPhase,
     handleResetGame,
     addLogEntry,
-    
+
     // 工具函数
     getPhaseDisplayName
   };

@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { useRouter } from 'next/router';
-import { Sparkles, PenTool, ArrowRight, Lightbulb, Users, Clock, BookOpen, Wand2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/components/AppLayout';
 import AuthGuard from '@/components/AuthGuard';
-import scriptService, { GeneratedScriptInfo, CreateScriptRequest, CreatedScript, GenerateScriptContentRequest } from '@/services/scriptService';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import scriptService, { GenerateScriptContentRequest, GeneratedScriptInfo } from '@/services/scriptService';
+import { ArrowRight, BookOpen, Lightbulb, PenTool, Sparkles, Wand2 } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
 
 interface InspirationOption {
@@ -406,7 +406,7 @@ export default function CreateScript() {
 
   return (
     <AuthGuard>
-      <AppLayout title="创建新剧本">
+      <AppLayout >
         <div className="min-h-screen bg-slate-900 py-8 px-4">
           {!selectedInspiration || !generatedInfo ? renderInspirationStep() : renderDetailsStep()}
         </div>

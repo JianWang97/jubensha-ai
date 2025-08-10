@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { create } from 'zustand';
+import { authService } from '@/services/authService';
 import { useEffect } from 'react';
+import { create } from 'zustand';
 import { useConfigStore } from './configStore';
 import { useTTSStore } from './ttsStore';
-import { authService } from '@/services/authService';
 
 export interface GameState {
   phase: string;

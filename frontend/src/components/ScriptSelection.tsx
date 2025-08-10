@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Script_Output as Script, ApiError, ScriptInfo } from '@/client';
+import { ScriptInfo } from '@/client';
 import { ScriptsService } from '@/client';
 
 interface ScriptSelectionProps {

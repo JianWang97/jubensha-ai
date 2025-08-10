@@ -1,8 +1,8 @@
-import { useRouter } from 'next/router';
-import React, { useEffect } from 'react';
-import Link from 'next/link';
-import { useGameHistoryStore } from '../../../stores/gameHistoryStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
+import { useGameHistoryStore } from '../../../stores/gameHistoryStore';
 
 export default function GameDetailPage(){
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function GameDetailPage(){
     <div className='flex items-center gap-4'>
       <h1 className='text-xl font-semibold'>会话详情 {session_info.session_id}</h1>
       {isEnded && <Link href={`/game-history/${session_info.session_id}/replay`} className='text-xs px-3 py-1 rounded bg-indigo-600 text-white'>回放</Link>}
-      {isActive && <Link href={`/game?script_id=${session_info.script_id}`} className='text-xs px-3 py-1 rounded bg-emerald-600 text-white'>进入游戏</Link>
+      {isActive && <Link href={`/game?script_id=${session_info.script_id}`} className='text-xs px-3 py-1 rounded bg-emerald-600 text-white'>进入游戏</Link>}
       {isCanceled && <span className='text-xs px-3 py-1 rounded bg-gray-500 text-white opacity-50'>已取消</span>}
     </div>
     <section className='grid md:grid-cols-2 gap-6'>

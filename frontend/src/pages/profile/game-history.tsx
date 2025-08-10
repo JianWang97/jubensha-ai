@@ -1,19 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { ArrowLeft, Calendar, Users, Trophy, Clock, Search, Filter } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuthStore } from '@/stores/authStore';
-import { authService } from '@/services/authService';
 import { GameHistoryResponse as GameHistory } from '@/client';
 import AppLayout from '@/components/AppLayout';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import { toast } from 'sonner';
 import GameHistoryDrawer from '@/components/GameHistoryDrawer';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { authService } from '@/services/authService';
+import { useAuthStore } from '@/stores/authStore';
+import { Calendar, Filter, Search, Trophy, Users } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 const GameHistoryPage: React.FC = () => {
   const router = useRouter();
@@ -144,7 +143,7 @@ const GameHistoryPage: React.FC = () => {
 
   return (
     <ProtectedRoute>
-      <AppLayout title="游戏历史">
+      <AppLayout>
         <div className="max-w-6xl mx-auto">
           {/* 搜索和过滤 */}
           <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-6">

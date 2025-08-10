@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { Search, Grid, List, Heart, Star, Users, Clock, Play, Bookmark, Share2, Plus, User, Library, BookOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Input } from '@/components/ui/input';
+import { Bookmark, BookOpen, Clock, Grid, Heart, Library, List, Play, Plus, Search, Share2, Star, User, Users } from 'lucide-react';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
 
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import AppLayout from '@/components/AppLayout';
-import AuthGuard from '@/components/AuthGuard';
 import { ScriptInfo, ScriptsService, ScriptStatus, Service } from '@/client';
 import type { ScriptCharacter } from '@/client/models/ScriptCharacter';
 import type { Script_Output } from '@/client/models/Script_Output';
+import AppLayout from '@/components/AppLayout';
+import AuthGuard from '@/components/AuthGuard';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
 type TabType = 'my-scripts' | 'script-library';
@@ -23,15 +23,15 @@ type TabType = 'my-scripts' | 'script-library';
 
 const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete, onPublish, isMyScript }) => {
   const router = useRouter();
-  
+
   return (
-    <Card 
+    <Card
       className="group relative overflow-hidden border-slate-700/30 hover:border-indigo-500/40 transition-all duration-500 cursor-pointer h-80"
       onClick={() => onDetailClick && onDetailClick(script)}
     >
       {/* 背景图片 - 覆盖整个卡片 */}
       <div className="absolute inset-0">
-        <img 
+        <img
           src={script.cover_image_url || script.image || `https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent('mystery script book cover, dark theme, elegant design')}&image_size=landscape_4_3`}
           alt={script.title}
           className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-700"
@@ -39,7 +39,7 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
         {/* 渐变遮罩 - 从底部开始更强烈 */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
       </div>
-      
+
       {/* 顶部浮动元素 */}
       <div className="relative z-10">
         {/* 收藏按钮 */}
@@ -56,67 +56,66 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
             <Heart className={`h-4 w-4 ${script.isFavorite ? 'fill-rose-400 text-rose-400' : 'text-white/80'}`} />
           </Button>
         )}
-        
+
         {/* 分类标签 */}
         <div className="absolute top-3 left-3">
           <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 text-xs font-medium">
             {script.category || '推理'}
           </Badge>
         </div>
-        
+
         {/* 评分 */}
         <div className="absolute top-3 right-16 flex items-center gap-1 bg-slate-900/50 backdrop-blur-sm rounded-full px-2 py-1">
           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
           <span className="text-xs font-medium text-white">{script.rating || '4.5'}</span>
         </div>
       </div>
-      
+
       {/* 内容区域 - 毛玻璃背景 */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
         <div className="bg-slate-900/40 backdrop-blur-md border-t border-slate-700/30 p-4 space-y-3">
-        {/* 状态和作者信息 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
-              script.status === ScriptStatus.ARCHIVED || script.status === ScriptStatus.PUBLISHED
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-            }`}>
-              {script.status === ScriptStatus.ARCHIVED || script.status === ScriptStatus.PUBLISHED ? '已发布' : '草稿'}
-            </span>
-            {!isMyScript && (
-              <span className="text-xs text-slate-400 bg-slate-800/60 px-2 py-1 rounded">
-                by {script.author}
+          {/* 状态和作者信息 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-1 rounded text-xs font-medium ${script.status === ScriptStatus.ARCHIVED || script.status === ScriptStatus.PUBLISHED
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}>
+                {script.status === ScriptStatus.ARCHIVED || script.status === ScriptStatus.PUBLISHED ? '已发布' : '草稿'}
               </span>
+              {!isMyScript && (
+                <span className="text-xs text-slate-400 bg-slate-800/60 px-2 py-1 rounded">
+                  by {script.author}
+                </span>
+              )}
+            </div>
+            <span className="text-indigo-300 text-sm">{script.player_count}人</span>
+          </div>
+
+          {/* 标题 */}
+          <h3 className="font-semibold text-white text-lg leading-tight line-clamp-1 group-hover:text-indigo-300 transition-colors">
+            {script.title}
+          </h3>
+
+          {/* 描述 */}
+          <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">
+            {script.description || '暂无描述'}
+          </p>
+
+          {/* 标签 */}
+          <div className="flex flex-wrap gap-1">
+            {(script.tags || ['悬疑', '推理']).slice(0, 3).map((tag) => (
+              <Badge key={tag} variant="outline" className="text-xs text-slate-300 border-slate-600 bg-slate-800/50">
+                {tag}
+              </Badge>
+            ))}
+            {(script.tags || []).length > 3 && (
+              <Badge variant="outline" className="text-xs text-slate-400 border-slate-600 bg-slate-800/30">
+                +{(script.tags || []).length - 3}
+              </Badge>
             )}
           </div>
-          <span className="text-indigo-300 text-sm">{script.player_count}人</span>
-        </div>
-        
-        {/* 标题 */}
-        <h3 className="font-semibold text-white text-lg leading-tight line-clamp-1 group-hover:text-indigo-300 transition-colors">
-          {script.title}
-        </h3>
-        
-        {/* 描述 */}
-        <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">
-          {script.description || '暂无描述'}
-        </p>
-        
-        {/* 标签 */}
-        <div className="flex flex-wrap gap-1">
-          {(script.tags || ['悬疑', '推理']).slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs text-slate-300 border-slate-600 bg-slate-800/50">
-              {tag}
-            </Badge>
-          ))}
-          {(script.tags || []).length > 3 && (
-            <Badge variant="outline" className="text-xs text-slate-400 border-slate-600 bg-slate-800/30">
-              +{(script.tags || []).length - 3}
-            </Badge>
-          )}
-        </div>
-        
+
           {/* 底部信息和操作按钮 */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-600/30">
             <div className="flex items-center gap-4 text-xs text-slate-300">
@@ -129,14 +128,14 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
                 <span>{script.duration || '2-3小时'}</span>
               </div>
             </div>
-            
+
             {/* 操作按钮 */}
             <div className="flex gap-1">
               {isMyScript ? (
                 // 我的剧本：编辑、删除、发布
                 <>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="h-7 px-2 bg-indigo-500/80 hover:bg-indigo-600 text-white border-0 text-xs backdrop-blur-sm"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -146,8 +145,8 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
                     编辑
                   </Button>
                   {script.status === ScriptStatus.DRAFT && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="h-7 px-2 bg-emerald-500/80 hover:bg-emerald-600 text-white border-0 text-xs backdrop-blur-sm"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -157,8 +156,8 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
                       发布
                     </Button>
                   )}
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="h-7 px-2 bg-rose-500/80 hover:bg-rose-600 text-white border-0 text-xs backdrop-blur-sm"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -171,8 +170,8 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
               ) : (
                 // 剧本库：查看、开始
                 <>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="h-7 px-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 hover:from-indigo-600 hover:to-purple-600 text-white border-0 text-xs backdrop-blur-sm"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -207,7 +206,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
 
   const fetchScriptDetails = async () => {
     if (!script?.id) return;
-    
+
     try {
       setLoading(true);
       // 获取完整剧本信息
@@ -216,7 +215,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
       if (scriptResponse.data) {
         setScriptDetails(scriptResponse.data);
       }
-      
+
       // 获取角色信息
       try {
         const charactersResponse = await Service.getCharactersApiCharactersScriptIdCharactersGet(script.id);
@@ -225,11 +224,11 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
         console.warn('Failed to fetch characters:', error);
         setCharacters([]);
       }
-      
+
       // 获取游戏阶段信息（如果有相关API）
       // const phasesResponse = await Service.getGamePhasesApiGamePhasesScriptIdPhasesGet(script.id);
       // setGamePhases(phasesResponse.data || []);
-      
+
     } catch (error) {
       console.error('Failed to fetch script details:', error);
     } finally {
@@ -257,7 +256,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
           <DrawerHeader className="pb-6">
             <div className="flex items-start gap-6">
               <div className="relative">
-                <img 
+                <img
                   src={displayScript.cover_image_url || displayScript.image || `https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent('mystery script book cover, dark theme, elegant design')}&image_size=square_hd`}
                   alt={displayScript.title}
                   className="w-40 h-40 object-cover object-center rounded-2xl shadow-2xl"
@@ -266,7 +265,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
               </div>
               <div className="flex-1 space-y-4">
                 <DrawerTitle className="text-3xl font-bold text-white leading-tight">{displayScript.title}</DrawerTitle>
-                
+
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2 bg-slate-800/50 rounded-full px-3 py-1">
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -279,7 +278,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                     {displayScript.difficulty_level || '中等'}
                   </Badge>
                 </div>
-                
+
                 <div className="flex flex-wrap gap-2">
                   {(displayScript.tags && Array.isArray(displayScript.tags) && displayScript.tags.length > 0 ? displayScript.tags : ['暂无标签']).map((tag, index) => (
                     <Badge key={index} variant="secondary" className="bg-slate-800/50 text-slate-300 border-slate-600/30 text-xs">
@@ -287,7 +286,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                     </Badge>
                   ))}
                 </div>
-                
+
                 <div className="flex items-center gap-8 text-slate-400">
                   <div className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
@@ -310,26 +309,26 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
           <div className="px-6 pb-6">
             <Tabs defaultValue="description" className="w-full">
               <TabsList className="grid w-full grid-cols-4 bg-slate-900/50 border-slate-700/30 rounded-xl p-1">
-                <TabsTrigger 
-                  value="description" 
+                <TabsTrigger
+                  value="description"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-lg transition-all font-medium"
                 >
                   剧本介绍
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="characters" 
+                <TabsTrigger
+                  value="characters"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-lg transition-all font-medium"
                 >
                   角色信息
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="rules" 
+                <TabsTrigger
+                  value="rules"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-lg transition-all font-medium"
                 >
                   游戏规则
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="reviews" 
+                <TabsTrigger
+                  value="reviews"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-lg transition-all font-medium"
                 >
                   评价
@@ -386,8 +385,8 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                         <div key={character.id || index} className="border border-slate-600/30 rounded-xl p-5 bg-slate-800/30 backdrop-blur-sm">
                           <div className="flex items-start gap-4">
                             {character.avatar_url && (
-                              <img 
-                                src={character.avatar_url} 
+                              <img
+                                src={character.avatar_url}
                                 alt={character.name}
                                 className="w-12 h-12 rounded-full object-cover"
                               />
@@ -523,14 +522,13 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                               <div className="text-slate-400 text-sm">平均评分</div>
                               {displayScript.rating && typeof displayScript.rating === 'number' && displayScript.rating > 0 && (
                                 <div className="flex justify-center mt-2">
-                                  {[1,2,3,4,5].map((star) => (
-                                    <Star 
-                                      key={star} 
-                                      className={`h-4 w-4 ${
-                                        star <= Math.round(displayScript.rating) 
-                                          ? 'fill-amber-400 text-amber-400' 
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`h-4 w-4 ${star <= Math.round(displayScript.rating)
+                                          ? 'fill-amber-400 text-amber-400'
                                           : 'text-slate-500'
-                                      }`} 
+                                        }`}
                                     />
                                   ))}
                                 </div>
@@ -544,7 +542,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="bg-slate-800/30 rounded-xl p-5">
                           <h4 className="font-semibold mb-4 text-white text-lg">剧本信息</h4>
                           <div className="space-y-3 text-sm">
@@ -574,7 +572,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="text-center py-4">
                           <p className="text-slate-400 text-sm">暂无用户评价</p>
                           -                         <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的玩家</p>
@@ -587,7 +585,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
               </TabsContent>
             </Tabs>
             <div className="flex gap-3 mt-6">
-              <Button 
+              <Button
                 className="flex-1 h-12 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-medium"
                 onClick={() => {
                   onClose();
@@ -597,15 +595,15 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                 <Play className="h-4 w-4 mr-2" />
                 立即开始
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="h-12 px-6 border-slate-600/40 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50"
               >
                 <Bookmark className="h-4 w-4 mr-2" />
                 收藏
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="h-12 px-6 border-slate-600/40 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50"
               >
                 <Share2 className="h-4 w-4 mr-2" />
@@ -631,23 +629,23 @@ export default function ScriptCenter() {
 
   const [selectedScript, setSelectedScript] = useState<ScriptInfo | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  
+
   // 分别存储我的剧本和剧本库
   const [myScripts, setMyScripts] = useState<ScriptInfo[]>([]);
   const [libraryScripts, setLibraryScripts] = useState<ScriptInfo[]>([]);
-  
+
   // 获取我的剧本
   const getMyScripts = async () => {
     const response = await ScriptsService.getScriptsApiScriptsGet();
     return response.items || [];
   };
-  
+
   // 获取剧本库（公开剧本）
   const getLibraryScripts = async () => {
     const response = await ScriptsService.getPublicScriptsApiScriptsPublicGet();
     return response.items || [];
   };
-  
+
   const deleteScript = async (scriptId: number) => {
     await ScriptsService.deleteScriptApiScriptsScriptIdDelete(scriptId);
   };
@@ -703,7 +701,7 @@ export default function ScriptCenter() {
           scriptId,
           ScriptStatus.PUBLISHED
         );
-        
+
         await fetchScripts();
         toast.success('剧本发布成功！现在其他用户可以在剧本库中看到您的剧本了。');
       } catch (err) {
@@ -712,46 +710,46 @@ export default function ScriptCenter() {
       }
     }
   };
-  
 
-  
+
+
   // 收藏切换
   const handleFavoriteToggle = (scriptId: number) => {
     // 实现收藏功能
     console.log('Toggle favorite for script:', scriptId);
   };
-  
+
   // 查看剧本详情
   const handleScriptDetail = (script: ScriptInfo) => {
     setSelectedScript(script);
     setIsDetailOpen(true);
   };
-  
 
-  
+
+
   // 过滤脚本
   const filterScripts = (scripts: ScriptInfo[]) => {
     let filtered = scripts;
-    
+
     // 搜索过滤
     if (searchTerm) {
-      filtered = filtered.filter(script => 
+      filtered = filtered.filter(script =>
         script.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         script.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         script.author?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
+
     return filtered;
   };
-  
+
   const currentScripts = activeTab === 'my-scripts' ? myScripts : libraryScripts;
   const filteredScripts = filterScripts(currentScripts);
   const isMyScripts = activeTab === 'my-scripts';
 
   return (
     <AuthGuard>
-      <AppLayout title="剧本中心">
+      <AppLayout>
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950/30 to-slate-900">
           {/* 现代化头部 */}
           <div className="sticky top-0 z-10 bg-slate-950/80 backdrop-blur-xl border-b border-indigo-500/20">
@@ -763,7 +761,7 @@ export default function ScriptCenter() {
                     <BookOpen className="w-6 h-6 text-purple-400" />
                     <h1 className="text-2xl font-bold text-white">剧本中心</h1>
                   </div>
-                  
+
                   <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
@@ -774,7 +772,7 @@ export default function ScriptCenter() {
                     />
                   </div>
                 </div>
-                
+
                 {/* 右侧控制 */}
                 <div className="flex items-center gap-3">
                   {/* 创建按钮 */}
@@ -785,20 +783,19 @@ export default function ScriptCenter() {
                     <Plus className="h-4 w-4 mr-2" />
                     创建剧本
                   </Button>
-                  
 
-                  
+
+
                   {/* 视图切换 */}
                   <div className="flex bg-slate-800/50 border border-slate-700/50 rounded-xl p-1">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setViewMode('grid')}
-                      className={`h-10 px-4 rounded-lg transition-all ${
-                        viewMode === 'grid' 
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg' 
+                      className={`h-10 px-4 rounded-lg transition-all ${viewMode === 'grid'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
                           : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                      }`}
+                        }`}
                     >
                       <Grid className="h-4 w-4" />
                     </Button>
@@ -806,11 +803,10 @@ export default function ScriptCenter() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setViewMode('list')}
-                      className={`h-10 px-4 rounded-lg transition-all ${
-                        viewMode === 'list' 
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg' 
+                      className={`h-10 px-4 rounded-lg transition-all ${viewMode === 'list'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
                           : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                      }`}
+                        }`}
                     >
                       <List className="h-4 w-4" />
                     </Button>
@@ -826,22 +822,20 @@ export default function ScriptCenter() {
               <div className="flex bg-slate-950/70 rounded-lg p-1 w-fit">
                 <button
                   onClick={() => setActiveTab('my-scripts')}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'my-scripts'
+                  className={`flex items-center gap-2 px-6 py-3 rounded-md text-sm font-medium transition-all ${activeTab === 'my-scripts'
                       ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                  }`}
+                    }`}
                 >
                   <User className="w-4 h-4" />
                   我的剧本
                 </button>
                 <button
                   onClick={() => setActiveTab('script-library')}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'script-library'
+                  className={`flex items-center gap-2 px-6 py-3 rounded-md text-sm font-medium transition-all ${activeTab === 'script-library'
                       ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                  }`}
+                    }`}
                 >
                   <Library className="w-4 h-4" />
                   剧本库
@@ -868,8 +862,8 @@ export default function ScriptCenter() {
                   <div className="flex items-center justify-center py-24">
                     <div className="text-center space-y-4">
                       <div className="text-red-400 text-lg mb-4">{error}</div>
-                      <Button 
-                        onClick={() => fetchScripts()} 
+                      <Button
+                        onClick={() => fetchScripts()}
                         className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-8 py-3 rounded-xl"
                       >
                         重新加载
@@ -885,32 +879,32 @@ export default function ScriptCenter() {
                         <Library className="w-8 h-8 text-indigo-400" />
                       )}
                     </div>
-                    
+
                     <div className="space-y-3 mb-6">
                       <h3 className="text-xl font-semibold text-white">
-                        {searchTerm 
-                          ? '没有找到匹配的剧本' 
+                        {searchTerm
+                          ? '没有找到匹配的剧本'
                           : (isMyScripts ? '暂无我的剧本' : '剧本库为空')
-                        } 
+                        }
                       </h3>
                       <p className="text-gray-400">
                         {searchTerm
-                          ? '尝试调整搜索条件' 
+                          ? '尝试调整搜索条件'
                           : (isMyScripts ? '开始创建您的第一个剧本' : '暂时没有公开的剧本')
-                        } 
+                        }
                       </p>
                     </div>
-                    
+
                     {isMyScripts && !searchTerm && (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                        <Button 
+                        <Button
                           onClick={() => router.push('/script-manager/create')}
                           className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium"
                         >
                           <Plus className="w-4 h-4 mr-2" />
                           创建新剧本
                         </Button>
-                        <Button 
+                        <Button
                           onClick={() => setActiveTab('script-library')}
                           variant="outline"
                           className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 px-6 py-3 rounded-lg font-medium"
@@ -922,11 +916,10 @@ export default function ScriptCenter() {
                     )}
                   </div>
                 ) : (
-                  <div className={`grid gap-6 ${
-                    viewMode === 'grid' 
-                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' 
+                  <div className={`grid gap-6 ${viewMode === 'grid'
+                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
                       : 'grid-cols-1 max-w-4xl mx-auto'
-                  }`}>
+                    }`}>
                     {filteredScripts.map((script) => (
                       <ScriptCard
                         key={script.id}

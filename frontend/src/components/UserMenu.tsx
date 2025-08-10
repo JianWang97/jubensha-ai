@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { User, LogOut, Settings, History, ChevronDown, ArrowRight, UserCheck } from 'lucide-react';
+import { User, LogOut, Settings, ChevronDown, ArrowRight, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

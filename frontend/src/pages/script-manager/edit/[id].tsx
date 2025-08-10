@@ -1,57 +1,51 @@
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
-import Layout from '@/components/Layout';
-import EvidenceManager from '@/components/EvidenceManager';
-import CharacterManager from '@/components/CharacterManager';
-import LocationManager from '@/components/LocationManager';
-import ChatEditor from '@/components/ChatEditor';
-import ImageSelector from '@/components/ImageSelector';
 import {
-  ScriptsService,
-  Service,
+  ImageType,
   ScriptInfo,
-  ScriptStatus,
-  ImageType
+  ScriptsService,
+  ScriptStatus
 } from '@/client';
+import CharacterManager from '@/components/CharacterManager';
+import ChatEditor from '@/components/ChatEditor';
+import EvidenceManager from '@/components/EvidenceManager';
+import ImageSelector from '@/components/ImageSelector';
+import Layout from '@/components/Layout';
+import LocationManager from '@/components/LocationManager';
+import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
 
 import { Script_Output as Script } from '@/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Loader2, 
-  FileText, 
-  BookOpen, 
-  Search, 
-  Users, 
-  Building, 
-  Save, 
-  PenTool, 
-  Clock, 
-  Target, 
-  BarChart3, 
-  Star, 
-  Globe, 
-  Drama, 
-  Newspaper, 
-  User, 
-  MapPin, 
-  PocketKnife, 
-  Clipboard, 
-  AlertTriangle, 
-  Trophy, 
-  X, 
-  ArrowLeft,
-  Camera,
-  Bot,
-  Zap
-} from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useWebSocketStore } from '@/stores/websocketStore';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BarChart3,
+  BookOpen,
+  Building,
+  Clipboard,
+  Clock,
+  Drama,
+  FileText,
+  Globe,
+  MapPin,
+  Newspaper,
+  PenTool,
+  PocketKnife,
+  Save,
+  Search,
+  Star,
+  Target,
+  Trophy,
+  User,
+  Users,
+  X
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 // Tab类型定义
 type TabType = 'basic' | 'evidence' | 'characters' | 'locations' | 'background';
@@ -90,7 +84,7 @@ const ScriptEditPage = () => {
   });
 
   // WebSocket连接
-  const { connect, disconnect, isConnected } = useWebSocketStore();
+  const { connect, disconnect } = useWebSocketStore();
 
   // 背景故事状态管理 - 与后端schema保持一致
   const [backgroundStory, setBackgroundStory] = useState({
@@ -118,7 +112,7 @@ const ScriptEditPage = () => {
           const scriptData = await getScriptWithDetail(parseInt(id));
           if (!scriptData) {
             toast('剧本不存在');
-            return;
+            return; 
           }
           setScript(scriptData);
           setBasicFormData({
@@ -152,7 +146,7 @@ const ScriptEditPage = () => {
   useEffect(() => {
     if (id && typeof id === 'string' && !isNaN(parseInt(id))) {
       // 建立WebSocket连接，传入脚本ID
-      connect(undefined, parseInt(id));
+      connect(parseInt(id));
     }
 
     // 组件卸载时断开连接

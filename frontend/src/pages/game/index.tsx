@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
 import AppLayout from '@/components/AppLayout';
 import GameControlDrawer from '@/components/GameControlDrawer';
 import { useGameState } from '@/hooks/useGameState';
 import { useTTSService } from '@/stores/ttsStore';
 import { useWebSocketStore } from '@/stores/websocketStore';
+import { useEffect, useState } from 'react';
 
 const GamePage = () => {
   // 从URL参数获取script_id
@@ -25,7 +25,6 @@ const GamePage = () => {
     characters,
     gameLog,
     isGameStarted, // 仍保留但将逐步替换为ws标志
-    handleSelectScript,
     handleStartGame
   } = useGameState(scriptId);
 
@@ -151,7 +150,7 @@ const GamePage = () => {
   }, [ttsEnabled, audioInitialized, initializeAudio]);
 
   return (
-    <AppLayout title={`游戏进行中 - ${selectedScript?.info.title || '未知剧本'}`} showSidebar={false} backgroundImage={getSceneBackground()} isGamePage={true}>
+    <AppLayout showSidebar={false} backgroundImage={getSceneBackground()} isGamePage={true}>
       {(
         <>
           {/* 开始游戏按钮 - 仅在游戏未开始时显示 */}

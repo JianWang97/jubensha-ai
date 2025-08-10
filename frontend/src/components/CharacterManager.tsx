@@ -1,34 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CharacterCreateRequest, CharacterUpdateRequest, ImageType, ScriptCharacter, Service } from '@/client';
+import ImageSelector from '@/components/ImageSelector';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { MultiSelect } from '@/components/ui/multi-select';
-import ImageSelector from '@/components/ImageSelector';
-import { 
-  Users, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  User, 
-  Briefcase, 
-  Book, 
-  EyeOff, 
-  Target, 
-  Calendar, 
-  VolumeX, 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Book,
+  Briefcase,
+  Calendar,
+  Edit,
+  EyeOff,
   Mic,
-  X 
+  Plus,
+  Target,
+  Trash2,
+  User,
+  Users,
+  VolumeX,
+  X
 } from 'lucide-react';
-import {  CharacterCreateRequest, CharacterUpdateRequest, ImageGenerationRequest, ImageType, ScriptCharacter } from '@/client';
-import { Service } from '@/client';
+import Image from 'next/image';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useParams } from 'next/navigation';
 
 interface CharacterManagerProps {
   scriptId: string;
@@ -125,13 +124,13 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     if (showCharacterForm && voiceOptions.length === 0) {
       loadVoiceOptions();
     }
-  }, [showCharacterForm]);
+  }, [showCharacterForm, voiceOptions.length, loadVoiceOptions]);
 
   useEffect(() => {
     if(scriptId){
       loadCharacters();
     }
-  }, [scriptId]);
+  }, [scriptId, loadCharacters]);
 
   // 编辑角色
   const handleEditCharacter = (character: ScriptCharacter) => {
@@ -269,12 +268,15 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   <div className="mb-6">
                     {character.avatar_url ? (
                       <div className="w-full h-48 rounded-xl overflow-hidden border border-blue-500/30 bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
-                        <img 
-                          src={character.avatar_url} 
-                          alt={character.name}
+                        <Image 
+                          src={character.avatar_url || ''} 
+                          alt={character.name || ''}
+                          width={256}
+                          height={192}
                           className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ci8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
                           }}
                         />
                       </div>

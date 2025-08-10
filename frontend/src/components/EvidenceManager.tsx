@@ -1,17 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { ScriptEvidence as Evidence, EvidencePromptRequest, EvidenceType,  ScriptEvidence, ImageType } from '@/client';
-import { ScriptsService, Service } from '@/client';
+import { ScriptEvidence as Evidence, EvidenceType, ImageType, ScriptEvidence, ScriptsService, Service } from '@/client';
 import ImageSelector from '@/components/ImageSelector';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { Search, Plus, Lock, MapPin, User, FileText, Lightbulb, Image, Edit, Trash2, Minimize2, Maximize2, X } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Edit, FileText, Lightbulb, Lock, MapPin, Plus, Search, Trash2, User, X } from 'lucide-react';
+import Image from 'next/image';
+import React, { useCallback, useEffect, useState } from 'react';
 
+import { toast } from 'sonner';
 interface EvidenceManagerProps {
   scriptId: string;
 }
@@ -243,9 +243,9 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   <div className="mb-6">
                     {ev.image_url ? (
                       <div className="w-full h-48 rounded-xl overflow-hidden border border-purple-500/30 bg-slate-800 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-300">
-                        <img 
-                          src={ev.image_url} 
-                          alt={ev.name}
+                        <Image 
+                          src={ev.image_url || ''} 
+                          alt={ev.name || ''}
                           className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';

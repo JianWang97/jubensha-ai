@@ -2,18 +2,9 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { 
-  Home, 
-  User, 
-  Settings, 
   History, 
   BookOpen, 
-  Users,
-  Bell,
-  Smartphone,
-  Code,
-  Menu
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';

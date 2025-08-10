@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { 
-  Menu, 
-  X
-} from 'lucide-react';
+import DockBar from '@/components/DockBar';
 import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu';
-import DockBar from '@/components/DockBar';
-import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
+import {
+  Menu,
+  X
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React, { useState } from 'react';
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  title?: string;
   showSidebar?: boolean;
   backgroundImage?: string;
   isGamePage?: boolean;
@@ -36,10 +35,10 @@ const mobileNavItems: NavItem[] = [
 
 const AppLayout: React.FC<AppLayoutProps> = ({ 
   children, 
-  title, 
   showSidebar = true,
   backgroundImage,
-  isGamePage = false
+  isGamePage = false,
+
 }) => {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();

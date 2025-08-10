@@ -3,10 +3,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { ScriptsService, ScriptInfo } from '@/client';
 import AppLayout from '@/components/AppLayout';
-import { Play, Users, Clock, Star, Sparkles, ArrowRight, GamepadIcon, TrendingUp, Library } from 'lucide-react';
+import { Users, Sparkles, TrendingUp, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 // 剧本数据接口
 interface ScriptDisplay {

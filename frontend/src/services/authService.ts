@@ -1,15 +1,15 @@
 // 用户认证API服务
-import { config } from '@/stores/configStore';
-import { 
-  Token, 
-  UserResponse as User, 
-  UserRegister, 
-  UserLogin as LoginData, 
-  UserBrief,
+import {
   GameHistoryResponse as GameHistory,
+  UserLogin as LoginData,
   PasswordChange,
+  Token,
+  UserResponse as User,
+  UserBrief,
+  UserRegister,
   UserUpdate
 } from '@/client';
+import { config } from '@/stores/configStore';
 import { StoreApi } from 'zustand';
 
 // 延迟导入authStore以避免循环依赖

@@ -26,6 +26,22 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: buildApiUrl(),
   },
+
+  // 图片配置
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '8010',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

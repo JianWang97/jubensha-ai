@@ -66,7 +66,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <ProtectedRoute requireAuth={false}>
-      <AppLayout title="用户登录" showSidebar={false}>
+      <AppLayout showSidebar={false}>
         <div className="min-h-[calc(100vh-12rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full space-y-8">
             <div className="text-center">

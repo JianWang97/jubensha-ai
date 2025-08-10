@@ -1,6 +1,6 @@
+import Link from 'next/link';
 import React, { useEffect } from 'react';
 import { useGameHistoryStore } from '../../stores/gameHistoryStore';
-import Link from 'next/link';
 
 const StatusBadge: React.FC<{status:string}> = ({ status }) => {
   const color = { STARTED:'bg-green-600', PENDING:'bg-yellow-600', ENDED:'bg-gray-600', PAUSED:'bg-orange-600', CANCELED:'bg-red-600' }[status] || 'bg-slate-500';
@@ -52,4 +52,4 @@ export default function GameHistoryPage(){
     </div>
   </div>;
 }
-typescript
+

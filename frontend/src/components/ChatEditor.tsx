@@ -26,14 +26,6 @@ interface EditResult {
   data?: any;
 }
 
-// 添加完成数据接口定义
-interface CompletedData {
-  success_count: number;
-  results?: Array<any>;
-  script?: any;
-  [key: string]: any;
-}
-
 // 添加消息数据接口定义
 interface MessageData {
   success?: boolean;
@@ -52,7 +44,7 @@ interface ChatEditorProps {
   onScriptUpdate?: (updatedScript: any) => void;
 }
 
-const ChatEditor: React.FC<ChatEditorProps> = ({ scriptId, onScriptUpdate }) => {
+const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',

@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { User, Mail, Smile, Calendar, MapPin, Globe, Phone, Edit3, Save, X } from 'lucide-react';
+import AppLayout from '@/components/AppLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/stores/authStore';
 import { UserUpdate } from '@/types/auth';
-import AppLayout from '@/components/AppLayout';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { Edit3, Globe, Mail, Save, Smile, User, X } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 const ProfilePage: React.FC = () => {
@@ -79,7 +78,7 @@ const ProfilePage: React.FC = () => {
   if (!user) {
     return (
       <ProtectedRoute>
-        <AppLayout title="个人资料">
+        <AppLayout>
           <div className="min-h-screen flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
           </div>
@@ -90,7 +89,7 @@ const ProfilePage: React.FC = () => {
 
   return (
     <ProtectedRoute>
-      <AppLayout title="个人资料">
+      <AppLayout>
         <div className="max-w-4xl mx-auto space-y-6 mt-10">
 
           <Tabs defaultValue="profile" className="space-y-6">

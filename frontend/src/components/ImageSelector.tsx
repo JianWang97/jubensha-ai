@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer';
+import { ImageGenerationRequest, ImageResponse, ImageType, Service } from '@/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Drawer, DrawerClose, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Service, ImageResponse, ImageGenerationRequest, ImageType } from '@/client';
+import { Textarea } from '@/components/ui/textarea';
+import { Camera, FileText, MapPin, Plus, Trash2, User, X, Zap } from 'lucide-react';
+import Image from 'next/image';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Camera, Trash2, Plus, Zap, X, Image, FileText, User, MapPin } from 'lucide-react';
-
 interface ImageSelectorProps {
   /** 当前显示的图片URL */
   url?: string;
@@ -171,7 +168,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
         onClick={handleOpenDrawer}
         >
           {imageUrl ? (
-            <img
+            <Image  
               src={imageUrl}
               alt="预览图片"
               className="w-full h-full object-cover rounded-xl"
@@ -272,7 +269,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                       <label className="text-gray-200 font-medium">当前图片预览</label>
                       <div className="w-full h-64 rounded-xl border-2 border-dashed border-gray-600/40 flex items-center justify-center bg-gradient-to-br from-gray-800/60 to-gray-900/60">
                         {imageUrl ? (
-                          <img
+                          <Image
                             src={imageUrl}
                             alt="当前图片"
                             className="w-full h-full object-cover rounded-xl"
@@ -305,7 +302,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                         证据
                       </TabsTrigger>
                       <TabsTrigger value="cover" className="data-[state=active]:bg-gray-600 data-[state=active]:text-white flex items-center gap-2">
-                        <Image className="w-4 h-4" />
+                        <Image className="w-4 h-4" src="/cover.png" alt="封面" />
                         封面
                       </TabsTrigger>
                       <TabsTrigger value="character" className="data-[state=active]:bg-gray-600 data-[state=active]:text-white flex items-center gap-2">
@@ -327,7 +324,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                               <Card key={img.id} className="group relative overflow-hidden bg-gray-800/60 border-gray-700/60 hover:border-gray-500/60 transition-colors">
                                 <CardContent className="p-0">
                                   <div className="relative">
-                                    <img
+                                    <Image
                                       src={img.url}
                                       alt="证据图片"
                                       className="w-full h-32 object-cover cursor-pointer"
@@ -376,7 +373,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                               <Card key={img.id} className="group relative overflow-hidden bg-gray-800/60 border-gray-700/60 hover:border-gray-500/60 transition-colors">
                                 <CardContent className="p-0">
                                   <div className="relative">
-                                    <img
+                                    <Image
                                       src={img.url}
                                       alt="封面图片"
                                       className="w-full h-32 object-cover cursor-pointer"
@@ -408,7 +405,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                           </div>
                         ) : (
                           <div className="text-center py-12 text-gray-400">
-                            <Image className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                            <Image className="w-16 h-16 mx-auto mb-4 opacity-50" src="/cover.png" alt="封面" />
                             <div className="text-lg mb-2">暂无封面图片</div>
                             <div className="text-sm">您可以切换到生成图片标签页创建新图片</div>
                           </div>
@@ -425,7 +422,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                               <Card key={img.id} className="group relative overflow-hidden bg-gray-800/60 border-gray-700/60 hover:border-gray-500/60 transition-colors">
                                 <CardContent className="p-0">
                                   <div className="relative">
-                                    <img
+                                    <Image
                                       src={img.url}
                                       alt="角色图片"
                                       className="w-full h-32 object-cover cursor-pointer"
@@ -474,7 +471,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                               <Card key={img.id} className="group relative overflow-hidden bg-gray-800/60 border-gray-700/60 hover:border-gray-500/60 transition-colors">
                                 <CardContent className="p-0">
                                   <div className="relative">
-                                    <img
+                                    <Image
                                       src={img.url}
                                       alt="场景图片"
                                       className="w-full h-32 object-cover cursor-pointer"

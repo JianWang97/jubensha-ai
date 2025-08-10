@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, MapPin, Camera, Plus, Edit, Trash2, Search, Minimize2, Maximize2, X, Bot, Zap, Save } from 'lucide-react';
+import { MapPin, Camera, Plus, Edit, Trash2, Search, X, Zap, Save } from 'lucide-react';
 import ImageSelector from '@/components/ImageSelector';
 
 interface LocationManagerProps {
