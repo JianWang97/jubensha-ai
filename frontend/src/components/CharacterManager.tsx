@@ -26,7 +26,7 @@ import {
   X
 } from 'lucide-react';
 import Image from 'next/image';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface CharacterManagerProps {
@@ -96,7 +96,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
   };
 
   // 加载角色列表
-  const loadCharacters = async () => {
+  const loadCharacters = useCallback(async () => {
     try {
       if(scriptId){
         const charactersData = await getCharacters(Number(scriptId));
@@ -108,17 +108,17 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
       console.error('加载角色失败:', error);
       toast('加载角色失败');
     }
-  };
+  }, [scriptId]);
 
   // 加载语音选项
-  const loadVoiceOptions = async () => {
+  const loadVoiceOptions = useCallback(async () => {
     try {
       const voices = await getVoiceOptions();
       setVoiceOptions(voices || []);
     } catch (error) {
       console.error('加载语音选项失败:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (showCharacterForm && voiceOptions.length === 0) {

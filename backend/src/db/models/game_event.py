@@ -1,5 +1,5 @@
 """游戏事件数据库模型"""
-from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, ForeignKey, Float, Boolean,Enum as SqlEnum
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, ForeignKey, Float, Boolean, Index, Enum as SqlEnum
 from sqlalchemy.orm import relationship,Mapped, mapped_column
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -34,6 +34,10 @@ class GameEventDBModel(BaseSQLAlchemyModel):
     
     # 关联关系
     session = relationship("GameSession", back_populates="events")
+
+    __table_args__ = (
+        Index('idx_game_events_session_timestamp', 'session_id', 'timestamp'),
+    )
     
     def __repr__(self):
         return f"<GameEvent(session_id={self.session_id}, type={self.event_type}, character={self.character_name})>"

@@ -54,11 +54,17 @@ class GameTTSManager:
     
     def _get_character_voice(self, character_name: str, character_info: Optional[Dict[str, Any]] = None) -> str:
         """根据角色名称和信息获取对应的声音ID"""
-        # 1. 首先检查角色名称的直接映射
+        # 1. 优先使用角色配置的voice_id
+        if character_info and character_info.get('voice_id'):
+            configured_voice_id = character_info.get('voice_id')
+            logger.debug(f"[TTS] 使用角色配置的声音ID: {character_name} -> {configured_voice_id}")
+            return configured_voice_id
+        
+        # 2. 检查角色名称的直接映射
         if character_name in self.CHARACTER_VOICE_MAPPING:
             return self.CHARACTER_VOICE_MAPPING[character_name]
         
-        # 2. 检查角色信息中的性别
+        # 3. 检查角色信息中的性别
         if character_info:
             gender = character_info.get('gender', '').lower()
             age_group = character_info.get('age_group', '').lower()
@@ -75,7 +81,7 @@ class GameTTSManager:
                 else:
                     return self.CHARACTER_VOICE_MAPPING['female']
         
-        # 3. 根据角色名称启发式判断
+        # 4. 根据角色名称启发式判断
         male_keywords = ['先生', '生', '男', '君', '哥', '叔', '爷', '伯', '父']
         female_keywords = ['女士', '小姐', '姐', '妹', '婆', '娘', '母', '阿姨']
         
@@ -85,7 +91,7 @@ class GameTTSManager:
         elif any(keyword in name_lower for keyword in female_keywords):
             return self.CHARACTER_VOICE_MAPPING['female']
         
-        # 4. 返回默认声音
+        # 5. 返回默认声音
         return self.CHARACTER_VOICE_MAPPING['default']
     
     async def generate_character_tts(

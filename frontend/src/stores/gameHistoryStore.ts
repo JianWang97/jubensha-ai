@@ -9,13 +9,14 @@ interface GameHistoryState {
   loadHistory: (page?:number)=>Promise<void>;
   loadDetail: (sessionId:string)=>Promise<void>;
   loadEvents: (sessionId:string, page?:number)=>Promise<void>;
+  loadAllEvents: (sessionId:string)=>Promise<void>;
   resume: (sessionId:string)=>Promise<void>;
   reset: ()=>void;
 }
 
 export const useGameHistoryStore = create<GameHistoryState>((set,get)=>({
   list:[], total:0, page:1, size:20, loading:false, filters:{},
-  currentSessionId: undefined, detail: undefined, events:[], eventsTotal:0, eventsPage:1, eventsSize:50, eventsLoading:false, resumeInfo: undefined, error:null,
+  currentSessionId: undefined, detail: undefined, events:[], eventsTotal:0, eventsPage:1, eventsSize:100, eventsLoading:false, resumeInfo: undefined, error:null,
   setFilters: (f)=> set({ filters:{ ...get().filters, ...f } }),
   loadHistory: async (page=1)=> {
     set({ loading:true, error:null });
@@ -31,7 +32,26 @@ export const useGameHistoryStore = create<GameHistoryState>((set,get)=>({
   },
   loadEvents: async (sessionId, page=1)=> {
     set({ eventsLoading:true });
-    try { const { eventsSize } = get(); const resp = await fetchGameEvents(sessionId, { page, size: eventsSize }); set({ events: resp.data.items, eventsTotal: resp.data.total, eventsPage: resp.data.page, eventsSize: resp.data.size, eventsLoading:false }); } catch(e:any){ set({ error:e.message, eventsLoading:false }); }
+    try { const { eventsSize } = get(); const size = Math.min(eventsSize || 100, 100); const resp = await fetchGameEvents(sessionId, { page, size }); set({ events: resp.data.items, eventsTotal: resp.data.total, eventsPage: resp.data.page, eventsSize: resp.data.size, eventsLoading:false }); } catch(e:any){ set({ error:e.message, eventsLoading:false }); }
+  },
+  loadAllEvents: async (sessionId)=> {
+    set({ eventsLoading: true });
+    try {
+      const pageSize = Math.min(get().eventsSize || 100, 100);
+      const first = await fetchGameEvents(sessionId, { page: 1, size: pageSize });
+      let items = first.data.items || [];
+      const total = first.data.total || items.length;
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      if (pages > 1) {
+        for (let p = 2; p <= pages; p++) {
+          const resp = await fetchGameEvents(sessionId, { page: p, size: pageSize });
+          items = items.concat(resp.data.items || []);
+        }
+      }
+      set({ events: items, eventsTotal: total, eventsPage: 1, eventsSize: pageSize, eventsLoading: false });
+    } catch (e:any) {
+      set({ error: e.message, eventsLoading: false });
+    }
   },
   resume: async (sessionId)=> {
     try { const resp = await resumeGame(sessionId); set({ resumeInfo: resp.data }); } catch(e:any){ set({ error:e.message }); }

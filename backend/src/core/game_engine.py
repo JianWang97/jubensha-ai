@@ -723,11 +723,21 @@ class GameEngine:
                 elif self.current_phase == GamePhaseEnum.VOTING:
                     message_type = "vote"
                 
-                # 获取角色的voice_id
+                # 获取角色的完整信息
                 character_voice_id = None
+                character_info = None
                 for character in self.characters:
                     if character.name == next_speaker:
                         character_voice_id = character.voice_id
+                        # 构造角色信息字典，用于TTS声音映射
+                        character_info = {
+                            "gender": character.gender,
+                            "age": character.age,
+                            "age_group": "elder" if character.age and character.age >= 50 else "young",
+                            "profession": character.profession,
+                            "voice_preference": character.voice_preference,
+                            "voice_id": character.voice_id
+                        }
                         break
                 
                 # 使用公开聊天系统记录，传递session_id和voice_id用于TTS
@@ -762,6 +772,7 @@ class GameEngine:
                     "action": action,
                     "type": message_type,
                     "voice_id": character_voice_id,
+                    "character_info": character_info,
                     "turn": str(turn_count + 1)
                 }
                 

@@ -1,5 +1,5 @@
 """游戏会话数据模型"""
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON,Enum as SqlEnum
+from sqlalchemy import Index,Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON,Enum as SqlEnum, Float
 from sqlalchemy.orm import relationship,mapped_column
 from sqlalchemy.sql import func
 from src.db.base import BaseSQLAlchemyModel
@@ -25,11 +25,19 @@ class GameSession(BaseSQLAlchemyModel):
     # 时间记录
     started_at = Column(DateTime(timezone=True), nullable=True, comment="游戏开始时间")
     finished_at = Column(DateTime(timezone=True), nullable=True, comment="游戏结束时间")
+    # TTS相关
+    total_tts_duration:Column[float] = Column(Float, nullable=True, default=0.0, comment="累计TTS音频时长（秒）")
     
     # 关联关系
     host_user = relationship("User", back_populates="hosted_sessions")
     events = relationship("GameEventDBModel", back_populates="session", cascade="all, delete-orphan")
     
+    __table_args__ = (
+        Index('idx_game_sessions_host_user_id', 'host_user_id'),
+        Index('idx_game_sessions_status', 'status'),
+        Index('idx_game_sessions_script_id', 'script_id'),
+    )
+
     def __repr__(self):
         return f"<GameSession(id={self.id}, session_id='{self.session_id}', status='{self.status}')>"
     

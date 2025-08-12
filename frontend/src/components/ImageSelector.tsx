@@ -171,6 +171,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
             <Image  
               src={imageUrl}
               alt="预览图片"
+              width={128}
+              height={128}
               className="w-full h-full object-cover rounded-xl"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik00MCA0MEw4OCA4OE00MCA4OEw4OCA0MCIgc3Ryb2tlPSIjNjM2NjcwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+';
@@ -302,7 +304,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                         证据
                       </TabsTrigger>
                       <TabsTrigger value="cover" className="data-[state=active]:bg-gray-600 data-[state=active]:text-white flex items-center gap-2">
-                        <Image className="w-4 h-4" src="/cover.png" alt="封面" />
+                        <Image className="w-4 h-4" src="/cover.png" alt="封面" width={16} height={16} />
                         封面
                       </TabsTrigger>
                       <TabsTrigger value="character" className="data-[state=active]:bg-gray-600 data-[state=active]:text-white flex items-center gap-2">
@@ -327,6 +329,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                                     <Image
                                       src={img.url}
                                       alt="证据图片"
+                                      width={128}
+                                      height={128}
                                       className="w-full h-32 object-cover cursor-pointer"
                                       onClick={() => handleSelectImage(img.url)}
                                       onError={(e) => {
@@ -376,6 +380,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                                     <Image
                                       src={img.url}
                                       alt="封面图片"
+                                      width={128}
+                                      height={128}
                                       className="w-full h-32 object-cover cursor-pointer"
                                       onClick={() => handleSelectImage(img.url)}
                                       onError={(e) => {
@@ -405,7 +411,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                           </div>
                         ) : (
                           <div className="text-center py-12 text-gray-400">
-                            <Image className="w-16 h-16 mx-auto mb-4 opacity-50" src="/cover.png" alt="封面" />
+                            <Image className="w-16 h-16 mx-auto mb-4 opacity-50" src="/cover.png" alt="封面" width={64} height={64} />
                             <div className="text-lg mb-2">暂无封面图片</div>
                             <div className="text-sm">您可以切换到生成图片标签页创建新图片</div>
                           </div>
@@ -425,6 +431,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                                     <Image
                                       src={img.url}
                                       alt="角色图片"
+                                      width={128}
+                                      height={128}
                                       className="w-full h-32 object-cover cursor-pointer"
                                       onClick={() => handleSelectImage(img.url)}
                                       onError={(e) => {
@@ -474,6 +482,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                                     <Image
                                       src={img.url}
                                       alt="场景图片"
+                                      width={128}
+                                      height={128}
                                       className="w-full h-32 object-cover cursor-pointer"
                                       onClick={() => handleSelectImage(img.url)}
                                       onError={(e) => {

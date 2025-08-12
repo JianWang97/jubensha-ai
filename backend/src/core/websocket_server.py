@@ -465,6 +465,26 @@ class GameModeHandler:
         try:
             logger.info(f"[GAME] 开始重置游戏: 会话={session_id}, 当前运行状态={session.is_game_running}")
             
+            # 如果游戏正在运行，先结束当前会话
+            if session.is_game_running:
+                try:
+                    db_session = next(get_db_session())
+                    game_session_repo = GameSessionRepository(db_session)
+                    success = game_session_repo.finalize_session(session_id)
+                    if success:
+                        db_session.commit()
+                        logger.info(f"[GAME] 重置前已结束游戏会话: {session_id}")
+                    else:
+                        logger.warning(f"[GAME] 重置前无法结束游戏会话: {session_id}")
+                    db_session.close()
+                except Exception as e:
+                    logger.error(f"[GAME] 重置前结束游戏会话时出错: {e}, 会话={session_id}")
+                    try:
+                        db_session.rollback()
+                        db_session.close()
+                    except:
+                        pass
+            
             session.is_game_running = False
             session.game_engine = GameEngine()
             session.game_initialized = False
@@ -688,6 +708,25 @@ class GameModeHandler:
         finally:
             print(f"Game loop ended for session {session_id}")
             session.is_game_running = False
+            
+            # 结束游戏会话，设置数据库状态为ENDED
+            try:
+                db_session = next(get_db_session())
+                game_session_repo = GameSessionRepository(db_session)
+                success = game_session_repo.finalize_session(session_id)
+                if success:
+                    db_session.commit()
+                    logger.info(f"[GAME_LOOP] 游戏会话已结束: {session_id}")
+                else:
+                    logger.warning(f"[GAME_LOOP] 无法结束游戏会话: {session_id}")
+                db_session.close()
+            except Exception as e:
+                logger.error(f"[GAME_LOOP] 结束游戏会话时出错: {e}, 会话={session_id}")
+                try:
+                    db_session.rollback()
+                    db_session.close()
+                except:
+                    pass
 
 class EditModeHandler:
     """处理编辑模式相关业务逻辑"""
@@ -1261,6 +1300,26 @@ class GameWebSocketServer:
             try:
                 sess = self.sessions.get(sid)
                 if sess:
+                    # 如果游戏正在运行，先结束游戏会话
+                    if sess.is_game_running:
+                        try:
+                            db_session = next(get_db_session())
+                            game_session_repo = GameSessionRepository(db_session)
+                            success = game_session_repo.finalize_session(sid)
+                            if success:
+                                db_session.commit()
+                                logger.info(f"[SESSION] 清理时已结束游戏会话: {sid}")
+                            else:
+                                logger.warning(f"[SESSION] 清理时无法结束游戏会话: {sid}")
+                            db_session.close()
+                        except Exception as e:
+                            logger.error(f"[SESSION] 清理时结束游戏会话出错: {e}, 会话={sid}")
+                            try:
+                                db_session.rollback()
+                                db_session.close()
+                            except:
+                                pass
+                    
                     sess.cleanup()
                 del self.sessions[sid]
                 self.session_last_active.pop(sid, None)
