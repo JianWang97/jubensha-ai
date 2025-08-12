@@ -6,6 +6,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 import os
 
+from sqlalchemy import true
 from sqlalchemy.orm import Session
 # 显式导入以避免依赖包级 __init__ 导出（已精简以规避循环导入）
 from src.core.game_engine import GameEngine
@@ -78,6 +79,9 @@ class GameSession:
         self.editing_context: dict[str, Any] = {}  # 存储编辑上下文
         self.db_session:Session|None = None  # 数据库会话引用，类型为Session或None
         
+        # 后台执行模式
+        self.background_mode: bool = False  # 是否处于后台执行模式
+        
         # TTS管理器
         self.tts_manager: GameTTSManager|None = None
         self._initialize_tts_manager()
@@ -139,6 +143,9 @@ class GameSession:
             
             # 停止游戏循环
             self.is_game_running = False
+            
+            # 重置后台模式
+            self.background_mode = False
             
             logger.info(f"[CLEANUP] 会话资源清理完成: 会话={self.session_id}")
             
@@ -316,6 +323,39 @@ class FetchHistoryHandler(MessageHandler):
             "type": "history",
             "data": history,
             "session_id": session_id
+        })
+
+class SetBackgroundModeHandler(MessageHandler):
+    """设置后台执行模式处理器"""
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id")
+        background_mode = data.get("background_mode", False)
+        
+        if not session_id:
+            await server.send_to_client(websocket, {
+                "type": "error",
+                "message": "缺少session_id参数"
+            })
+            return
+        
+        session = server.sessions.get(session_id)
+        if not session:
+            await server.send_to_client(websocket, {
+                "type": "error",
+                "message": f"会话 {session_id} 不存在"
+            })
+            return
+        
+        # 设置后台执行模式
+        session.background_mode = background_mode
+        
+        logger.info(f"[BACKGROUND] 会话 {session_id} 后台模式设置为: {background_mode}")
+        
+        await server.send_to_client(websocket, {
+            "type": "background_mode_response",
+            "session_id": session_id,
+            "background_mode": background_mode,
+            "message": f"后台模式已{'启用' if background_mode else '禁用'}"
         })
 
 # 游戏模式处理器
@@ -1021,34 +1061,10 @@ class GameWebSocketServer:
             "generate_ai_suggestion": GenerateAISuggestionHandler(),
             "get_tts_history": GetTTSHistoryHandler(),
             "fetch_history": FetchHistoryHandler(),
+            "set_background_mode": SetBackgroundModeHandler(),
         }
-        # 会话保留超时（秒）：断开后在该时间内保留以支持重连
-        self.session_retention_seconds: int = 600
-        # 记录会话最后活动时间，用于清理
-        self.session_last_active: Dict[str, float] = {}
-        # 后台任务引用
-        self._cleanup_task: Optional[asyncio.Task] = None
+        # 不再需要会话保留和后台清理相关属性
 
-    def start_background_tasks(self):
-        """启动服务器级后台任务（清理超时会话等）"""
-        if self._cleanup_task is None:
-            try:
-                loop = asyncio.get_running_loop()
-                self._cleanup_task = loop.create_task(self._cleanup_loop())
-                logger.info("[SERVER] 启动会话清理后台任务")
-            except RuntimeError:
-                # 事件循环尚未就绪，可在外部稍后调用
-                logger.warning("[SERVER] 事件循环未就绪，稍后再启动后台任务")
-
-    async def _cleanup_loop(self):
-        """定期执行空会话清理"""
-        while True:
-            try:
-                await self.cleanup_inactive_sessions()
-            except Exception as e:
-                logger.error(f"[SERVER] 清理任务出错: {e}")
-            await asyncio.sleep(60)
-        
     def get_or_create_session(self, session_id: Optional[str] = None, script_id: int = 1) -> GameSession:
         """获取或创建游戏会话"""
         if session_id is None:
@@ -1085,8 +1101,17 @@ class GameWebSocketServer:
         
         # 获取或创建内存中的游戏会话
         session = self.get_or_create_session(actual_session_id, script_id)
+        
+        # 检查是否是重新连接到后台运行的会话
+        is_background_reconnect = session.background_mode and len(session.clients) == 0
+        
         session.clients.add(websocket)
         self.client_sessions[websocket] = session.session_id
+        
+        if is_background_reconnect:
+            logger.info(f"[BACKGROUND] 重新连接到后台运行的会话: {session.session_id}")
+            # 重新连接后关闭后台模式
+            session.background_mode = False
         
         client_info = f"客户端地址: {getattr(websocket, 'remote_address', 'unknown')}"
         logger.info(f"[CONNECTION] 客户端连接到会话 {session.session_id}, {client_info}, 当前会话客户端数: {len(session.clients)}")
@@ -1117,6 +1142,8 @@ class GameWebSocketServer:
                 "message": "已连接到游戏会话",
                 "is_game_running": session.is_game_running,
                 "game_initialized": session.game_initialized,
+                "background_reconnect": is_background_reconnect,
+                "game_running": session.is_game_running,
             },
             "session_id": session.session_id
         }
@@ -1135,12 +1162,15 @@ class GameWebSocketServer:
                 client_info = f"客户端地址: {getattr(websocket, 'remote_address', 'unknown')}"
                 logger.info(f"[CONNECTION] 客户端断开连接, 会话: {session_id}, {client_info}, 剩余客户端数: {len(session.clients)}")
                 print(f"Client disconnected from session {session_id}. Session clients: {len(session.clients)}")
-                # 更新最后活动时间
-                self.session_last_active[session_id] = asyncio.get_event_loop().time()
-                # 不再立即删除空会话，允许一定时间内重连
+                
+                # 如果会话没有客户端了，检查是否需要清理
                 if len(session.clients) == 0:
-                    logger.warning(f"[SESSION] 会话 {session_id} 暂时无客户端，保留 {self.session_retention_seconds}s 以支持重连")
-                    print(f"Session {session_id} empty, retained for reconnection window")
+                    if session.background_mode:
+                        logger.info(f"[BACKGROUND] 会话 {session_id} 处于后台模式，保持游戏进程运行")
+                        print(f"Session {session_id} is in background mode, keeping game process running")
+                    else:
+                        logger.info(f"[CLEANUP] 会话 {session_id} 非后台模式，清理游戏进程")
+                        await self._cleanup_session(session_id, session)
             
             del self.client_sessions[websocket]
         else:
@@ -1287,45 +1317,42 @@ class GameWebSocketServer:
             await self.unregister_client(websocket)
 
 
+    async def _cleanup_session(self, session_id: str, session: GameSession):
+        """清理单个会话"""
+        try:
+            # 如果游戏正在运行，结束游戏会话
+            if session.is_game_running:
+                try:
+                    db_session = next(get_db_session())
+                    game_session_repo = GameSessionRepository(db_session)
+                    if session.background_mode is True:
+                        return
+                    else:
+                        game_session = game_session_repo.get_by_session_id(session_id)
+                        if game_session != None:
+                            game_session.status = GameSessionStatus.CANCELED
+                            game_session.finished_at = datetime.now()
+                            db_session.commit()  # 提交数据库更改
+                            logger.info(f"[SESSION] 游戏会话已结束: {session_id}")
+
+                except Exception as e:
+                    logger.error(f"[SESSION] 结束游戏会话出错: {e}, 会话={session_id}")
+                    if 'db_session' in locals():
+                        db_session.rollback()
+                finally:
+                    if 'db_session' in locals():
+                        db_session.close()
+            
+            session.cleanup()
+            del self.sessions[session_id]
+            self.session_last_active.pop(session_id, None)
+            logger.info(f"[SESSION] 清理会话: {session_id}")
+        except Exception as e:
+            logger.error(f"[SESSION] 清理会话失败 {session_id}: {e}")
+
     async def cleanup_inactive_sessions(self):
-        """周期性清理超时未重连的空会话"""
-        now = asyncio.get_event_loop().time()
-        to_remove = []
-        for sid, session in self.sessions.items():
-            if len(session.clients) == 0:
-                last_active = self.session_last_active.get(sid, now)
-                if now - last_active > self.session_retention_seconds:
-                    to_remove.append(sid)
-        for sid in to_remove:
-            try:
-                sess = self.sessions.get(sid)
-                if sess:
-                    # 如果游戏正在运行，先结束游戏会话
-                    if sess.is_game_running:
-                        try:
-                            db_session = next(get_db_session())
-                            game_session_repo = GameSessionRepository(db_session)
-                            success = game_session_repo.finalize_session(sid)
-                            if success:
-                                db_session.commit()
-                                logger.info(f"[SESSION] 清理时已结束游戏会话: {sid}")
-                            else:
-                                logger.warning(f"[SESSION] 清理时无法结束游戏会话: {sid}")
-                            db_session.close()
-                        except Exception as e:
-                            logger.error(f"[SESSION] 清理时结束游戏会话出错: {e}, 会话={sid}")
-                            try:
-                                db_session.rollback()
-                                db_session.close()
-                            except:
-                                pass
-                    
-                    sess.cleanup()
-                del self.sessions[sid]
-                self.session_last_active.pop(sid, None)
-                logger.info(f"[SESSION] 清理过期会话: {sid}")
-            except Exception as e:
-                logger.error(f"[SESSION] 清理会话失败 {sid}: {e}")
+        """保留此方法以兼容现有代码，但不再执行周期性清理"""
+        pass
 
 # 全局服务器实例
 game_server = GameWebSocketServer()

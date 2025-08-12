@@ -39,9 +39,7 @@ export interface WebSocketMessage {
   start_mode?: 'new' | 'resume' | 'already_running';
 }
 
-export interface VoiceMapping {
-  [character: string]: string;
-}
+
 
 interface WebSocketState {
   // 连接状态
@@ -50,19 +48,15 @@ interface WebSocketState {
   gameStartMode?: 'new' | 'resume' | 'already_running';
   // 会话 / 游戏运行状态扩展
   isGameRunning?: boolean; // 当前是否有进行中的游戏
-  gameInitialized?: boolean; // 是否已经初始化过（可以用于决定显示“开始”还是“继续”）
+  gameInitialized?: boolean; // 是否已经初始化过（可以用于决定显示"开始"还是"继续"）
   activeGame?: Record<string, any> | null; // 后端发来的 active_game 原始数据（仅在运行时）
+  sessionId?: string; // 会话ID，用于后台模式等功能
 
   // WebSocket实例
   ws: WebSocket | null;
   reconnectTimeout: NodeJS.Timeout | null;
 
-  // Actions
-  setIsConnected: (connected: boolean) => void;
-  setGameState: (state: GameState | null) => void;
-  setGameStartMode: (mode: 'new' | 'resume' | 'already_running' | undefined) => void;
-  setWebSocket: (ws: WebSocket | null) => void;
-  setReconnectTimeout: (timeout: NodeJS.Timeout | null) => void;
+
 
   // WebSocket操作
   connect: (scriptId?: number) => void;
@@ -87,16 +81,11 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   isGameRunning: undefined,
   gameInitialized: undefined,
   activeGame: null,
-  voiceMapping: {},
+  sessionId: undefined,
   ws: null,
   reconnectTimeout: null,
 
-  // 基础状态设置
-  setIsConnected: (connected) => set({ isConnected: connected }),
-  setGameState: (state) => set({ gameState: state }),
-  setGameStartMode: (mode) => set({ gameStartMode: mode }),
-  setWebSocket: (ws) => set({ ws }),
-  setReconnectTimeout: (timeout) => set({ reconnectTimeout: timeout }),
+
 
 
   // 处理WebSocket消息
@@ -113,6 +102,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         // 新的会话初始化消息，包含会话与游戏状态
         const data = (message.data || {}) as Record<string, any>;
         const { is_game_running, game_initialized, active_game } = data;
+        // 提取session_id，优先从message.session_id，其次从message.data.session_id
+        const sessionId = (message as any).session_id || data.session_id;
         // 兼容字段解析
         let derivedGameState: GameState | null = null;
         if (active_game) {
@@ -131,7 +122,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
           isGameRunning: is_game_running,
           gameInitialized: game_initialized,
           activeGame: active_game || null,
-          gameState: derivedGameState
+          gameState: derivedGameState,
+          sessionId: sessionId || null
         });
         // 推送一个自定义事件，方便界面或其他逻辑监听
         window.dispatchEvent(new CustomEvent('session_connected', {
@@ -202,112 +194,32 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         break;
 
       case 'voting_complete':
-        // 投票完成处理
-        break;
-
       case 'game_result':
-        // 游戏结果处理
+        // 投票完成和游戏结果处理
         break;
 
       case 'game_ended':
-        // 游戏结束处理
         console.log('游戏已结束:', message.data?.message);
-        
-        // 添加TTS语音播报
-  // 结束播报不再客户端生成语音，若需要请由后端提供tts_url再合并
-        
-  // 标记运行结束但保持已初始化状态，可显示“继续游戏”按钮
-  set({ isGameRunning: false, gameInitialized: true });
+        set({ isGameRunning: false, gameInitialized: true });
         break;
 
       case 'game_reset':
-        // 游戏重置处理
-  set({ gameState: null, isGameRunning: false, gameInitialized: false });
+        set({ gameState: null, isGameRunning: false, gameInitialized: false });
         break;
 
       case 'instruction_processing':
-        // 指令处理中
-        console.log('指令处理中:', message.data);
-        window.dispatchEvent(new CustomEvent('script_edit_result', {
-          detail: {
-            type: 'instruction_processing',
-            data: message.data
-          }
-        }));
-        break;
-
       case 'edit_result':
-        // 单个编辑操作结果
-        console.log('编辑操作结果:', message.data);
-        window.dispatchEvent(new CustomEvent('script_edit_result', {
-          detail: {
-            type: 'edit_result',
-            data: message.data
-          }
-        }));
-        break;
-
       case 'instruction_completed':
-        // 指令完成
-        console.log('指令完成:', message.data);
-        window.dispatchEvent(new CustomEvent('script_edit_result', {
-          detail: {
-            type: 'instruction_completed',
-            data: message.data
-          }
-        }));
-        break;
-
       case 'script_data_update':
-        // 剧本数据更新
-        console.log('剧本数据更新:', message.data);
-        window.dispatchEvent(new CustomEvent('script_edit_result', {
-          detail: {
-            type: 'script_data_update',
-            data: message.data
-          }
-        }));
-        break;
-
       case 'script_editing_started':
-        // 编辑模式开始
-        console.log('编辑模式开始:', message.data);
-        window.dispatchEvent(new CustomEvent('script_edit_result', {
-          detail: {
-            type: 'script_editing_started',
-            data: message.data
-          }
-        }));
-        break;
-
       case 'script_editing_stopped':
-        // 编辑模式停止
-        console.log('编辑模式停止:', message.data);
-        window.dispatchEvent(new CustomEvent('script_edit_result', {
-          detail: {
-            type: 'script_editing_stopped',
-            data: message.data
-          }
-        }));
-        break;
-
       case 'ai_suggestion':
-        // AI建议
-        console.log('AI建议:', message.data);
-        window.dispatchEvent(new CustomEvent('script_edit_result', {
-          detail: {
-            type: 'ai_suggestion',
-            data: message.data
-          }
-        }));
-        break;
-
       case 'ai_suggestion_generating':
-        // AI建议生成中
-        console.log('AI建议生成中:', message.data);
+        // 剧本编辑相关消息统一处理
+        console.log(`${message.type}:`, message.data);
         window.dispatchEvent(new CustomEvent('script_edit_result', {
           detail: {
-            type: 'ai_suggestion_generating',
+            type: message.type,
             data: message.data
           }
         }));
@@ -371,6 +283,13 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
             }));
           }
         }
+        break;
+
+      case 'background_mode_response':
+        console.log('后台模式响应:', message.data);
+        window.dispatchEvent(new CustomEvent('background_mode_response', {
+          detail: message.data
+        }));
         break;
 
       case 'error':
@@ -487,14 +406,9 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
   // 开始游戏
   startGame: (scriptId: string) => {
-  // 乐观更新：立即标记游戏运行，避免按钮仍显示“开始”
-  set({ isGameRunning: true, gameInitialized: true });
-  get().sendMessage({ type: 'start_game', script_id: scriptId });
-    
-    // 游戏开始后自动获取历史消息
-    setTimeout(() => {
-      get().fetchHistory();
-    }, 500); // 延迟500ms确保游戏状态已更新
+    set({ isGameRunning: true, gameInitialized: true });
+    get().sendMessage({ type: 'start_game', script_id: scriptId });
+    setTimeout(() => get().fetchHistory(), 500);
   },
 
   // 下一阶段
@@ -504,7 +418,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
   // 重置游戏
   resetGame: () => {
-  get().sendMessage({ type: 'reset_game' });
+    get().sendMessage({ type: 'reset_game' });
   },
 
   // 获取历史消息
@@ -518,8 +432,8 @@ export const useWebSocket = (scriptId?: number) => {
   const {
     isConnected,
     gameState,
-  isGameRunning,
-  gameInitialized,
+    isGameRunning,
+    gameInitialized,
     connect,
     disconnect,
     sendMessage,
@@ -528,23 +442,16 @@ export const useWebSocket = (scriptId?: number) => {
     resetGame
   } = useWebSocketStore();
 
-  // 连接WebSocket
   useEffect(() => {
     connect(scriptId);
-  }, [scriptId]);
-
-  // 组件卸载时断开连接
-  useEffect(() => {
-    return () => {
-      disconnect();
-    };
-  }, []); // 空依赖数组，只在组件卸载时执行
+    return () => disconnect();
+  }, [scriptId, connect, disconnect]);
 
   return {
     isConnected,
     gameState,
-  isGameRunning,
-  gameInitialized,
+    isGameRunning,
+    gameInitialized,
     sendMessage,
     startGame,
     nextPhase,

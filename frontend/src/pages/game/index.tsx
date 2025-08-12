@@ -4,6 +4,7 @@ import { useGameState } from '@/hooks/useGameState';
 import { useTTSService } from '@/stores/ttsStore';
 import { useWebSocketStore } from '@/stores/websocketStore';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 const GamePage = () => {
   // 从URL参数获取script_id
@@ -29,12 +30,13 @@ const GamePage = () => {
   } = useGameState(scriptId);
 
   // WebSocket store for game control
-  const { nextPhase, gameState, isGameRunning, gameInitialized, startGame, fetchHistory } = useWebSocketStore() as any;
+  const { nextPhase, gameState, isGameRunning, gameInitialized, startGame, fetchHistory, resetGame, sendMessage, sessionId } = useWebSocketStore() as any;
 
-  // 本地进入标记：刷新后即使有运行中的游戏也先展示“继续游戏”
+  // 本地进入标记：刷新后即使有运行中的游戏也先展示"继续游戏"
   const [enteredGame, setEnteredGame] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
-
+  const [showBackgroundModeDialog, setShowBackgroundModeDialog] = useState(false);
+  const [isWaitingBackgroundResponse, setIsWaitingBackgroundResponse] = useState(false);
   // 初始化TTS服务
   const { 
     queueTTS, 
@@ -47,6 +49,23 @@ const GamePage = () => {
     currentSpeakingCharacter,
     currentSpeechText
   } = useTTSService();
+
+  // 监听后台模式响应
+  useEffect(() => {
+    const handleBackgroundModeResponse = (event: CustomEvent) => {
+      console.log('收到后台模式响应:', event.detail);
+      setIsWaitingBackgroundResponse(false);
+      setShowBackgroundModeDialog(false);
+      toast.success('已启用后台模式');
+      router?.push('/script-center');
+    };
+
+    window.addEventListener('background_mode_response', handleBackgroundModeResponse as EventListener);
+    
+    return () => {
+      window.removeEventListener('background_mode_response', handleBackgroundModeResponse as EventListener);
+    };
+  }, [router]);
 
   // 手动推进到下一阶段
   const handleNextPhase = () => {
@@ -149,6 +168,34 @@ const GamePage = () => {
     }
   }, [ttsEnabled, audioInitialized, initializeAudio]);
 
+  // 直接退出游戏
+  const handleDirectExit = () => {
+    try {
+      localStorage.removeItem('gameState');
+      localStorage.removeItem('currentSession');
+    } catch {}
+    setShowBackgroundModeDialog(false);
+    router?.push('/script-center');
+  };
+
+  // 启用后台模式
+  const handleEnableBackgroundMode = () => {
+    if (!sessionId) {
+      toast.error('无法获取当前会话ID');
+      return;
+    }
+    
+    setIsWaitingBackgroundResponse(true);
+    
+    const message = {
+      type: "set_background_mode",
+      session_id: sessionId,
+      background_mode: true
+    };
+    
+    sendMessage(message);
+  };
+
   return (
     <AppLayout showSidebar={false} backgroundImage={getSceneBackground()} isGamePage={true}>
       {(
@@ -215,11 +262,7 @@ const GamePage = () => {
                 currentSpeakingCharacter={currentSpeakingCharacter}
                 currentSpeechText={currentSpeechText}
                 onExitGame={() => {
-                  try {
-                    localStorage.removeItem('gameState');
-                    localStorage.removeItem('currentSession');
-                  } catch {}
-                  router?.push?.('/scripts');
+                  setShowBackgroundModeDialog(true);
                 }}
               />
 
@@ -255,6 +298,37 @@ const GamePage = () => {
           
           {/* 日志已整合至抽屉 */}
         </>
+      )}
+
+      {/* 后台模式确认弹框 */}
+      {showBackgroundModeDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">退出游戏</h3>
+            <p className="text-gray-600 mb-6">
+              是否需要启用后台模式？启用后台模式可以让游戏在后台继续运行。
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleDirectExit}
+                disabled={isWaitingBackgroundResponse}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+              >
+                直接退出
+              </button>
+              <button
+                onClick={handleEnableBackgroundMode}
+                disabled={isWaitingBackgroundResponse}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isWaitingBackgroundResponse && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
+                启用后台模式
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AppLayout>
   );
