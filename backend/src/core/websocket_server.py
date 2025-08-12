@@ -562,6 +562,11 @@ class GameModeHandler:
         try:
             loop_count = 0
             while session.is_game_running and session.game_engine.current_phase != GamePhase.ENDED:
+                # 在每次循环开始时检查游戏是否应该停止
+                if not session.is_game_running:
+                    logger.info(f"[GAME_LOOP] 游戏已停止，退出循环: 会话={session_id}")
+                    break
+                    
                 loop_count += 1
                 current_phase = session.game_engine.current_phase.value
                 logger.info(f"[GAME_LOOP] 循环#{loop_count} 运行阶段: {current_phase}, 会话={session_id}")
@@ -571,6 +576,11 @@ class GameModeHandler:
                 async def action_callback(action):
                     """每个角色发言完成后立即广播，并生成TTS"""
                     try:
+                        # 在回调开始时检查游戏是否应该停止
+                        if not session.is_game_running:
+                            logger.info(f"[GAME_LOOP] 回调中检测到游戏已停止: 会话={session_id}")
+                            return
+                            
                         # 确保action中的数据是可序列化的字符串
                         if isinstance(action, dict):
                             # 确保action字段是字符串
@@ -633,6 +643,12 @@ class GameModeHandler:
                 try:
                     logger.info(f"[GAME_LOOP] 开始运行阶段: {current_phase}, 会话={session_id}")
                     actions = await session.game_engine.run_phase(action_callback=action_callback)
+                    
+                    # 在阶段运行完成后检查游戏是否应该停止
+                    if not session.is_game_running:
+                        logger.info(f"[GAME_LOOP] 阶段运行后检测到游戏已停止，退出循环: 会话={session_id}")
+                        break
+                        
                     logger.info(f"[GAME_LOOP] 阶段完成: {current_phase}, 行动数量={len(actions)}, 会话={session_id}")
                     print(f"Phase {session.game_engine.current_phase.value} completed with {len(actions)} total actions")
                 except Exception as e:
@@ -690,7 +706,19 @@ class GameModeHandler:
                 if session.game_engine.current_phase != GamePhase.REVELATION:
                     wait_time = phase_durations.get(session.game_engine.current_phase, 30)
                     print(f"Waiting {wait_time} seconds before next phase...")
-                    await asyncio.sleep(wait_time)  # 根据阶段设置不同的等待时间
+                    
+                    # 分解长时间等待为多个短等待，以便更快响应游戏停止
+                    elapsed_time = 0
+                    check_interval = 1  # 每1秒检查一次
+                    while elapsed_time < wait_time and session.is_game_running:
+                        sleep_time = min(check_interval, wait_time - elapsed_time)
+                        await asyncio.sleep(sleep_time)
+                        elapsed_time += sleep_time
+                    
+                    # 在等待后检查游戏是否应该停止
+                    if not session.is_game_running:
+                        logger.info(f"[GAME_LOOP] 等待期间检测到游戏已停止，退出循环: 会话={session_id}")
+                        break
                     
                     try:
                         await session.game_engine.next_phase()
@@ -748,25 +776,8 @@ class GameModeHandler:
         finally:
             print(f"Game loop ended for session {session_id}")
             session.is_game_running = False
-            
-            # 结束游戏会话，设置数据库状态为ENDED
-            try:
-                db_session = next(get_db_session())
-                game_session_repo = GameSessionRepository(db_session)
-                success = game_session_repo.finalize_session(session_id)
-                if success:
-                    db_session.commit()
-                    logger.info(f"[GAME_LOOP] 游戏会话已结束: {session_id}")
-                else:
-                    logger.warning(f"[GAME_LOOP] 无法结束游戏会话: {session_id}")
-                db_session.close()
-            except Exception as e:
-                logger.error(f"[GAME_LOOP] 结束游戏会话时出错: {e}, 会话={session_id}")
-                try:
-                    db_session.rollback()
-                    db_session.close()
-                except:
-                    pass
+ 
+
 
 class EditModeHandler:
     """处理编辑模式相关业务逻辑"""
@@ -1320,28 +1331,33 @@ class GameWebSocketServer:
     async def _cleanup_session(self, session_id: str, session: GameSession):
         """清理单个会话"""
         try:
-            # 如果游戏正在运行，结束游戏会话
+            # 立即停止游戏循环，确保game_loop能够快速响应
             if session.is_game_running:
-                try:
-                    db_session = next(get_db_session())
-                    game_session_repo = GameSessionRepository(db_session)
-                    if session.background_mode is True:
-                        return
-                    else:
-                        game_session = game_session_repo.get_by_session_id(session_id)
-                        if game_session != None:
-                            game_session.status = GameSessionStatus.CANCELED
-                            game_session.finished_at = datetime.now()
-                            db_session.commit()  # 提交数据库更改
-                            logger.info(f"[SESSION] 游戏会话已结束: {session_id}")
+                session.is_game_running = False
+                logger.info(f"[SESSION] 立即停止游戏循环: {session_id}")
+            
+            # 如果游戏正在运行，结束游戏会话
+            if session.background_mode is True:
+                logger.info(f"[SESSION] 会话处于后台模式，跳过清理: {session_id}")
+                return
+            
+            try:
+                db_session = next(get_db_session())
+                game_session_repo = GameSessionRepository(db_session)
+                game_session = game_session_repo.get_by_session_id(session_id)
+                if game_session != None:
+                    game_session.status = GameSessionStatus.CANCELED
+                    game_session.finished_at = datetime.now()
+                    db_session.commit()  # 提交数据库更改
+                    logger.info(f"[SESSION] 游戏会话已结束: {session_id}")
 
-                except Exception as e:
-                    logger.error(f"[SESSION] 结束游戏会话出错: {e}, 会话={session_id}")
-                    if 'db_session' in locals():
-                        db_session.rollback()
-                finally:
-                    if 'db_session' in locals():
-                        db_session.close()
+            except Exception as e:
+                logger.error(f"[SESSION] 结束游戏会话出错: {e}, 会话={session_id}")
+                if 'db_session' in locals():
+                    db_session.rollback()
+            finally:
+                if 'db_session' in locals():
+                    db_session.close()
             
             session.cleanup()
             del self.sessions[session_id]
