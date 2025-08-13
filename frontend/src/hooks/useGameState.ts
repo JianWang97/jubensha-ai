@@ -1,7 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useWebSocket, GameState } from '@/stores/websocketStore';
-import { Script_Output as Script, ScriptCharacter, Service } from '@/client';
-import { ScriptsService } from '@/client';
+import { Script_Output as Script, ScriptCharacter, ScriptsService, Service } from '@/client';
+import { useWebSocket } from '@/stores/websocketStore';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 export interface GameLogEntry {
@@ -150,7 +149,7 @@ export const useGameState = (scriptId?: number) => {
           setGameLog([
             {
               character: '系统',
-              content: `已自动选择剧本: ${script!.info.title}`,
+              content: `选择剧本: ${script!.info.title}`,
               timestamp: new Date()
             }
           ]);

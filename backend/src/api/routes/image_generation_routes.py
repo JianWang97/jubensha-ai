@@ -29,14 +29,14 @@ router = APIRouter(prefix="/api/images", tags=["图片生成"])
 DEFAULT_PROMPTS = {
     ImageType.COVER: "mysterious book cover, dark atmosphere, thriller game poster, detailed illustration, professional cover art",
     ImageType.CHARACTER: "character portrait, detailed face, professional headshot, game character design",
-    ImageType.EVIDENCE: "evidence item, detailed object, crime scene investigation, realistic item photography",
-    ImageType.SCENE: "detailed background scene, atmospheric lighting, game environment, cinematic composition"
+    ImageType.EVIDENCE: "evidence item, realistic object",
+    ImageType.SCENE: "atmospheric background scene"
 }
 
 # 图片尺寸配置
 IMAGE_SIZES = {
-    ImageType.COVER: (1080, 1080),    # 1080p 正方形
-    ImageType.SCENE: (1920, 1080),    # 1080p 横屏
+    ImageType.COVER: (1080, 720),    # 1080p 正方形
+    ImageType.SCENE: (1080, 720),    # 1080p 横屏
     ImageType.CHARACTER: (720, 720),   # 720x720 正方形
     ImageType.EVIDENCE: (720, 720)     # 720x720 正方形
 }
@@ -46,7 +46,8 @@ async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, use
     import json
     try:
         # 构建系统提示
-        system_prompt = "你是一个专业的AI图片生成提示词优化专家，擅长为剧本杀游戏优化和完善图片描述。"
+        system_prompt = "你是一个专业的AI图片生成提示词优化专家，擅长为剧本杀游戏优化和完善图片描述，图片的提示词要以英文描述，并且需要单词或者短句拼接的格式。"
+
         
         # 获取基础提示词（用户提供的或默认的）
         base_prompt = user_prompt or DEFAULT_PROMPTS.get(image_type, "detailed illustration, professional artwork")
@@ -60,9 +61,6 @@ async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, use
 剧本信息：
 - 标题：{script_info.get('title', '未知剧本')}
 - 描述：{script_info.get('description', '暂无描述')}
-- 标签：{', '.join(script_info.get('tags', [])) if script_info.get('tags') else '推理'}
-- 难度：{script_info.get('difficulty', 'medium')}
-- 类型：{script_info.get('category', '推理')}
 
 请根据剧本信息优化提示词，要求：
 1. 保留原有提示词的核心内容
@@ -116,28 +114,23 @@ async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, use
 请根据角色信息生成提示词，要求：
 1. 根据年龄生成相应的面部特征（如45岁应体现中年特征）
 2. 根据性别和职业添加合适的着装和气质
-3. 根据角色身份（凶手/受害者/普通角色）调整表情和氛围
-4. 体现角色的专业背景和社会地位
-5. 确保年龄特征准确，避免年龄与外貌不符
-6. 只返回优化后的英文提示词，不要其他解释"""
+3. 体现角色的专业背景和社会地位
+4. 确保年龄特征准确，避免年龄与外貌不符
+5. 只返回优化后的英文提示词，不要其他解释
+6. 提示词不要过于复杂
+"""
 
         elif image_type == ImageType.EVIDENCE:
             llm_prompt = f"""请优化以下证据物品图片的英文提示词：
 
 当前提示词：{base_prompt}
 
-剧本信息：
-- 标题：{script_info.get('title', '未知剧本')}
-- 类型：{script_info.get('category', '推理')}
-- 标签：{', '.join(script_info.get('tags', [])) if script_info.get('tags') else '推理'}
-
 请根据剧本信息优化提示词，要求：
 1. 保留原有提示词的核心内容
-2. 结合剧本类型设计合适的证据物品
-3. 增强物品的神秘感和线索价值
-4. 优化物品细节和质感描述
-5. 确保适合证据图片生成
-6. 只返回优化后的英文提示词，不要其他解释"""
+2. 优化物品细节和质感描述
+3. 确保适合证据图片生成
+4. 提示词必须简洁，使用几个单词描述
+5. 只返回优化后的英文提示词，不要其他解释"""
 
         elif image_type == ImageType.SCENE:
             llm_prompt = f"""请优化以下场景背景图片的英文提示词：
@@ -155,8 +148,16 @@ async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, use
 3. 增强神秘、悬疑的环境特征
 4. 优化光线、构图和环境细节
 5. 确保适合背景场景生成
-6. 只返回优化后的英文提示词，不要其他解释"""
+6. 提示词必须简洁，不超过五个英文单词
+7. 只返回优化后的英文提示词，不要其他解释"""
 
+        # 根据图片类型提供不同的示例格式
+        if image_type == ImageType.EVIDENCE:
+            llm_prompt = f"{llm_prompt} 示例格式：bloody knife evidence"
+        elif image_type == ImageType.SCENE:
+            llm_prompt = f"{llm_prompt} 示例格式：dark mysterious room"
+        else:
+            llm_prompt = f"{llm_prompt} 示例格式：portrait photo, young asian woman, business attire, office background, professional lighting, detailed, high quality"
         # 调用LLM服务
         messages = [
             LLMMessage(role="system", content=system_prompt),
@@ -281,7 +282,11 @@ async def generate_image(
                 "url": url,
                 "image_type": request.image_type.value,
                 "generation_time": response.generation_time,
-                "prompt_id": response.prompt_id
+                "prompt_id": response.prompt_id,
+                "prompt":prompt,
+                "negative_prompt": request.negative_prompt,
+                "width": str(width),
+                "height": str(height)
             }
         )
     except HTTPException:

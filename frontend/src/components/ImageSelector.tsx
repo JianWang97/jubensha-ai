@@ -273,6 +273,8 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
                         {imageUrl ? (
                           <Image
                             src={imageUrl}
+                            width={128}
+                            height={128}
                             alt="当前图片"
                             className="w-full h-full object-cover rounded-xl"
                             onError={(e) => {

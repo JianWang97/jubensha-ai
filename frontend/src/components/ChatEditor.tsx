@@ -56,6 +56,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { isConnected, sendMessage } = useWebSocketStore();
 
   // 自动滚动到底部
@@ -76,6 +77,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
         case 'instruction_processing':
           // 指令处理中，显示处理状态
           const instruction = message.data?.instruction;
+
           if (instruction) {
             const processingMessage: ChatMessage = {
               id: Date.now().toString(),
@@ -86,6 +88,8 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             };
             setMessages(prev => [...prev, processingMessage]);
           }
+          // 确保处理状态设置为true
+          setIsProcessing(true);
           break;
           
         case 'edit_result':
@@ -121,6 +125,11 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
               data: completedData
             };
             setMessages(prev => [...prev, completedMessage]);
+          }
+          // 清除超时定时器并重置处理状态
+          if (processingTimeoutRef.current) {
+            clearTimeout(processingTimeoutRef.current);
+            processingTimeoutRef.current = null;
           }
           setIsProcessing(false);
           break;
@@ -211,6 +220,11 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             }
           }
           
+          // 清除超时定时器并重置处理状态
+          if (processingTimeoutRef.current) {
+            clearTimeout(processingTimeoutRef.current);
+            processingTimeoutRef.current = null;
+          }
           setIsProcessing(false);
           break;
           
@@ -226,6 +240,11 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           };
           setMessages(prev => [...prev, errorMessage]);
           toast.error(`编辑失败: ${message.data?.message || '操作失败'}`);
+          // 清除超时定时器并重置处理状态
+          if (processingTimeoutRef.current) {
+            clearTimeout(processingTimeoutRef.current);
+            processingTimeoutRef.current = null;
+          }
           setIsProcessing(false);
           break;
       }
@@ -236,6 +255,11 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     
     return () => {
       window.removeEventListener('script_edit_result', handleScriptEditResult as EventListener);
+      // 清理超时定时器
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
     };
   }, [onScriptUpdate]);
 
@@ -258,6 +282,16 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsProcessing(true);
+
+    // 设置30秒超时，防止处理状态卡住
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.warn('指令处理超时，自动重置状态');
+      setIsProcessing(false);
+      toast.error('指令处理超时，请重试');
+    }, 30000);
 
     try {
       // 发送编辑指令到WebSocket
@@ -282,6 +316,9 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           : msg
       ));
       toast.error('发送失败，请重试');
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+      }
       setIsProcessing(false);
     }
   };

@@ -38,22 +38,16 @@ const CharacterAvatars = ({ characters = [] }: CharacterAvatarsProps) => {
   };
   
   const getDefaultEmoji = (character: ScriptCharacter) => {
-    if (character.is_victim) return '💀';
-    if (character.is_murderer) return '🔪';
     if (character.gender === '女') return '👩';
     if (character.gender === '男') return '👨';
     return '🕵️';
   };
 
   const getCharacterBorderColor = (character: ScriptCharacter) => {
-    if (character.is_victim) return 'border-red-500';
-    if (character.is_murderer) return 'border-orange-500';
     return 'border-blue-500';
   };
 
   const getCharacterBgColor = (character: ScriptCharacter) => {
-    if (character.is_victim) return 'bg-red-500/20';
-    if (character.is_murderer) return 'bg-orange-500/20';
     return 'bg-blue-500/20';
   };
 

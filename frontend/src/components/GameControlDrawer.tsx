@@ -33,7 +33,7 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
   currentSpeakingCharacter,
   currentSpeechText
 }) => {
-  const [activeSection, setActiveSection] = useState<'controls' | 'characters' | 'tts' | 'log'>('controls');
+  const [activeSection, setActiveSection] = useState<'log' | 'controls' | 'tts'>('log');
 
   // 日志相关辅助
   const getLogStyle = (entry: any) => {
@@ -64,7 +64,7 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
     }
   }, [gameLog, activeSection]);
 
-  const SectionButton = ({ id, label }: { id: typeof activeSection; label: string }) => (
+  const SectionButton = ({ id, label }: { id: 'log' | 'controls' | 'tts'; label: string }) => (
     <button
       onClick={() => setActiveSection(id)}
       className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
@@ -92,12 +92,24 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="px-5 pt-5 pb-3 border-b border-white/10 flex items-center justify-between">
+        {/* 退出按钮区域 */}
+        <div className="px-5 pt-4 pb-2 border-b border-white/10 flex justify-end">
+          {onExitGame && (
+            <button
+              onClick={onExitGame}
+              className="text-xs px-3 py-1.5 rounded-md bg-red-600/80 hover:bg-red-600 text-white font-medium shadow flex items-center gap-1"
+            >
+              🚪 退出游戏
+            </button>
+          )}
+        </div>
+        
+        {/* Tab导航区域 */}
+        <div className="px-5 pt-3 pb-3 border-b border-white/10 flex items-center justify-between">
           <div className="flex gap-2">
-            <SectionButton id="controls" label="控制" />
-            <SectionButton id="characters" label="角色" />
-            <SectionButton id="tts" label="TTS" />
             <SectionButton id="log" label="日志" />
+            <SectionButton id="controls" label="控制" />
+            <SectionButton id="tts" label="TTS" />
           </div>
           <button
             onClick={onToggle}
@@ -136,15 +148,7 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
             </div>
           )}
 
-          {activeSection === 'characters' && (
-            <div className="space-y-4">
-              <h3 className="text-white font-semibold text-sm tracking-wide">角色</h3>
-              <CharacterAvatars
-                characters={characters.map((c: any) => ({ ...c, avatar_url: c.avatar_url === null ? undefined : c.avatar_url }))}
-                gameLog={gameLog}
-              />
-            </div>
-          )}
+
 
           {activeSection === 'tts' && (
             <div className="space-y-4">
@@ -190,12 +194,6 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-white font-semibold text-sm tracking-wide flex items-center gap-2">📜 游戏日志</h3>
-                {onExitGame && (
-                  <button
-                    onClick={onExitGame}
-                    className="text-xs px-2 py-1 rounded-md bg-red-600/80 hover:bg-red-600 text-white font-medium shadow"
-                  >🚪 退出</button>
-                )}
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-3 max-h-[60vh] overflow-y-auto space-y-3 custom-scrollbar">
                 {(!gameLog || gameLog.length === 0) && (

@@ -1,10 +1,12 @@
 import AppLayout from '@/components/AppLayout';
+import CharacterAvatars from '@/components/CharacterAvatars';
 import GameControlDrawer from '@/components/GameControlDrawer';
 import { useGameState } from '@/hooks/useGameState';
 import { useTTSService } from '@/stores/ttsStore';
 import { useWebSocketStore } from '@/stores/websocketStore';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 const GamePage = () => {
   // 从URL参数获取script_id
@@ -267,29 +269,87 @@ const GamePage = () => {
               />
 
               {/* 主要内容区域 - 占据大部分空间 */}
-              <div className="flex-1 relative mt-32 mb-32">
-                {/* 原角色头像区域已移至顶部 */}
+              <div className="flex-1 relative mt-32 mb-32 flex items-center justify-center">
+                {/* 角色头像显示在页面中央 */}
+                <div className="flex flex-col items-center space-y-8">
+                  <h2 className="text-2xl font-bold text-white mb-4">游戏角色</h2>
+                  <CharacterAvatars
+                    characters={characters.map((c: any) => ({ ...c, avatar_url: c.avatar_url === null ? undefined : c.avatar_url }))}
+                  />
+                </div>
               </div>
 
               {/* 底部游戏界面区域 - 类似游戏画面 */}
               <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10 fixed bottom-0 left-0 right-0">
                 {/* 字幕显示区域 */}
-                <div className="px-6 py-4 min-h-[120px] flex items-center justify-center">
-                  <div className="w-full max-w-4xl">
-                    {currentSpeakingCharacter ? (
-                      <div className="text-center space-y-2">
-                        <div className="text-lg font-semibold text-white">
-                          {currentSpeakingCharacter}
-                        </div>
-                        <div className="text-base text-gray-200 bg-black/50 rounded-lg px-4 py-2">
-                          {currentSpeechText || '正在发言中...'}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center text-gray-400">
-                        等待角色发言...
+                <div className="px-6 py-6 min-h-[140px] flex items-center justify-center">
+                  <div className="w-full max-w-5xl flex items-start gap-6">
+                    {/* 当前播报人物头像 */}
+                     {currentSpeakingCharacter && (
+                       <div className="flex-shrink-0 mt-2">
+                        {(() => {
+                          const speakingChar = characters.find(c => c.name === currentSpeakingCharacter);
+                          if (speakingChar) {
+                            return (
+                              <div className="relative w-20 h-16 rounded-xl border-4 border-yellow-400 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 backdrop-blur-sm flex items-center justify-center shadow-xl overflow-hidden">
+                                {/* 背景装饰 */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 to-orange-400/10 animate-pulse"></div>
+                                
+                                <div className="relative w-full h-full flex items-center justify-center text-2xl z-10">
+                                  {speakingChar.avatar_url ? (
+                                     <Image 
+                                       src={speakingChar.avatar_url} 
+                                       alt={speakingChar.name || ''}
+                                       width={80}
+                                       height={64}
+                                       className="w-full h-full object-cover rounded-lg"
+                                     />
+                                   ) : (
+                                    <span className="text-3xl">
+                                      {speakingChar.gender === '女' ? '👩' :
+                                       speakingChar.gender === '男' ? '👨' : '🕵️'}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* 发言指示器 - 改为更现代的设计 */}
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg border-2 border-white shadow-lg">
+                                  <div className="w-full h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg animate-ping opacity-75"></div>
+                                </div>
+                                
+                                {/* 边框光效 */}
+                                <div className="absolute inset-0 rounded-xl border-2 border-yellow-400/50 animate-pulse"></div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()} 
                       </div>
                     )}
+                    
+                    {/* 字幕内容 */}
+                    <div className="flex-1">
+                      {currentSpeakingCharacter ? (
+                        <div className="space-y-3">
+                          <div className="text-xl font-bold text-white bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                            {currentSpeakingCharacter}
+                          </div>
+                          <div className="text-lg text-gray-100 bg-gradient-to-r from-black/60 to-black/40 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 shadow-2xl">
+                            <div className="relative">
+                              {currentSpeechText || '正在发言中...'}
+                              {/* 文字装饰效果 */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse rounded-xl"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-400 text-lg">
+                          <div className="bg-black/30 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/10">
+                            等待角色发言...
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

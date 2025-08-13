@@ -1,8 +1,7 @@
 # TODO:
 
-- [x] 1: 查看当前游戏页面的退出逻辑实现 (priority: High)
-- [x] 2: 添加后台模式确认弹框状态管理 (priority: High)
-- [x] 3: 实现后台模式确认弹框UI组件 (priority: High)
-- [x] 4: 在websocketStore中添加background_mode_response消息处理 (priority: High)
-- [x] 5: 修改onExitGame回调以集成后台模式确认流程 (priority: High)
-- [x] 6: 测试退出游戏的后台模式功能 (priority: Medium)
+- [x] 1: 修改GameControlDrawer组件：取消角色tab，将日志tab调整为第一个tab (priority: High)
+- [x] 2: 将退出按钮从日志section移动到tablist的上方 (priority: High)
+- [x] 3: 在游戏页面中央区域添加角色头像显示 (priority: High)
+- [x] 4: 在底部字幕区域旁边显示当前播报人物的头像 (priority: High)
+- [x] 5: 测试修改后的布局和功能 (priority: Medium)
