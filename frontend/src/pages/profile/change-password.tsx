@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { Eye, EyeOff, Lock, ArrowLeft, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuthStore } from '@/stores/authStore';
 import { PasswordChange } from '@/client';
 import AppLayout from '@/components/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuthStore } from '@/stores/authStore';
+import { Eye, EyeOff, Lock, Shield } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 const ChangePasswordPage: React.FC = () => {
@@ -86,7 +85,7 @@ const ChangePasswordPage: React.FC = () => {
 
   return (
     <ProtectedRoute>
-      <AppLayout title="修改密码">
+      <AppLayout>
         <div className="max-w-md mx-auto">
           {/* 返回按钮 */}
           <div className="mb-6">

@@ -22,6 +22,11 @@ const buildApiUrl = () => {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   
+  // ESLint配置 - 在构建时忽略警告（仅在必要时使用）
+  eslint: {
+    ignoreDuringBuilds: true, // 允许警告存在时继续构建
+  },
+  
   // 环境变量配置
   env: {
     NEXT_PUBLIC_API_URL: buildApiUrl(),

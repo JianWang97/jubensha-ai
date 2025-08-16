@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { Eye, EyeOff, UserPlus, User, Mail, Lock, Smile } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuthStore } from '@/stores/authStore';
-import { UserRegister } from '@/types/auth';
 import AppLayout from '@/components/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuthStore } from '@/stores/authStore';
+import { UserRegister } from '@/types/auth';
+import { Eye, EyeOff, Lock, Mail, Smile, User, UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 const RegisterPage: React.FC = () => {
@@ -95,7 +95,7 @@ const RegisterPage: React.FC = () => {
 
   return (
     <ProtectedRoute requireAuth={false}>
-      <AppLayout title="用户注册" showSidebar={false}>
+      <AppLayout showSidebar={false}>
         <div className="min-h-[calc(100vh-12rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full space-y-8">
             <div className="text-center">

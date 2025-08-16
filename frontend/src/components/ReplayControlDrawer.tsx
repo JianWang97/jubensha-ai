@@ -256,7 +256,7 @@ export default function ReplayControlDrawer({
                       <div className="bg-white/5 rounded-lg p-3">
                         <div className="text-sm text-gray-300 mb-1">游戏时间</div>
                         <div className="text-white">
-                          {new Date(detail.created_at).toLocaleString()}
+                          {detail.created_at ? new Date(detail.created_at).toLocaleString() : '未知'}
                         </div>
                       </div>
                       

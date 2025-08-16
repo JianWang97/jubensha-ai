@@ -70,7 +70,15 @@ app.add_middleware(UnifiedAuthMiddleware)
 # 添加CORS中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 在生产环境中应该设置具体的域名
+    allow_origins=[
+        "*",  # 开发环境允许所有源
+        "https://jubenshatest.kadalingo.top",  # 生产环境域名
+        "http://jubenshatest.kadalingo.top",   # HTTP版本
+        "http://localhost:3000",  # 本地前端开发
+        "http://localhost:8080",  # 本地前端开发
+        "http://127.0.0.1:3000", # 本地前端开发
+        "http://127.0.0.1:8080"  # 本地前端开发
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -99,7 +107,7 @@ app.include_router(tts_router)
 app.include_router(asset_router)
 # 注册用户认证路由
 app.include_router(auth_router)
-@app.websocket("/ws")
+@app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket, script_id: int = 1, token: str = None):
     """WebSocket端点 - 支持token认证，基于用户身份自动管理会话"""
     from src.services.auth_service import AuthService
@@ -180,9 +188,9 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    
-    host = os.getenv("HOST", "localhost")
+
+    host = os.getenv("HOST", "0.0.0.0")  # 改为0.0.0.0允许外部访问
     port = int(os.getenv("PORT", 8000))
-    
+
     print(f"Starting server on http://{host}:{port}")
     uvicorn.run(app, host=host, port=port)

@@ -44,9 +44,9 @@ class ImageGenerationResponse:
 class ComfyUIService:
     """ComfyUI图像生成服务"""
     
-    def __init__(self, server_address: str = "192.168.2.111:8188", workflow_file: str = "Epicrealismxl_Hades.json"):
-        self.server_address = server_address
-        self.workflow_file = workflow_file
+    def __init__(self):
+        self.server_address = os.getenv('COMFYUI_URL')
+        self.workflow_file = os.path.join('workflow', os.getenv('COMFYUI_WORKFLOW_FILE'))
         self.base_workflow = self._load_base_workflow()
     
     def _load_base_workflow(self) -> Dict[str, Any]:

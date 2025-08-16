@@ -317,7 +317,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     // 从API配置中提取后端端口
     const config = useConfigStore.getState();
     const apiUrl = new URL(config.api.baseUrl);
-    const backendPort = apiUrl.port || '8010';
 
     // 构建WebSocket URL，包含script_id和token参数
     const params = new URLSearchParams();
@@ -331,7 +330,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       params.append('token', token);
     }
 
-    const wsUrl = `${protocol}//${apiUrl.hostname}:${backendPort}/ws${params.toString() ? '?' + params.toString() : ''}`;
+    const wsUrl = `${protocol}//${apiUrl.hostname}/api/ws${params.toString() ? '?' + params.toString() : ''}`;
     console.log('正在连接WebSocket:', wsUrl);
 
     const ws = new WebSocket(wsUrl);

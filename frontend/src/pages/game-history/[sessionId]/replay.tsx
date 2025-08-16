@@ -8,18 +8,9 @@ import ReplayControlDrawer from '@/components/ReplayControlDrawer';
 import CharacterAvatars from '@/components/CharacterAvatars';
 import { ScriptCharacter, Service } from '@/client';
 import { useTTSStore } from '@/stores/ttsStore';
+import { TTSEvent, AudioCache } from '@/types/tts';
 
-// 音频事件类型
-interface TTSEvent extends GameEventItem {
-  startTimeMs: number;
-  endTimeMs: number;
-  durationMs: number;
-}
 
-// 音频缓存
-interface AudioCache {
-  [key: string]: HTMLAudioElement;
-}
 
 export default function ReplayPage() {
   const router = useRouter();

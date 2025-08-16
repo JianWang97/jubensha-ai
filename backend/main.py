@@ -34,7 +34,7 @@ def main():
     print("- 精美的Web界面")
     print("="*50)
     
-    host = os.getenv("HOST", "localhost")
+    host = "0.0.0.0"  # 改为0.0.0.0允许外部访问
     port = int(os.getenv("PORT", 8010))
     
     print(f"🌐 服务器地址: http://{host}:{port}")

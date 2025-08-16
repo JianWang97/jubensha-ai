@@ -57,7 +57,6 @@ class ConfigManager:
         self._tts_config = None
         self._db_config = None
         self._storage_config = None
-    
     @property
     def llm_config(self) -> LLMConfig:
         """获取LLM配置"""

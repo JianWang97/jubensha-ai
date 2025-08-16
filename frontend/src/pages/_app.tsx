@@ -2,10 +2,22 @@ import "@/styles/globals.css";
 import "@/styles/custom-scrollbar.css";
 import React from 'react';
 import type { AppProps } from "next/app";
-import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { useEffect, useState, useCallback } from 'react';
+
+// SSR安全的hooks
+const useSSRSafeState = (initialValue: any) => {
+  const [state, setState] = useState(initialValue);
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  return [isClient ? state : initialValue, setState, isClient];
+};
 
 // 错误边界组件
 class ErrorBoundary extends React.Component<
@@ -48,26 +60,39 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function App({ Component, pageProps }: AppProps) {
-  const { checkAuth, isLoading } = useAuthStore();
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitialized, setIsInitialized, isClient] = useSSRSafeState(false);
+  const [authLoading, setAuthLoading] = useSSRSafeState(true);
+  
+  // 始终调用useAuthStore，但只在客户端使用其功能
+  const authStore = useAuthStore();
+  
+  const safeCheckAuth = useCallback(async () => {
+    if (isClient) {
+      return authStore.checkAuth();
+    }
+    return Promise.resolve();
+  }, [isClient, authStore.checkAuth]);
 
   // 初始化认证状态
   useEffect(() => {
+    if (!isClient) return;
+    
     const initAuth = async () => {
       try {
-        await checkAuth();
+        await safeCheckAuth();
       } catch (error) {
         console.error('认证初始化失败:', error);
       } finally {
         setIsInitialized(true);
+        setAuthLoading(false);
       }
     };
 
     initAuth();
-  }, [checkAuth]);
+  }, [isClient, safeCheckAuth]);
 
   // 显示加载状态
-  if (!isInitialized || isLoading) {
+  if (!isClient || !isInitialized || authLoading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
