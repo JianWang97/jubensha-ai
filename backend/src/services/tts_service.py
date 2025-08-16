@@ -16,6 +16,10 @@ class TTSService:
             # 延迟导入避免循环依赖
             from .minimax_service import MiniMaxTTSService
             return MiniMaxTTSService(**config)
+        elif provider_lower == "cosyvoice2-ex":
+            # 延迟导入避免循环依赖
+            from .cosyvoice_service import CosyVoice2ExTTSService
+            return CosyVoice2ExTTSService(**config)
         else:
             raise ValueError(f"Unsupported TTS provider: {provider}")
     

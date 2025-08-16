@@ -29,6 +29,7 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "email-validator>=2.2.0",
     "jsonschema>=4.25.0",
+    "gradio-client>=1.11.1",
 ]
 
 [mypy]

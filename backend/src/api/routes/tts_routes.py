@@ -71,6 +71,39 @@ async def get_available_voices() -> Dict[str, Any]:
                 "success": False,
                 "error": "获取Minimax声音列表失败: 服务不支持get_voice_list方法"
             }
+        
+        elif provider == "cosyvoice2-ex":
+            # CosyVoice2-Ex需要调用API获取声音列表
+            if hasattr(tts_service, 'get_voice_list'):
+                try:
+                    voice_response = await tts_service.get_voice_list()
+                    if voice_response and voice_response.get('success'):
+                        data = voice_response.get('data', {})
+                        return {
+                            "success": True,
+                            "provider": "cosyvoice2-ex",
+                            "data": data,
+                        }
+                    else:
+                        error_msg = voice_response.get('error') if voice_response else "Unknown error"
+                        logger.error(f"Failed to get voice list from CosyVoice2-Ex: {error_msg}")
+                        return {
+                            "success": False,
+                            "error": f"获取CosyVoice2-Ex声音列表失败: {error_msg}",
+                            "provider": "cosyvoice2-ex"
+                        }
+                except Exception as e:
+                    logger.error(f"Failed to get voice list from CosyVoice2-Ex: {str(e)}")
+                    return {
+                        "success": False,
+                        "error": f"获取CosyVoice2-Ex声音列表失败: {str(e)}",
+                        "provider": "cosyvoice2-ex"
+                    }
+            return {
+                "success": False,
+                "error": "获取CosyVoice2-Ex声音列表失败: 服务不支持get_voice_list方法"
+            }
+        
         else:
             return {
                 "success": False,

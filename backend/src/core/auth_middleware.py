@@ -95,6 +95,10 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
             # 需要认证的文件上传
             AuthRule(r"^/api/files/upload", AuthLevel.REQUIRED, ["POST"]),
             
+            # TTS 服务公开接口
+            AuthRule(r"^/api/tts/voices", AuthLevel.NONE, ["GET"]),
+            AuthRule(r"^/api/tts/synthesize", AuthLevel.NONE, ["POST"]),
+            
             # 默认规则：其他API路径需要认证
             AuthRule(r"^/api/.*", AuthLevel.REQUIRED),
         ]

@@ -89,19 +89,21 @@ class GameSession:
     def _initialize_tts_manager(self):
         """初始化TTS管理器"""
         try:
-            # 从环境变量获取MiniMax配置
+            # 从环境变量获取TTS配置
             api_key = os.getenv("TTS_API_KEY")
             group_id = os.getenv("MINIMAX_GROUP_ID")
+            provider = os.getenv("TTS_PROVIDER", "minimax")  # 默认使用minimax
             
             if api_key and group_id:
                 self.tts_manager = GameTTSManager(
                     api_key=api_key,
                     group_id=group_id,
-                    model="speech-02-turbo"
+                    model="speech-02-turbo",
+                    provider=provider
                 )
-                logger.info(f"[TTS] TTS管理器初始化成功: 会话={self.session_id}")
+                logger.info(f"[TTS] TTS管理器初始化成功: 会话={self.session_id}, 提供商={provider}")
             else:
-                logger.warning(f"[TTS] 缺少MiniMax配置，TTS功能不可用: 会话={self.session_id}")
+                logger.warning(f"[TTS] 缺少TTS配置，TTS功能不可用: 会话={self.session_id}")
         except Exception as e:
             logger.error(f"[TTS] TTS管理器初始化失败: {e}, 会话={self.session_id}")
             self.tts_manager = None

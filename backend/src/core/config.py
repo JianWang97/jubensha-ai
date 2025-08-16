@@ -84,6 +84,8 @@ class ConfigManager:
                 group_id = os.getenv("MINIMAX_GROUP_ID", "")
                 if group_id:
                     extra_params["group_id"] = group_id
+            elif provider == "cosyvoice2-ex":
+                extra_params["base_url"] = os.getenv("COSYVOICE_BASE_URL", "http://localhost:8189")
             
             self._tts_config = TTSConfig(
                 provider=provider,

@@ -232,6 +232,47 @@ class MiniMaxTTSService(BaseTTSService):
             await self._client.close()
             self._client = None
 
+    async def text_to_speech(self, request: TTSRequest) -> TTSResponse:
+        """非流式文本转语音"""
+        client = self._get_client()
+        minimax_request = MiniMaxTTSRequest(
+            text=request.text,
+            voice_id=request.voice,
+            model=self.model,
+            speed=request.speed or 1.0,
+            pitch=request.pitch or 0,
+            extra_params=self.extra_params,
+            stream=False,
+        )
+        try:
+            resp = await client.text_to_speech(minimax_request)
+            if not resp.success:
+                return TTSResponse(
+                    success=False,
+                    audio_data="",
+                    format="mp3",
+                    error=resp.error or "MiniMax TTS failed"
+                )
+            
+            data_dict = cast(Dict[str, Any], resp.data) if isinstance(resp.data, dict) else {}
+            audio_b64 = data_dict.get("audio_base64", "")
+            fmt = data_dict.get("format", "mp3")
+            
+            return TTSResponse(
+                success=True,
+                audio_data=audio_b64,
+                format=fmt,
+                error=None
+            )
+        except Exception as e:
+            logger.error(f"MiniMax text_to_speech error: {e}", exc_info=True)
+            return TTSResponse(
+                success=False,
+                audio_data="",
+                format="mp3",
+                error=str(e)
+            )
+
     async def get_voice_list(self) -> Dict[str, Any]:
         """获取可用声音列表 (包装客户端返回)"""
         client = self._get_client()

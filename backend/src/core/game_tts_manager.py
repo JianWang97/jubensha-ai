@@ -5,8 +5,8 @@ import logging
 from typing import Dict, Optional, Any
 from datetime import datetime
 
-from src.services.minimax_service import MiniMaxTTSService, MiniMaxClient
-from src.services.base_tts import TTSRequest
+from src.services.tts_service import TTSService
+from src.services.base_tts import TTSRequest, BaseTTSService
 from src.core.storage import StorageManager
 from src.db.models.game_event import GameEventDBModel, TTSGeneratedStatus
 from src.db.repositories.game_session_repository import GameEventRepository
@@ -32,20 +32,22 @@ class GameTTSManager:
         '秘书': 'female-shaonv',
         
         # 默认声音
-        'default': 'female-shaonv'
+        'default': '新闻播报女'
     }
     
-    def __init__(self, api_key: str, group_id: str, model: str = "speech-02-turbo"):
+    def __init__(self, api_key: str, group_id: str, model: str = "speech-02-turbo", provider: str = "minimax"):
         self.api_key = api_key
         self.group_id = group_id
         self.model = model
+        self.provider = provider
         self.storage_manager = StorageManager()
-        self._tts_service: Optional[MiniMaxTTSService] = None
+        self._tts_service: Optional[BaseTTSService] = None
         
-    def _get_tts_service(self) -> MiniMaxTTSService:
+    def _get_tts_service(self) -> BaseTTSService:
         """获取TTS服务实例"""
         if self._tts_service is None:
-            self._tts_service = MiniMaxTTSService(
+            self._tts_service = TTSService.create_service(
+                provider=self.provider,
                 api_key=self.api_key,
                 group_id=self.group_id,
                 model=self.model
@@ -137,28 +139,36 @@ class GameTTSManager:
             
             # 生成TTS音频
             tts_service = self._get_tts_service()
-            audio_chunks = []
-            error_occurred = False
             
-            logger.debug(f"[TTS] 开始流式生成音频: 会话={session_id}, 角色={character_name}")
-            async for chunk in tts_service.synthesize_stream(tts_request):
-                if "error" in chunk:
-                    logger.error(f"[TTS] 生成失败: {chunk['error']}, 会话={session_id}, 角色={character_name}")
-                    error_occurred = True
-                    break
-                elif "end" in chunk:
-                    logger.debug(f"[TTS] 音频生成完成: 会话={session_id}, 角色={character_name}")
-                    break
-                elif "audio" in chunk:
-                    audio_chunks.append(chunk["audio"])
-            
-            if error_occurred or not audio_chunks:
-                logger.error(f"[TTS] 音频生成失败: 会话={session_id}, 角色={character_name}")
+            logger.debug(f"[TTS] 开始生成音频: 会话={session_id}, 角色={character_name}")
+            try:
+                tts_response = await tts_service.text_to_speech(tts_request)
+                
+                # 检查是否有有效的音频数据
+                if not tts_response.audio_data:
+                    logger.error(f"[TTS] 生成失败: 未返回音频数据, 会话={session_id}, 角色={character_name}")
+                    return None
+            except Exception as tts_error:
+                logger.error(f"[TTS] 生成失败: {tts_error}, 会话={session_id}, 角色={character_name}")
                 return None
             
-            # 合并音频数据
-            full_audio_b64 = "".join(audio_chunks)
-            audio_bytes = base64.b64decode(full_audio_b64)
+            # 获取音频数据
+            if isinstance(tts_response.audio_data, str):
+                # 处理不同TTS服务的返回格式
+                if tts_response.audio_data.startswith('http'):
+                    # CosyVoice返回URL，需要下载音频文件
+                    import httpx
+                    async with httpx.AsyncClient() as client:
+                        audio_response = await client.get(tts_response.audio_data)
+                        audio_response.raise_for_status()
+                        audio_bytes = audio_response.content
+                else:
+                    # MiniMax返回base64编码的音频数据
+                    import base64
+                    audio_bytes = base64.b64decode(tts_response.audio_data)
+            else:
+                # 如果已经是bytes类型，直接使用
+                audio_bytes = tts_response.audio_data
             logger.info(f"[TTS] 音频生成成功: 会话={session_id}, 角色={character_name}, 大小={len(audio_bytes)}字节")
             
             # 上传到MinIO
