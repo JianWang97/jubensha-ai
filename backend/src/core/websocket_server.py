@@ -778,6 +778,15 @@ class GameModeHandler:
         finally:
             print(f"Game loop ended for session {session_id}")
             session.is_game_running = False
+            
+            # 更新数据库中的 GameSession 状态为 ENDED
+            try:
+                with db_manager.get_session() as db_session:
+                    game_session_repo = GameSessionRepository(db_session)
+                    game_session_repo.finalize_session(session_id)
+                    logger.info(f"[GAME] GameSession 状态已设置为 ENDED: 会话={session_id}")
+            except Exception as e:
+                logger.error(f"[ERROR] 设置 GameSession 状态为 ENDED 失败: 会话={session_id}, 错误={e}")
  
 
 
