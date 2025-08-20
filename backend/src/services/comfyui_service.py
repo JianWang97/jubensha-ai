@@ -46,7 +46,9 @@ class ComfyUIService:
     
     def __init__(self):
         self.server_address = os.getenv('COMFYUI_URL')
-        self.workflow_file = os.path.join('workflow', os.getenv('COMFYUI_WORKFLOW_FILE'))
+        # 为 COMFYUI_WORKFLOW_FILE 提供默认值，避免 None 导致的路径拼接错误
+        workflow_filename = os.getenv('COMFYUI_WORKFLOW_FILE') or 'Epicrealismxl_Hades.json'
+        self.workflow_file = os.path.join('workflow', workflow_filename)
         self.base_workflow = self._load_base_workflow()
     
     def _load_base_workflow(self) -> Dict[str, Any]:

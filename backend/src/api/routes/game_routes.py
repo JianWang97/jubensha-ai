@@ -7,7 +7,7 @@ from ...schemas.game_schemas import GameResponse
 from ...schemas.user_schemas import GameSessionDeleteRequest, GameSessionDeleteResponse, GameSessionDeleteFailedItem
 from ...db.repositories.game_session_repository import GameSessionRepository
 from ...core.container_integration import get_game_session_repo_depends
-from ...core.auth import get_current_active_user_from_request
+from ...core.auth_middleware import get_current_active_user_from_request
 
 router = APIRouter(prefix="/api/game", tags=["游戏管理"])
 
@@ -75,7 +75,7 @@ async def reset_game(session_id: str | None = None):
 async def delete_game_sessions(
     request: Request,
     delete_request: GameSessionDeleteRequest,
-    session_repo: GameSessionRepository = Depends(get_game_session_repo_depends())
+    session_repo: GameSessionRepository = get_game_session_repo_depends()
 ) -> GameSessionDeleteResponse:
     """删除游戏会话API（支持单个和批量删除）
     

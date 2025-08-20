@@ -1,4 +1,5 @@
-import { GameHistoryResponse as GameHistory } from '@/client';
+import { GameHistoryResponse as GameHistory, GameSessionDeleteRequest, GameSessionDeleteResponse } from '@/client';
+import { Service } from '@/client/services/Service';
 import AppLayout from '@/components/AppLayout';
 import GameHistoryDrawer from '@/components/GameHistoryDrawer';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -7,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { Search, Filter, RefreshCw, Trophy } from 'lucide-react';
+import { Search, Filter, RefreshCw, Trophy, Trash2, CheckSquare, Square } from 'lucide-react';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -32,6 +34,12 @@ const GameHistoryPage: React.FC = () => {
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
   const [selectedScriptTitle, setSelectedScriptTitle] = useState<string | undefined>(undefined);
+
+  // 删除相关状态
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'batch'; sessionIds: string[] }>({ type: 'single', sessionIds: [] });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 检查认证状态
   useEffect(() => {
@@ -111,6 +119,95 @@ const GameHistoryPage: React.FC = () => {
     }
   }, [isLoading, hasMore, currentPage, loadGameHistory]);
 
+  // 删除游戏会话
+  const deleteGameSessions = useCallback(async (sessionIds: string[]) => {
+    try {
+      setIsDeleting(true);
+      const deleteRequest: GameSessionDeleteRequest = {
+        session_ids: sessionIds
+      };
+      
+      const response: GameSessionDeleteResponse = await Service.deleteGameSessionsApiGameSessionsDelete(deleteRequest);
+      
+      if (response.total_success > 0) {
+        toast.success(`成功删除 ${response.total_success} 个游戏记录`);
+        // 刷新游戏历史列表
+        await refreshGameHistory();
+        // 清空选中状态
+        setSelectedSessions(new Set());
+      }
+      
+      if (response.total_failed > 0) {
+        const failedMessages = response.failed?.map(item => `${item.session_id}: ${item.error}`).join('\n') || '';
+        toast.error(`删除失败 ${response.total_failed} 个记录:\n${failedMessages}`);
+      }
+    } catch (error) {
+      console.error('Delete game sessions error:', error);
+      toast.error('删除游戏记录失败');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [refreshGameHistory]);
+
+  // 处理单个删除
+  const handleSingleDelete = useCallback((sessionId: string) => {
+    setDeleteTarget({ type: 'single', sessionIds: [sessionId] });
+    setShowDeleteConfirm(true);
+  }, []);
+
+  // 处理批量删除
+  const handleBatchDelete = useCallback(() => {
+    if (selectedSessions.size === 0) {
+      toast.warning('请先选择要删除的游戏记录');
+      return;
+    }
+    setDeleteTarget({ type: 'batch', sessionIds: Array.from(selectedSessions) });
+    setShowDeleteConfirm(true);
+  }, [selectedSessions]);
+
+  // 确认删除
+  const confirmDelete = useCallback(() => {
+    deleteGameSessions(deleteTarget.sessionIds);
+  }, [deleteGameSessions, deleteTarget.sessionIds]);
+
+  // 取消删除
+  const cancelDelete = useCallback(() => {
+    setShowDeleteConfirm(false);
+  }, []);
+
+  // 切换单个选择
+  const toggleSessionSelection = useCallback((sessionId: string) => {
+    setSelectedSessions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId);
+      } else {
+        newSet.add(sessionId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // 全选/取消全选
+  const toggleSelectAll = useCallback(() => {
+    if (selectedSessions.size === filteredHistory.length) {
+      setSelectedSessions(new Set());
+    } else {
+      setSelectedSessions(new Set(filteredHistory.map(game => game.session_id)));
+    }
+  }, [selectedSessions.size, filteredHistory]);
+
+  // 检查是否全选
+  const isAllSelected = useMemo(() => {
+    return filteredHistory.length > 0 && selectedSessions.size === filteredHistory.length;
+  }, [filteredHistory.length, selectedSessions.size]);
+
+  // 检查是否部分选中
+  const isIndeterminate = useMemo(() => {
+    return selectedSessions.size > 0 && selectedSessions.size < filteredHistory.length;
+  }, [selectedSessions.size, filteredHistory.length]);
+
 
 
   // 获取状态显示（兼容大小写）
@@ -173,6 +270,33 @@ const GameHistoryPage: React.FC = () => {
               <Trophy className="h-6 w-6 text-purple-400" />
               <h1 className="text-2xl font-bold text-white">游戏历史</h1>
             </div>
+            
+            {/* 批量操作按钮 */}
+            {filteredHistory.length > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-gray-300">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={toggleSelectAll}
+                    className="data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+                  />
+                  <span>全选 ({selectedSessions.size}/{filteredHistory.length})</span>
+                </div>
+                
+                {selectedSessions.size > 0 && (
+                  <Button
+                    onClick={handleBatchDelete}
+                    disabled={isDeleting}
+                    variant="destructive"
+                    size="sm"
+                    className="bg-red-600/80 hover:bg-red-600 text-white"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    删除选中 ({selectedSessions.size})
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 搜索和过滤 */}
@@ -254,9 +378,18 @@ const GameHistoryPage: React.FC = () => {
                 return (
                   <Card key={game.id} className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15 transition-colors">
                     <CardContent className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        {/* 选择框 */}
+                        <div className="pt-1">
+                          <Checkbox
+                            checked={selectedSessions.has(game.session_id)}
+                            onCheckedChange={() => toggleSessionSelection(game.session_id)}
+                            className="data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+                          />
+                        </div>
+                        
                         {/* 游戏信息 */}
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <h3 className="text-base font-medium text-white truncate">
                               {(game as any).script_title || '未知剧本'}
@@ -276,33 +409,44 @@ const GameHistoryPage: React.FC = () => {
                         </div>
                         
                         {/* 操作按钮 */}
-                        <div className="flex gap-2">
-                          {isActiveStatus(game.status) && (
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="flex gap-2 flex-wrap">
+                            {isActiveStatus(game.status) && (
+                              <Button
+                                onClick={() => router.push(`/game?script_id=${(game as any).script_id}`)}
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                继续游戏
+                              </Button>
+                            )}
+                            {isEndedStatus(game.status) && (
+                              <Button
+                                onClick={() => router.push(`/game-history/${encodeURIComponent(game.session_id)}/replay`)}
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                回放
+                              </Button>
+                            )}
                             <Button
-                              onClick={() => router.push(`/game?script_id=${(game as any).script_id}`)}
+                              onClick={openDrawer}
+                              variant="outline"
                               size="sm"
-                              className="bg-green-600 hover:bg-green-700"
+                              className="border-white/30 text-white hover:bg-white/10"
                             >
-                              继续游戏
+                              详情
                             </Button>
-                          )}
-                          {isEndedStatus(game.status) && (
                             <Button
-                              onClick={() => router.push(`/game-history/${encodeURIComponent(game.session_id)}/replay`)}
+                              onClick={() => handleSingleDelete(game.session_id)}
+                              disabled={isDeleting}
+                              variant="outline"
                               size="sm"
-                              className="bg-blue-600 hover:bg-blue-700"
+                              className="border-red-500/50 text-red-400 hover:bg-red-500/20 hover:border-red-500"
                             >
-                              回放
+                              <Trash2 className="h-3 w-3" />
                             </Button>
-                          )}
-                          <Button
-                            onClick={openDrawer}
-                            variant="outline"
-                            size="sm"
-                            className="border-white/30 text-white hover:bg-white/10"
-                          >
-                            详情
-                          </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -317,6 +461,43 @@ const GameHistoryPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* 删除确认对话框 */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-black/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl max-w-md mx-4">
+              <div className="text-center">
+                <div className="text-4xl mb-4">⚠️</div>
+                <h3 className="text-white font-bold text-xl mb-2">
+                  {deleteTarget.type === 'single' ? '确认删除游戏记录' : '确认批量删除'}
+                </h3>
+                <p className="text-gray-300 mb-6">
+                  {deleteTarget.type === 'single' 
+                    ? '删除后将无法恢复该游戏记录，确定要删除吗？'
+                    : `确定要删除选中的 ${deleteTarget.sessionIds.length} 个游戏记录吗？删除后将无法恢复。`
+                  }
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button
+                    onClick={cancelDelete}
+                    disabled={isDeleting}
+                    variant="outline"
+                    className="border-white/30 text-white hover:bg-white/10"
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={confirmDelete}
+                    disabled={isDeleting}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {isDeleting ? '删除中...' : '确认删除'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 游戏记录详情抽屉 */}
         <GameHistoryDrawer

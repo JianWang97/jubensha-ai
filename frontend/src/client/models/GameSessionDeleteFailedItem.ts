@@ -2,9 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type TTSRequest = {
-    text: string;
-    character?: string;
-    voice?: (string | null);
+/**
+ * 删除失败的会话项
+ */
+export type GameSessionDeleteFailedItem = {
+    session_id: string;
+    error: string;
 };
 

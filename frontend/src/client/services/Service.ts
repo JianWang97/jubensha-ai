@@ -19,10 +19,8 @@ import type { EvidenceCreateRequest } from '../models/EvidenceCreateRequest';
 import type { EvidencePromptRequest } from '../models/EvidencePromptRequest';
 import type { EvidenceUpdateRequest } from '../models/EvidenceUpdateRequest';
 import type { ExecuteInstructionRequest } from '../models/ExecuteInstructionRequest';
-import type { GameHistoryResponse } from '../models/GameHistoryResponse';
-import type { GameParticipantResponse } from '../models/GameParticipantResponse';
-import type { GameSessionCreate } from '../models/GameSessionCreate';
-import type { GameSessionResponse } from '../models/GameSessionResponse';
+import type { GameSessionDeleteRequest } from '../models/GameSessionDeleteRequest';
+import type { GameSessionDeleteResponse } from '../models/GameSessionDeleteResponse';
 import type { GenerateSuggestionRequest } from '../models/GenerateSuggestionRequest';
 import type { ImageGenerationRequest } from '../models/ImageGenerationRequest';
 import type { ImageResponse } from '../models/ImageResponse';
@@ -31,7 +29,6 @@ import type { ParseInstructionRequest } from '../models/ParseInstructionRequest'
 import type { PasswordChange } from '../models/PasswordChange';
 import type { ScriptLocation } from '../models/ScriptLocation';
 import type { Token } from '../models/Token';
-import type { TTSRequest } from '../models/TTSRequest';
 import type { UserBrief } from '../models/UserBrief';
 import type { UserLogin } from '../models/UserLogin';
 import type { UserRegister } from '../models/UserRegister';
@@ -168,14 +165,14 @@ export class Service {
      * 生成图片
      * - image_type: 图片类型（cover, character, evidence, scene）必填
      * - script_id: 剧本ID
-     * - positive_prompt: 提示词（可选，不填使用默认）
+     * - positive_prompt: 提示词（可选，会通过LLM优化）
      * @param requestBody
-     * @returns any Successful Response
+     * @returns APIResponse_dict_ Successful Response
      * @throws ApiError
      */
     public static generateImageApiImagesGeneratePost(
         requestBody: ImageGenerationRequest,
-    ): CancelablePromise<any> {
+    ): CancelablePromise<APIResponse_dict_> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/images/generate',
@@ -706,6 +703,154 @@ export class Service {
         });
     }
     /**
+     * Delete Game Sessions
+     * 删除游戏会话API（支持单个和批量删除）
+     *
+     * Args:
+     * delete_request: 删除请求，包含要删除的会话ID列表
+     * session_repo: 游戏会话仓库依赖
+     *
+     * Returns:
+     * GameSessionDeleteResponse: 删除结果响应
+     * @param requestBody
+     * @returns GameSessionDeleteResponse Successful Response
+     * @throws ApiError
+     */
+    public static deleteGameSessionsApiGameSessionsDelete(
+        requestBody: GameSessionDeleteRequest,
+    ): CancelablePromise<GameSessionDeleteResponse> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/game/sessions',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * List Game History
+     * @param page 页码(>=1)
+     * @param size 每页大小
+     * @param skip (兼容) 偏移量
+     * @param limit (兼容) 限制条数
+     * @param status
+     * @param scriptId
+     * @param startDate
+     * @param endDate
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static listGameHistoryApiUsersGameHistoryGet(
+        page: number = 1,
+        size: number = 20,
+        skip?: (number | null),
+        limit?: (number | null),
+        status?: (string | null),
+        scriptId?: (number | null),
+        startDate?: (string | null),
+        endDate?: (string | null),
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/game-history',
+            query: {
+                'page': page,
+                'size': size,
+                'skip': skip,
+                'limit': limit,
+                'status': status,
+                'script_id': scriptId,
+                'start_date': startDate,
+                'end_date': endDate,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Game Detail
+     * @param sessionId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static getGameDetailApiUsersGameHistorySessionIdGet(
+        sessionId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/game-history/{session_id}',
+            path: {
+                'session_id': sessionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Game Events
+     * @param sessionId
+     * @param page
+     * @param size
+     * @param eventType
+     * @param characterName
+     * @param startTime
+     * @param endTime
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static getGameEventsApiUsersGameHistorySessionIdEventsGet(
+        sessionId: string,
+        page: number = 1,
+        size: number = 50,
+        eventType?: (string | null),
+        characterName?: (string | null),
+        startTime?: (string | null),
+        endTime?: (string | null),
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/users/game-history/{session_id}/events',
+            path: {
+                'session_id': sessionId,
+            },
+            query: {
+                'page': page,
+                'size': size,
+                'event_type': eventType,
+                'character_name': characterName,
+                'start_time': startTime,
+                'end_time': endTime,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Resume Game
+     * @param sessionId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static resumeGameApiUsersGameHistorySessionIdResumePost(
+        sessionId: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/users/game-history/{session_id}/resume',
+            path: {
+                'session_id': sessionId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Upload File
      * 文件上传API
      *
@@ -828,26 +973,6 @@ export class Service {
             path: {
                 'file_path': filePath,
             },
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * Stream Tts
-     * TTS流式音频生成API
-     * @param requestBody
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public static streamTtsApiTtsStreamPost(
-        requestBody: TTSRequest,
-    ): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/tts/stream',
-            body: requestBody,
-            mediaType: 'application/json',
             errors: {
                 422: `Validation Error`,
             },
@@ -1045,146 +1170,6 @@ export class Service {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/auth/verify-token',
-        });
-    }
-    /**
-     * 创建游戏会话
-     * 创建游戏会话
-     * @param requestBody
-     * @returns GameSessionResponse Successful Response
-     * @throws ApiError
-     */
-    public static createGameSessionApiUsersGameSessionsPost(
-        requestBody: GameSessionCreate,
-    ): CancelablePromise<GameSessionResponse> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/users/game-sessions',
-            body: requestBody,
-            mediaType: 'application/json',
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * 加入游戏会话
-     * 加入游戏会话
-     * @param sessionId
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public static joinGameSessionApiUsersGameSessionsSessionIdJoinPost(
-        sessionId: string,
-    ): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/users/game-sessions/{session_id}/join',
-            path: {
-                'session_id': sessionId,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * 离开游戏会话
-     * 离开游戏会话
-     * @param sessionId
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public static leaveGameSessionApiUsersGameSessionsSessionIdLeavePost(
-        sessionId: string,
-    ): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/users/game-sessions/{session_id}/leave',
-            path: {
-                'session_id': sessionId,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * 获取游戏历史
-     * 获取用户游戏历史
-     * @param skip 跳过的记录数
-     * @param limit 返回的记录数
-     * @returns GameHistoryResponse Successful Response
-     * @throws ApiError
-     */
-    public static getGameHistoryApiUsersGameHistoryGet(
-        skip?: number,
-        limit: number = 20,
-    ): CancelablePromise<Array<GameHistoryResponse>> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/users/game-history',
-            query: {
-                'skip': skip,
-                'limit': limit,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * 获取游戏会话详情
-     * 获取游戏会话详情
-     * @param sessionId
-     * @returns GameSessionResponse Successful Response
-     * @throws ApiError
-     */
-    public static getGameSessionApiUsersGameSessionsSessionIdGet(
-        sessionId: string,
-    ): CancelablePromise<GameSessionResponse> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/users/game-sessions/{session_id}',
-            path: {
-                'session_id': sessionId,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * 获取游戏参与者
-     * 获取游戏参与者列表
-     * @param sessionId
-     * @returns GameParticipantResponse Successful Response
-     * @throws ApiError
-     */
-    public static getGameParticipantsApiUsersGameSessionsSessionIdParticipantsGet(
-        sessionId: string,
-    ): CancelablePromise<Array<GameParticipantResponse>> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/users/game-sessions/{session_id}/participants',
-            path: {
-                'session_id': sessionId,
-            },
-            errors: {
-                422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * 获取用户统计信息
-     * 获取用户统计信息
-     * @returns any Successful Response
-     * @throws ApiError
-     */
-    public static getUserStatsApiUsersStatsGet(): CancelablePromise<any> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/users/stats',
         });
     }
 }
