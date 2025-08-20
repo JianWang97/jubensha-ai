@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { fetchGameHistory, fetchGameDetail, fetchGameEvents, resumeGame, GameHistoryItem, GameEventItem } from '../services/gameHistoryService';
+import { ScriptsService } from '../client';
 
 interface Filters { status?: string; script_id?: number; start_date?: string; end_date?: string }
 interface GameHistoryState {
@@ -28,7 +29,24 @@ export const useGameHistoryStore = create<GameHistoryState>((set,get)=>({
   },
   loadDetail: async (sessionId)=> {
     set({ currentSessionId: sessionId });
-    try { const resp = await fetchGameDetail(sessionId); set({ detail: resp.data }); } catch(e:any){ set({ error:e.message }); }
+    try { 
+      const resp = await fetchGameDetail(sessionId); 
+      let detail = resp.data;
+      
+      // 如果有script_id，获取剧本详细信息
+      if (detail.session_info?.script_id) {
+        try {
+          const scriptResp = await ScriptsService.getScriptInfoApiScriptsScriptIdInfoGet(detail.session_info.script_id);
+          if (scriptResp.success && scriptResp.data) {
+            detail.script_info = scriptResp.data;
+          }
+        } catch (scriptError) {
+          console.warn('获取剧本信息失败:', scriptError);
+        }
+      }
+      
+      set({ detail }); 
+    } catch(e:any){ set({ error:e.message }); }
   },
   loadEvents: async (sessionId, page=1)=> {
     set({ eventsLoading:true });

@@ -19,7 +19,7 @@ class GameSession(BaseSQLAlchemyModel):
     
     # 基本信息
     session_id = Column(String(100), unique=True, nullable=False, index=True, comment="会话ID")
-    script_id = Column(Integer, nullable=False, comment="剧本ID")
+    script_id = Column(Integer, ForeignKey('scripts.id'), nullable=False, comment="剧本ID")
     host_user_id = Column(Integer, ForeignKey('users.id'), nullable=False, comment="房主用户ID")
     status = mapped_column(SqlEnum(GameSessionStatus), nullable=False, comment="游戏会话状态")
     # 时间记录
@@ -31,6 +31,7 @@ class GameSession(BaseSQLAlchemyModel):
     # 关联关系
     host_user = relationship("User", back_populates="hosted_sessions")
     events = relationship("GameEventDBModel", back_populates="session", cascade="all, delete-orphan")
+    script = relationship("ScriptDBModel")
     
     __table_args__ = (
         Index('idx_game_sessions_host_user_id', 'host_user_id'),
@@ -49,6 +50,8 @@ class GameSession(BaseSQLAlchemyModel):
             'script_id': self.script_id,
             'host_user_id': self.host_user_id,
             'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at is not None else None,  # 修复：明确检查None
-            'updated_at': self.updated_at.isoformat() if self.updated_at is not None else None  # 修复：明确检查None
+            'created_at': self.created_at.isoformat() if self.created_at is not None else None,  # 保留时区信息
+            'updated_at': self.updated_at.isoformat() if self.updated_at is not None else None,  # 保留时区信息
+            'started_at': self.started_at.isoformat() if self.started_at is not None else None,  # 保留时区信息
+            'finished_at': self.finished_at.isoformat() if self.finished_at is not None else None  # 保留时区信息
         }

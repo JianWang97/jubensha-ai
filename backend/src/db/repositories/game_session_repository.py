@@ -1,7 +1,8 @@
 """游戏会话数据仓库"""
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
+from sqlalchemy.exc import SQLAlchemyError
 
 from .base import BaseRepository
 from ..models.game_session import GameSession, GameSessionStatus
@@ -101,6 +102,76 @@ class GameSessionRepository(BaseRepository[GameSession]):
         session.total_tts_duration = float(total_secs or 0.0)
         self.session.flush()
         return True
+    
+    def delete_sessions(self, session_ids: List[str], user_id: int) -> Dict[str, Any]:
+        """批量删除游戏会话
+        
+        Args:
+            session_ids: 要删除的会话ID列表
+            user_id: 当前用户ID，用于权限校验
+            
+        Returns:
+            Dict包含:
+            - success: 成功删除的session_id列表
+            - failed: 删除失败的session_id列表及错误信息
+        """
+        success_ids = []
+        failed_ids = []
+        
+        for session_id in session_ids:
+            try:
+                # 查找会话
+                session = self.get_by_session_id(session_id)
+                if not session:
+                    failed_ids.append({
+                        "session_id": session_id,
+                        "error": "会话不存在"
+                    })
+                    continue
+                
+                # 权限校验：只有会话创建者才能删除
+                if session.host_user_id != user_id:
+                    failed_ids.append({
+                        "session_id": session_id,
+                        "error": "无权限删除此会话"
+                    })
+                    continue
+                
+                # 删除会话（级联删除关联的events）
+                self.session.delete(session)
+                self.session.flush()  # 立即执行删除
+                success_ids.append(session_id)
+                
+            except SQLAlchemyError as e:
+                # 回滚当前会话的删除操作
+                self.session.rollback()
+                failed_ids.append({
+                    "session_id": session_id,
+                    "error": f"数据库错误: {str(e)}"
+                })
+            except Exception as e:
+                failed_ids.append({
+                    "session_id": session_id,
+                    "error": f"未知错误: {str(e)}"
+                })
+        
+        return {
+            "success": success_ids,
+            "failed": failed_ids
+        }
+    
+    def delete_session(self, session_id: str, user_id: int) -> bool:
+        """删除单个游戏会话
+        
+        Args:
+            session_id: 要删除的会话ID
+            user_id: 当前用户ID，用于权限校验
+            
+        Returns:
+            bool: 删除是否成功
+        """
+        result = self.delete_sessions([session_id], user_id)
+        return len(result["success"]) > 0
 
 class GameEventRepository(BaseRepository[GameEventDBModel]):
     """游戏事件仓库"""

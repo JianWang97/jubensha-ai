@@ -6,7 +6,6 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 import os
 
-from sqlalchemy import true
 from sqlalchemy.orm import Session
 # 显式导入以避免依赖包级 __init__ 导出（已精简以规避循环导入）
 from src.core.game_engine import GameEngine
@@ -696,12 +695,12 @@ class GameModeHandler:
                 
                 # 根据阶段设置不同的等待时间
                 phase_durations = {
-                    GamePhase.BACKGROUND: 10,  # 背景介绍10秒
-                    GamePhase.INTRODUCTION: 5,  # 自我介绍30秒
-                    GamePhase.EVIDENCE_COLLECTION: 5,  # 搜证60秒
-                    GamePhase.INVESTIGATION: 5,  # 调查120秒
-                    GamePhase.DISCUSSION: 5,  # 讨论180秒
-                    GamePhase.VOTING: 5,  # 投票60秒
+                    GamePhase.BACKGROUND: 10,  
+                    GamePhase.INTRODUCTION: 5, 
+                    GamePhase.EVIDENCE_COLLECTION: 5,  
+                    GamePhase.INVESTIGATION: 5,  
+                    GamePhase.DISCUSSION: 5, 
+                    GamePhase.VOTING: 5, 
                 }
                 
                 # 自动进入下一阶段（除了最后阶段）
@@ -781,7 +780,7 @@ class GameModeHandler:
             
             # 更新数据库中的 GameSession 状态为 ENDED
             try:
-                with db_manager.get_session() as db_session:
+                with db_manager.session_scope() as db_session:
                     game_session_repo = GameSessionRepository(db_session)
                     game_session_repo.finalize_session(session_id)
                     logger.info(f"[GAME] GameSession 状态已设置为 ENDED: 会话={session_id}")

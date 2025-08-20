@@ -250,13 +250,13 @@ export default function ReplayControlDrawer({
                     <>
                       <div className="bg-white/5 rounded-lg p-3">
                         <div className="text-sm text-gray-300 mb-1">剧本名称</div>
-                        <div className="text-white">{detail.script_name}</div>
+                        <div className="text-white">{detail.script_info?.title || '未知剧本'}</div>
                       </div>
                       
                       <div className="bg-white/5 rounded-lg p-3">
                         <div className="text-sm text-gray-300 mb-1">游戏时间</div>
                         <div className="text-white">
-                          {detail.created_at ? new Date(detail.created_at).toLocaleString() : '未知'}
+                          {detail.session_info?.created_at ? new Date(detail.session_info.created_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '未知'}
                         </div>
                       </div>
                       

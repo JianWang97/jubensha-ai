@@ -1,9 +1,13 @@
 """游戏管理相关的API路由"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Optional
 
 from ...core.websocket_server import game_server
 from ...schemas.game_schemas import GameResponse
+from ...schemas.user_schemas import GameSessionDeleteRequest, GameSessionDeleteResponse, GameSessionDeleteFailedItem
+from ...db.repositories.game_session_repository import GameSessionRepository
+from ...core.container_integration import get_game_session_repo_depends
+from ...core.auth import get_current_active_user_from_request
 
 router = APIRouter(prefix="/api/game", tags=["游戏管理"])
 
@@ -66,3 +70,63 @@ async def reset_game(session_id: str | None = None):
         return create_response(True, "游戏已重置")
     except Exception as e:
         return create_response(False, f"Failed to reset game: {str(e)}")
+
+@router.delete("/sessions")
+async def delete_game_sessions(
+    request: Request,
+    delete_request: GameSessionDeleteRequest,
+    session_repo: GameSessionRepository = Depends(get_game_session_repo_depends())
+) -> GameSessionDeleteResponse:
+    """删除游戏会话API（支持单个和批量删除）
+    
+    Args:
+        delete_request: 删除请求，包含要删除的会话ID列表
+        session_repo: 游戏会话仓库依赖
+        
+    Returns:
+        GameSessionDeleteResponse: 删除结果响应
+    """
+    try:
+        # 获取当前用户，用于权限验证
+        user = get_current_active_user_from_request(request)
+        
+        # 执行批量删除，传递用户ID进行权限校验
+        result = session_repo.delete_sessions(delete_request.session_ids, user.id)
+        
+        # 转换失败项格式
+        failed_items = [
+            GameSessionDeleteFailedItem(
+                session_id=item["session_id"],
+                error=item["error"]
+            )
+            for item in result["failed"]
+        ]
+        
+        # 构建响应
+        response = GameSessionDeleteResponse(
+            success=result["success"],
+            failed=failed_items,
+            total_requested=len(delete_request.session_ids),
+            total_success=len(result["success"]),
+            total_failed=len(result["failed"])
+        )
+        
+        return response
+        
+    except Exception as e:
+        # 如果发生未预期的错误，返回所有删除失败
+        failed_items = [
+            GameSessionDeleteFailedItem(
+                session_id=session_id,
+                error=f"服务器错误: {str(e)}"
+            )
+            for session_id in delete_request.session_ids
+        ]
+        
+        return GameSessionDeleteResponse(
+            success=[],
+            failed=failed_items,
+            total_requested=len(delete_request.session_ids),
+            total_success=0,
+            total_failed=len(delete_request.session_ids)
+        )

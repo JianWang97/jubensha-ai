@@ -154,3 +154,21 @@ class PlayerStatusUpdate(BaseModel):
     """玩家状态更新模式"""
     user_id: int
     status: str  # ready, not_ready, left, etc.
+
+# 游戏会话删除相关模式
+class GameSessionDeleteRequest(BaseModel):
+    """删除游戏会话请求模式"""
+    session_ids: List[str] = Field(..., min_items=1, description="要删除的会话ID列表")
+
+class GameSessionDeleteFailedItem(BaseModel):
+    """删除失败的会话项"""
+    session_id: str
+    error: str
+
+class GameSessionDeleteResponse(BaseModel):
+    """删除游戏会话响应模式"""
+    success: List[str] = Field(default_factory=list, description="成功删除的会话ID列表")
+    failed: List[GameSessionDeleteFailedItem] = Field(default_factory=list, description="删除失败的会话列表")
+    total_requested: int = Field(..., description="请求删除的总数")
+    total_success: int = Field(..., description="成功删除的总数")
+    total_failed: int = Field(..., description="删除失败的总数")

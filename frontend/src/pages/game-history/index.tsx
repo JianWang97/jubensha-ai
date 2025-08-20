@@ -32,7 +32,7 @@ export default function GameHistoryPage(){
           </div>
           <div className="text-xs text-slate-600 space-y-1">
             <div>剧本ID: {item.script_id}</div>
-            <div>创建: {item.created_at?.replace('T',' ').slice(0,16)}</div>
+            <div>创建: {item.created_at ? new Date(item.created_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '未知'}</div>
             <div>事件: {item.event_count} | 模式: AI 演绎</div>
             {item.duration_minutes!=null && <div>时长: {item.duration_minutes} 分钟</div>}
           </div>

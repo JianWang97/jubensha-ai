@@ -7,6 +7,7 @@ from src.db.models.game_event import GameEventDBModel
 from src.db.models.game_session import GameSession, GameSessionStatus
 from src.db.models.user import User
 from src.db.models.user_game_participant import UserGameParticipant
+from src.db.models.script_model import ScriptDBModel
 from src.schemas.game_history_schemas import (
     GameHistoryFilters, PaginationParams, PaginatedResponse, GameHistoryItem,
     EventFilters, GameEventItem, GameDetailResponse, GameDetailData,
@@ -47,11 +48,19 @@ class GameHistoryService:
                     duration = int((end_time - s.started_at).total_seconds() // 60)
             event_count = self.db.query(func.count(GameEventDBModel.id)).filter(GameEventDBModel.session_id==s.session_id).scalar() or 0
             player_count = self.db.query(func.count(func.distinct(UserGameParticipant.user_id))).filter(UserGameParticipant.session_id==s.session_id).scalar() or 0
+            
+            # 获取script_title
+            script_title = None
+            if s.script_id:
+                script = self.db.query(ScriptDBModel).filter(ScriptDBModel.id == s.script_id).first()
+                if script:
+                    script_title = script.title
+            
             items.append(GameHistoryItem(
                 id=s.id,
                 session_id=s.session_id,
                 script_id=s.script_id,
-                script_title=None,
+                script_title=script_title,
                 status=s.status.value if hasattr(s.status, 'value') else s.status,
                 created_at=s.created_at,
                 started_at=s.started_at,
@@ -80,6 +89,13 @@ class GameHistoryService:
             from datetime import datetime
             end_time = s.finished_at or datetime.utcnow()
             duration = int((end_time - s.started_at).total_seconds() // 60)
+        # 获取script_title
+        script_title = None
+        if s.script_id:
+            script = self.db.query(ScriptDBModel).filter(ScriptDBModel.id == s.script_id).first()
+            if script:
+                script_title = script.title
+        
         # players
         participants = self.db.query(UserGameParticipant, User).join(User, UserGameParticipant.user_id==User.id).filter(UserGameParticipant.session_id==session_id).all()
         players: List[GameDetailPlayer] = []
@@ -89,7 +105,7 @@ class GameHistoryService:
             id=s.id,
             session_id=s.session_id,
             script_id=s.script_id,
-            script_title=None,
+            script_title=script_title,
             status=s.status.value if hasattr(s.status,'value') else s.status,
             created_at=s.created_at,
             started_at=s.started_at,
