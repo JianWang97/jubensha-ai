@@ -26,3 +26,40 @@ frontend/.env.development.local
 frontend/.env.production.local
 
 .figma/*
+
+# 添加的忽略规则
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编译和缓存文件
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.coverage
+.gitlab-ci.yml
+.gitignore.bak
+
+# IDE相关文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 数据库相关
+*.db
+*.sqlite
+
+# ComfyUI相关
+comfyui_temp/
+output/
+
+# 其他
+*.bak
+*~
+.DS_Store?
+ehthumbs_vista.db
+Icon?
+Thumbs.db
