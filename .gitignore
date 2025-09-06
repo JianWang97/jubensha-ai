@@ -25,6 +25,7 @@ frontend/.env.local
 frontend/.env.development.local
 frontend/.env.production.local
 
+backend/tts
 .figma/*
 
 # 添加的忽略规则
