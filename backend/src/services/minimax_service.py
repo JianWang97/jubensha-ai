@@ -8,7 +8,7 @@ import base64
 import logging
 import aiohttp
 
-from .base_tts import BaseTTSService, TTSRequest
+from .base_tts import BaseTTSService, TTSRequest, TTSResponse
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -259,18 +259,14 @@ class MiniMaxTTSService(BaseTTSService):
             fmt = data_dict.get("format", "mp3")
             
             return TTSResponse(
-                success=True,
                 audio_data=audio_b64,
-                format=fmt,
-                error=None
+                format=fmt
             )
         except Exception as e:
             logger.error(f"MiniMax text_to_speech error: {e}", exc_info=True)
             return TTSResponse(
-                success=False,
                 audio_data="",
-                format="mp3",
-                error=str(e)
+                format="mp3"
             )
 
     async def get_voice_list(self) -> Dict[str, Any]:

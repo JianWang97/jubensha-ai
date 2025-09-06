@@ -90,13 +90,14 @@ from ..db.repositories.background_story_repository import BackgroundStoryReposit
 from ..db.repositories.game_phase_repository import GamePhaseRepository
 from ..db.repositories.game_session_repository import GameSessionRepository
 from ..services.script_editor_service import ScriptEditorService
-from sqlalchemy.orm import Session
 
 
 # FastAPI Depends对象 - 使用工厂函数而不是预定义对象
 # 这些函数在需要时创建Depends对象，避免在模块导入时创建
 def get_db_session_depends():
     """获取数据库会话的Depends对象"""
+    # 在函数内部导入Session，避免循环导入问题
+    from sqlalchemy.orm import Session
     return inject_scoped(Session)
 
 def get_script_repo_depends():

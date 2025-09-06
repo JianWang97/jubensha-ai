@@ -1,5 +1,5 @@
 [project]
-name = "jubensha-2"
+name = "jubensha"
 version = "0.1.0"
 description = "AI剧本杀游戏demo"
 readme = "README.md"
@@ -40,3 +40,4 @@ dev = [
     "mypy>=1.17.0",
     "pyright>=1.1.300",
 ]
+

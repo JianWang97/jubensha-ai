@@ -343,17 +343,6 @@ def service_scope():
 def configure_services() -> DependencyContainer:
     """配置服务注册"""
     from ..db.session import DatabaseManager, db_manager
-    from ..db.repositories.script_repository import ScriptRepository
-    from ..db.repositories.character_repository import CharacterRepository
-    from ..db.repositories.evidence_repository import EvidenceRepository
-    from ..db.repositories.location_repository import LocationRepository
-    from ..db.repositories.image_repository import ImageRepository
-    from ..db.repositories.background_story_repository import BackgroundStoryRepository
-    from ..db.repositories.game_phase_repository import GamePhaseRepository
-    from ..db.repositories.game_session_repository import GameSessionRepository, GameEventRepository
-    from ..services.game_history_service import GameHistoryService, GameResumeService
-    from ..services.script_editor_service import ScriptEditorService
-    from ..services.llm_service import LLMService, llm_service
     
     # 注册数据库管理器（单例）
     container.register_instance(DatabaseManager, db_manager)
@@ -371,6 +360,19 @@ def configure_services() -> DependencyContainer:
         Session,
         factory=create_session
     )
+    
+    # 注册其他服务
+    from ..db.repositories.script_repository import ScriptRepository
+    from ..db.repositories.character_repository import CharacterRepository
+    from ..db.repositories.evidence_repository import EvidenceRepository
+    from ..db.repositories.location_repository import LocationRepository
+    from ..db.repositories.image_repository import ImageRepository
+    from ..db.repositories.background_story_repository import BackgroundStoryRepository
+    from ..db.repositories.game_phase_repository import GamePhaseRepository
+    from ..db.repositories.game_session_repository import GameSessionRepository, GameEventRepository
+    from ..services.game_history_service import GameHistoryService, GameResumeService
+    from ..services.script_editor_service import ScriptEditorService
+    from ..services.llm_service import LLMService, llm_service
     
     # 注册Repository（作用域）
     container.register_scoped(ScriptRepository)
