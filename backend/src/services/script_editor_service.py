@@ -331,7 +331,6 @@ class ScriptEditorService:
 - personality_traits: 性格特征（必填，3-5个特征词的数组，不能为空）
 - is_murderer: 是否为凶手（必填，布尔值）
 - is_victim: 是否为受害者（必填，布尔值）
-- avatar_url: 头像URL（可选）
 - voice_preference: 语音偏好（可选）
 - voice_id: TTS声音ID（可选）
 
@@ -344,7 +343,7 @@ class ScriptEditorService:
 6. gender字段只能是"男"、"女"、"中性"中的一个
 
 【角色背景更新示例】
-用户说"更新张助理的背景故事"，应该返回：
+用户说"更新张助理的背景故事"，你应该返回：
 {
   "action": "update",
   "target": "character",
@@ -399,7 +398,7 @@ class ScriptEditorService:
 - evidence_type: 证据类型（必填，可选值：PHYSICAL-物证, DOCUMENT-文件, VIDEO-视频, AUDIO-音频, IMAGE-图片）
 - importance: 重要程度（必填，可选值：关键证据、重要证据、普通证据）
 - is_hidden: 是否隐藏（必填，布尔值）
-- image_url: 证据图片URL（可选）""",
+""",
             
             "location": """你是一个专业的剧本场景编辑助手，专门处理与场景相关的操作。
 
@@ -421,7 +420,6 @@ class ScriptEditorService:
 - name: 场景名称（必填，不能为空）
 - description: 场景描述（必填，详细描述场景的外观、氛围和重要特征，至少100字，不能为空）
 - searchable_items: 可搜索物品（必填，列出场景中的重要物品，数组格式，不能为空）
-- background_image_url: 背景图片URL（可选）
 - is_crime_scene: 是否为案发现场（必填，布尔值）""",
             
             "story": """你是一个专业的剧本背景故事编辑助手，专门处理与背景故事相关的操作。
@@ -477,10 +475,7 @@ class ScriptEditorService:
 - estimated_duration: 预计游戏时长（分钟）
 - difficulty_level: 难度等级（可选值：easy, medium, hard）
 - tags: 标签列表
-- category: 剧本分类
-- is_public: 是否公开
-- price: 价格
-- cover_image_url: 封面图片URL""",
+- category: 剧本分类""",
             
             "other": """你是一个专业的剧本编辑助手，能够理解用户的自然语言指令并将其转换为具体的编辑操作。
 
@@ -814,33 +809,28 @@ class ScriptEditorService:
             # 添加新角色
             character_data = {
                 "script_id": script.info.id,
-                "name": str(instruction.content.get("name", "新角色")),
-                "profession": str(instruction.content.get("profession", "")),
-                "background": str(instruction.content.get("background", "")),
-                "secret": str(instruction.content.get("secret", "")),
-                "objective": str(instruction.content.get("objective", "")),
-                "gender": str(instruction.content.get("gender", "中性")),
-                "personality_traits": list(instruction.content.get("personality_traits", [])),
+                "name": str(instruction.content["name"]),
+                "profession": str(instruction.content["profession"]),
+                "background": str(instruction.content["background"]),
+                "secret": str(instruction.content["secret"]),
+                "objective": str(instruction.content["objective"]),
+                "gender": str(instruction.content["gender"]),
                 "is_murderer": bool(instruction.content.get("is_murderer", False)),
                 "is_victim": bool(instruction.content.get("is_victim", False))
             }
             
             # 添加可选字段
-            age = instruction.content.get("age")
-            if age is not None:
-                character_data["age"] = int(age) if isinstance(age, (int, str)) and str(age).isdigit() else None
+            if "age" in instruction.content:
+                try:
+                    character_data["age"] = int(instruction.content["age"])
+                except (ValueError, TypeError):
+                    pass  # 如果年龄不是有效数字，则忽略
             
-            avatar_url = instruction.content.get("avatar_url")
-            if avatar_url:
-                character_data["avatar_url"] = str(avatar_url)
-                
-            voice_preference = instruction.content.get("voice_preference")
-            if voice_preference:
-                character_data["voice_preference"] = str(voice_preference)
-                
-            voice_id = instruction.content.get("voice_id")
-            if voice_id:
-                character_data["voice_id"] = str(voice_id)
+            if "personality_traits" in instruction.content and \
+               isinstance(instruction.content["personality_traits"], list):
+                character_data["personality_traits"] = instruction.content["personality_traits"]
+
+            # 其他可选字段
             
             logger.info(f"[CHARACTER_EDIT] 准备添加角色数据: {character_data}")
             
@@ -980,9 +970,6 @@ class ScriptEditorService:
             }
             
             # 添加可选字段
-            image_url = instruction.content.get("image_url")
-            if image_url:
-                evidence_data["image_url"] = str(image_url)
             
             logger.info(f"[EVIDENCE_EDIT] 准备添加证据数据: {evidence_data}")
             
@@ -1081,11 +1068,6 @@ class ScriptEditorService:
                 "searchable_items": list(instruction.content.get("searchable_items", [])),
                 "is_crime_scene": bool(instruction.content.get("is_crime_scene", False))
             }
-            
-            # 添加可选字段
-            background_image_url = instruction.content.get("background_image_url")
-            if background_image_url:
-                location_data["background_image_url"] = str(background_image_url)
             
             logger.info(f"[LOCATION_EDIT] 准备添加场景数据: {location_data}")
             
