@@ -17,9 +17,15 @@ An AI-powered murder mystery game system where all characters are played by AI. 
 
 ## 📸 Screenshots
 
-<div style="display: flex; justify-content: space-between; gap: 20px;">
-  <img src="screenshot/game_room.png" alt="Game Room Interface" style="width: 48%;">
-  <img src="screenshot/scripts_center.png" alt="Scripts Center Interface" style="width: 48%;">
+<div style="display: flex; flex-direction: column; gap: 20px;">
+  <div style="display: flex; justify-content: space-between; gap: 20px;">
+    <img src="screenshot/game_room.png" alt="Game Room Interface" style="width: 48%;">
+    <img src="screenshot/scripts_center.png" alt="Scripts Center Interface" style="width: 48%;">
+  </div>
+  <div style="display: flex; justify-content: space-between; gap: 20px;">
+    <img src="screenshot/edit_script.png" alt="Edit Script Interface" style="width: 48%;">
+    <img src="screenshot/script_create.png" alt="Script Creation Interface" style="width: 48%;">
+  </div>
 </div>
 
 ## 🚀 Core Functions
