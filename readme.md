@@ -1,5 +1,7 @@
 # 🎭 AI剧本杀游戏 (JubenSha)
 
+[English Version](README_EN.md)
+
 一个基于AI的剧本杀游戏系统，所有角色均由AI扮演。项目包含前端和后端两个部分，采用现代化技术栈构建。
 
 ## 🌟 项目特色
@@ -33,9 +35,9 @@
 - 每个AI角色都有独特性格和秘密，能够进行自然对话和推理
 
 ### TTS语音合成
-支持多种TTS服务：
-- CosyVoice 2.0: 高质量中文语音合成
+
 - MiniMax API: 支持多种语言和声音
+- [CosyVoice 2.0](https://github.com/journey-ad/CosyVoice2-Ex): 本地部署的中文语音合成服务
 
 ### 文生图服务
 支持多种图像生成服务：

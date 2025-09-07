@@ -1,5 +1,7 @@
 # 🎭 AI Murder Mystery Game (JubenSha)
 
+[中文版本](README.md)
+
 An AI-powered murder mystery game system where all characters are played by AI. The project consists of both frontend and backend components, built with modern technology stacks.
 
 ## 🌟 Key Features
@@ -33,9 +35,8 @@ An AI-powered murder mystery game system where all characters are played by AI. 
 - Each AI character has unique personality and secrets, capable of natural dialogue and reasoning
 
 ### TTS Voice Synthesis
-Supports multiple TTS services:
-- CosyVoice 2.0: High-quality Chinese voice synthesis
 - MiniMax API: Supports multiple languages and voices
+- [CosyVoice 2.0](https://github.com/journey-ad/CosyVoice2-Ex): Local deployment of Chinese voice synthesis service
 
 ### Text-to-Image Services
 Supports multiple image generation services:
