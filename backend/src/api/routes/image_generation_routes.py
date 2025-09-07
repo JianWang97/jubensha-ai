@@ -4,11 +4,16 @@ from sqlalchemy.orm import Session
 from typing import List
 from io import BytesIO
 from random import randint
+import os
 
 from src.db.repositories.script_repository import ScriptRepository
 from src.db.repositories.image_repository import ImageRepository
 from src.core.storage import storage_manager
 from src.services.comfyui_service import ImageGenerationResponse, comfyui_service, ImageGenerationRequest
+from src.services.image_generation_service import (
+    ImageGenerationServiceFactory, 
+    ImageGenerationRequest as UnifiedImageRequest
+)
 from src.services.llm_service import llm_service, LLMMessage
 from src.schemas.image_generation_schemas import (
     ImageGenerationRequest as ImageGenRequest, 
@@ -39,6 +44,14 @@ IMAGE_SIZES = {
     ImageType.SCENE: (1080, 720),    # 1080p 横屏
     ImageType.CHARACTER: (720, 720),   # 720x720 正方形
     ImageType.EVIDENCE: (720, 720)     # 720x720 正方形
+}
+
+# 宽高比配置
+ASPECT_RATIOS = {
+    ImageType.COVER: "16:9",
+    ImageType.SCENE: "16:9",
+    ImageType.CHARACTER: "1:1",
+    ImageType.EVIDENCE: "1:1"
 }
 
 async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, user_prompt: str = None) -> str:
@@ -211,58 +224,72 @@ async def generate_image(
             request.positive_prompt
         )
         
-        # 获取图片尺寸
+        # 获取图片尺寸和宽高比
         width, height = IMAGE_SIZES[request.image_type]
+        aspect_ratio = ASPECT_RATIOS[request.image_type]
         
-        # 创建ComfyUI请求
-        generation_request = ImageGenerationRequest(
-            positive_prompt=prompt,
-            negative_prompt=request.negative_prompt,
+        # 创建统一的图像生成请求
+        generation_request = UnifiedImageRequest(
+            prompt=prompt,
+            negative_prompt=request.negative_prompt or "",
             width=width,
             height=height,
+            aspect_ratio=aspect_ratio,
             steps=20,
             cfg=8.0,
             seed=randint(0, 2**32 - 1),
+            n=1
         )
         
-        # 调用ComfyUI服务生成图片
-        response = await comfyui_service.generate_image(generation_request)
+        # 根据配置选择图像生成服务
+        provider = os.getenv("IMAGE_GENERATION_PROVIDER", "comfyui")
+        image_service = ImageGenerationServiceFactory.create_service(provider)
+        
+        # 调用图像生成服务
+        response = await image_service.generate_image(generation_request)
         
         if not response.success:
             raise HTTPException(status_code=500, detail=f"图片生成失败: {response.error_message}")
         
-        # 根据图片类型选择上传方法
-        if request.image_type == ImageType.COVER:
-            url = await storage_manager.upload_cover_image(
-                BytesIO(response.image_data),
-                response.filename
-            ) if response.image_data and response.filename else None
-        elif request.image_type == ImageType.CHARACTER:
-            url = await storage_manager.upload_avatar_image(
-                BytesIO(response.image_data),
-                response.filename
-            ) if response.image_data and response.filename else None
-        elif request.image_type == ImageType.EVIDENCE:
-            url = await storage_manager.upload_evidence_image(
-                BytesIO(response.image_data),
-                response.filename
-            ) if response.image_data and response.filename else None
-        elif request.image_type == ImageType.SCENE:
-            url = await storage_manager.upload_scene_image(
-                BytesIO(response.image_data),
-                response.filename
-            ) if response.image_data and response.filename else None
-        else:
-            raise HTTPException(status_code=400, detail="不支持的图片类型")
+        # 处理生成的图像
+        image_urls = []
+        if response.image_urls:
+            # MiniMax返回的是URL列表
+            image_urls = response.image_urls
+        elif response.image_data and response.filename:
+            # ComfyUI返回的是图像数据，需要上传
+            url = None
+            if request.image_type == ImageType.COVER:
+                url = await storage_manager.upload_cover_image(
+                    BytesIO(response.image_data),
+                    response.filename
+                )
+            elif request.image_type == ImageType.CHARACTER:
+                url = await storage_manager.upload_avatar_image(
+                    BytesIO(response.image_data),
+                    response.filename
+                )
+            elif request.image_type == ImageType.EVIDENCE:
+                url = await storage_manager.upload_evidence_image(
+                    BytesIO(response.image_data),
+                    response.filename
+                )
+            elif request.image_type == ImageType.SCENE:
+                url = await storage_manager.upload_scene_image(
+                    BytesIO(response.image_data),
+                    response.filename
+                )
+            
+            if url:
+                image_urls.append(url)
         
-        if not url:
+        if not image_urls:
             raise HTTPException(status_code=500, detail="图片上传失败")
         
-        # 保存图片信息到数据库
+        # 保存第一张图片信息到数据库
         image_data = {
-            "image_type": request.image_type.value,  # 使用.value获取字符串值
-            "url": url,
-            "path": response.filename,
+            "image_type": request.image_type.value,
+            "url": image_urls[0],
             "script_id": request.script_id,
             "positive_prompt": prompt,
             "author_id": current_user.id,
@@ -279,14 +306,14 @@ async def generate_image(
             message="图片生成成功",
             data={
                 "id": str(image.id),
-                "url": url,
+                "url": image_urls[0],
                 "image_type": request.image_type.value,
                 "generation_time": response.generation_time,
-                "prompt_id": response.prompt_id,
-                "prompt":prompt,
+                "prompt": prompt,
                 "negative_prompt": request.negative_prompt,
                 "width": str(width),
-                "height": str(height)
+                "height": str(height),
+                "all_urls": image_urls  # 返回所有生成的图片URL
             }
         )
     except HTTPException:

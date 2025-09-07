@@ -1,12 +1,14 @@
 """MiniMax API客户端代理服务"""
 from typing import Optional, Dict, Any, AsyncGenerator, Coroutine, cast
-from dataclasses import dataclass
 import asyncio
 import json
 import ssl
 import base64
 import logging
 import aiohttp
+from dataclasses import dataclass
+from typing import List, Optional
+import os
 
 from .base_tts import BaseTTSService, TTSRequest, TTSResponse
 
@@ -45,6 +47,25 @@ class MiniMaxTTSRequest:
     def __post_init__(self):
         if not self.text.strip():
             raise ValueError("Text cannot be empty")
+
+
+@dataclass
+class MiniMaxImageRequest:
+    """MiniMax图像生成请求"""
+    prompt: str
+    model: str = "image-01"
+    aspect_ratio: str = "1:1"
+    response_format: str = "url"
+    n: int = 1
+    prompt_optimizer: bool = False
+    width: Optional[int] = None
+    height: Optional[int] = None
+    seed: Optional[int] = None
+    aigc_watermark: bool = False
+
+    def __post_init__(self):
+        if not self.prompt.strip():
+            raise ValueError("Prompt cannot be empty")
 
 
 @dataclass
@@ -167,6 +188,52 @@ class MiniMaxClient:
         except Exception as e:
             return MiniMaxResponse(success=False, error=str(e))
 
+    async def generate_image(self, request: MiniMaxImageRequest) -> MiniMaxResponse:
+        """生成图像"""
+        data: Dict[str, Any] = {
+            "model": request.model,
+            "prompt": request.prompt,
+            "aspect_ratio": request.aspect_ratio,
+            "response_format": request.response_format,
+            "n": request.n,
+            "prompt_optimizer": request.prompt_optimizer,
+            "aigc_watermark": request.aigc_watermark
+        }
+        
+        # 添加可选参数
+        if request.width is not None:
+            data["width"] = request.width
+            
+        if request.height is not None:
+            data["height"] = request.height
+            
+        if request.seed is not None:
+            data["seed"] = request.seed
+
+        try:
+            response = await self._make_request("POST", "/v1/image_generation", data, notNeedGroupId=True)
+            logger.debug(f"MiniMax Image Generation response: {str(response)[:400]}")
+            
+            base_resp = response.get("base_resp", {})
+            if base_resp.get("status_code") != 0:
+                return MiniMaxResponse(success=False, error=base_resp.get("status_msg", "Unknown error"))
+            
+            image_data = response.get("data", {})
+            metadata = response.get("metadata", {})
+            
+            return MiniMaxResponse(
+                success=True,
+                data={
+                    "images": image_data.get("image_urls", []) if request.response_format == "url" 
+                              else image_data.get("image_base64", []),
+                    "metadata": metadata
+                },
+                task_id=response.get("id")
+            )
+        except Exception as e:
+            logger.error(f"MiniMax image generation error: {e}", exc_info=True)
+            return MiniMaxResponse(success=False, error=str(e))
+
     async def get_voice_list(self) -> MiniMaxResponse:
         """获取可用声音列表"""
         try:
@@ -247,25 +314,26 @@ class MiniMaxTTSService(BaseTTSService):
         try:
             resp = await client.text_to_speech(minimax_request)
             if not resp.success:
+                # 修复：TTSResponse不接受success参数
                 return TTSResponse(
-                    success=False,
-                    audio_data="",
-                    format="mp3",
-                    error=resp.error or "MiniMax TTS failed"
+                    audio_data="",  # 空的音频数据表示失败
+                    format="mp3"
                 )
             
             data_dict = cast(Dict[str, Any], resp.data) if isinstance(resp.data, dict) else {}
             audio_b64 = data_dict.get("audio_base64", "")
             fmt = data_dict.get("format", "mp3")
             
+            # 修复：TTSResponse不接受success和error参数
             return TTSResponse(
                 audio_data=audio_b64,
                 format=fmt
             )
         except Exception as e:
             logger.error(f"MiniMax text_to_speech error: {e}", exc_info=True)
+            # 修复：TTSResponse不接受success和error参数
             return TTSResponse(
-                audio_data="",
+                audio_data="",  # 空的音频数据表示失败
                 format="mp3"
             )
 
@@ -292,3 +360,73 @@ class MiniMaxTTSService(BaseTTSService):
                     loop.run_until_complete(self._client.close())
         except Exception:
             pass
+
+
+# 图像生成服务
+class MiniMaxImageGenerationService:
+    """MiniMax图像生成服务"""
+    
+    def __init__(self):
+        self.api_key = os.getenv("MINIMAX_API_KEY")
+        self._client: Optional[MiniMaxClient] = None
+    
+    def _get_client(self) -> Optional[MiniMaxClient]:
+        """获取MiniMax客户端实例"""
+        if not self.api_key:
+            logger.warning("MINIMAX_API_KEY not set, MiniMax image generation service unavailable")
+            return None
+            
+        if self._client is None:
+            self._client = MiniMaxClient(self.api_key, "")  # group_id对于图像生成不是必需的
+        return self._client
+    
+    async def generate_image(self, prompt: str, aspect_ratio: str = "1:1", n: int = 1) -> Dict[str, Any]:
+        """生成图像"""
+        client = self._get_client()
+        if not client:
+            return {
+                "success": False,
+                "error": "MiniMax API key not configured"
+            }
+        
+        try:
+            request = MiniMaxImageRequest(
+                prompt=prompt,
+                aspect_ratio=aspect_ratio,
+                n=n,
+                response_format="url"
+            )
+            
+            response = await client.generate_image(request)
+            
+            if response.success and response.data:
+                return {
+                    "success": True,
+                    "images": response.data.get("images", []),
+                    "metadata": response.data.get("metadata", {}),
+                    "task_id": response.task_id
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": response.error or "Unknown error"
+                }
+        except Exception as e:
+            logger.error(f"Failed to generate image with MiniMax: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+        finally:
+            # 确保客户端连接被正确关闭
+            if self._client:
+                await self._client.close()
+    
+    async def close(self):
+        """关闭服务"""
+        if self._client:
+            await self._client.close()
+            self._client = None
+
+# 全局服务实例
+minimax_image_service = MiniMaxImageGenerationService()

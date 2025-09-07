@@ -32,10 +32,7 @@ class StorageManager:
         self.client: Minio | None = None
         self.is_available: bool = False
         # 根据存储类型设置本地存储路径
-        if self.config.storage_type.lower() == "dir":
-            self.local_storage_path: Path = Path(".")  # 项目根目录
-        else:
-            self.local_storage_path: Path = Path(".data")  # 本地存储路径
+        self.local_storage_path: Path = Path(".data")  # 本地存储路径
         
         # 根据存储类型初始化
         if self.config.storage_type.lower() in ["local", "dir"]:
