@@ -1,4 +1,4 @@
-# 🎭 AI剧本杀游戏 (JubenSha)
+# 🎭 AI剧本杀 (JubenSha-ai)
 
 [English Version](README_EN.md)
 
