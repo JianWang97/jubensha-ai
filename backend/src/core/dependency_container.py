@@ -4,6 +4,7 @@
 """
 
 import inspect
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Type, TypeVar, Callable, Optional, Union, get_type_hints
 from enum import Enum
@@ -11,6 +12,8 @@ from contextlib import contextmanager
 from sqlalchemy.orm import Session
 
 T = TypeVar('T')
+
+logger = logging.getLogger(__name__)
 
 
 class ServiceLifetime(Enum):
@@ -114,29 +117,34 @@ class ServiceScope(IServiceScope):
             # 其他生命周期委托给容器处理
             return self.container._resolve_with_scope(service_type, self)
     
-    def dispose(self):
-        """释放作用域资源"""
+    def dispose(self, exc: BaseException | None = None):
+        """释放作用域资源
+
+        Args:
+            exc: 作用域内是否发生异常。为 None 表示正常结束；否则会优先回滚事务。
+        """
         if self._disposed:
             return
         
-        # 处理数据库会话的自动提交
-        for service_type, instance in self.scoped_instances.items():
-            if service_type == Session and hasattr(instance, '_auto_commit'):
+        # 处理数据库会话的自动提交/回滚
+        for instance in self.scoped_instances.values():
+            if isinstance(instance, Session) and getattr(instance, '_auto_commit', False):
                 try:
-                    # 自动提交事务
-                    instance.commit()
+                    if exc is None:
+                        instance.commit()
+                    else:
+                        instance.rollback()
                 except Exception as e:
-                    # 如果提交失败，回滚事务
+                    # 事务处理失败时，尽力回滚并继续释放资源
                     try:
                         instance.rollback()
-                    except:
+                    except Exception:
                         pass
-                    print(f"数据库事务提交失败，已回滚: {e}")
+                    logger.exception("数据库事务处理失败，已尝试回滚: %s", e)
                 finally:
-                    # 关闭会话
                     try:
                         instance.close()
-                    except:
+                    except Exception:
                         pass
         
         # 释放实现了 dispose 方法的服务
@@ -146,7 +154,7 @@ class ServiceScope(IServiceScope):
                     instance.dispose()
                 except Exception as e:
                     # 记录错误但不抛出异常
-                    print(f"释放服务实例时发生错误: {e}")
+                    logger.exception("释放服务实例时发生错误: %s", e)
         
         self.scoped_instances.clear()
         self._disposed = True
@@ -155,7 +163,7 @@ class ServiceScope(IServiceScope):
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.dispose()
+        self.dispose(exc_val)
 
 
 class DependencyContainer(IDependencyContainer):
@@ -333,11 +341,9 @@ def get_container() -> DependencyContainer:
 @contextmanager
 def service_scope():
     """服务作用域上下文管理器"""
-    scope = container.create_scope()
-    try:
+    # 使用 ServiceScope.__exit__ 来感知异常，从而决定 commit/rollback
+    with container.create_scope() as scope:
         yield scope
-    finally:
-        scope.dispose()
 
 
 def configure_services() -> DependencyContainer:

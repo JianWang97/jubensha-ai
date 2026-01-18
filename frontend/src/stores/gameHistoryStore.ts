@@ -31,7 +31,7 @@ export const useGameHistoryStore = create<GameHistoryState>((set,get)=>({
     set({ currentSessionId: sessionId });
     try { 
       const resp = await fetchGameDetail(sessionId); 
-      let detail = resp.data;
+      const detail = resp.data as any;
       
       // 如果有script_id，获取剧本详细信息
       if (detail.session_info?.script_id) {

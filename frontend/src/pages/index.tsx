@@ -127,8 +127,7 @@ const FeaturesSection = () => {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-white mb-4">为什么选择我们</h2>
--           <p className="text-xl text-gray-400">体验下一代剧本杀游戏的魅力</p>
-+           <p className="text-xl text-gray-400">体验下一代由AI驱动的剧本杀</p>
+          <p className="text-xl text-gray-400">体验下一代由AI驱动的剧本杀</p>
           </div>
         
         <div className="grid md:grid-cols-3 gap-8">

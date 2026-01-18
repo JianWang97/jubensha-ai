@@ -7,6 +7,7 @@ import { useWebSocketStore } from '@/stores/websocketStore';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { useRouter } from 'next/router';
 
 const GamePage = () => {
   // 从URL参数获取script_id
@@ -21,7 +22,7 @@ const GamePage = () => {
   };
 
   const { scriptId } = getUrlParams();
-  const router = (typeof window !== 'undefined') ? require('next/router').useRouter() : null;
+  const router = useRouter();
 
   const {
     selectedScript,

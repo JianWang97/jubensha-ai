@@ -80,18 +80,6 @@ def get_service_dependency(service_type: Type[T]) -> Callable[[], T]:
     return get_scoped_service(service_type)
 
 
-# 常用的依赖注入快捷方式
-from ..db.repositories.script_repository import ScriptRepository
-from ..db.repositories.character_repository import CharacterRepository
-from ..db.repositories.evidence_repository import EvidenceRepository
-from ..db.repositories.location_repository import LocationRepository
-from ..db.repositories.image_repository import ImageRepository
-from ..db.repositories.background_story_repository import BackgroundStoryRepository
-from ..db.repositories.game_phase_repository import GamePhaseRepository
-from ..db.repositories.game_session_repository import GameSessionRepository
-from ..services.script_editor_service import ScriptEditorService
-
-
 # FastAPI Depends对象 - 使用工厂函数而不是预定义对象
 # 这些函数在需要时创建Depends对象，避免在模块导入时创建
 def get_db_session_depends():
@@ -102,38 +90,47 @@ def get_db_session_depends():
 
 def get_script_repo_depends():
     """获取脚本仓储的Depends对象"""
+    from ..db.repositories.script_repository import ScriptRepository
     return inject_scoped(ScriptRepository)
 
 def get_character_repo_depends():
     """获取角色仓储的Depends对象"""
+    from ..db.repositories.character_repository import CharacterRepository
     return inject_scoped(CharacterRepository)
 
 def get_evidence_repo_depends():
     """获取证据仓储的Depends对象"""
+    from ..db.repositories.evidence_repository import EvidenceRepository
     return inject_scoped(EvidenceRepository)
 
 def get_location_repo_depends():
     """获取地点仓储的Depends对象"""
+    from ..db.repositories.location_repository import LocationRepository
     return inject_scoped(LocationRepository)
 
 def get_image_repo_depends():
     """获取图片仓储的Depends对象"""
+    from ..db.repositories.image_repository import ImageRepository
     return inject_scoped(ImageRepository)
 
 def get_script_editor_svc_depends():
     """获取脚本编辑服务的Depends对象"""
+    from ..services.script_editor_service import ScriptEditorService
     return inject_scoped(ScriptEditorService)
 
 def get_background_story_repo_depends():
     """获取背景故事仓储的Depends对象"""
+    from ..db.repositories.background_story_repository import BackgroundStoryRepository
     return inject_scoped(BackgroundStoryRepository)
 
 def get_game_phase_repo_depends():
     """获取游戏阶段仓储的Depends对象"""
+    from ..db.repositories.game_phase_repository import GamePhaseRepository
     return inject_scoped(GamePhaseRepository)
 
 def get_game_session_repo_depends():
     """获取游戏会话仓储的Depends对象"""
+    from ..db.repositories.game_session_repository import GameSessionRepository
     return inject_scoped(GameSessionRepository)
 
 # 注意：不要在模块级别创建Depends对象，这会导致在容器配置之前就尝试解析依赖

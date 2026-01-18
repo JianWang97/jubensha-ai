@@ -50,10 +50,14 @@ const validateEnvVars = (): string[] => {
   const warnings: string[] = [];
   
   if (!process.env.NEXT_PUBLIC_API_URL) {
-    warnings.push('NEXT_PUBLIC_API_URL not set, using default backend port 8010');
+    warnings.push('NEXT_PUBLIC_API_URL not set, using default backend origin http://localhost:8010');
   }
   
   return warnings;
+};
+
+const normalizeApiBaseUrl = (value: string) => {
+  return value.replace(/\/+$/, '').replace(/\/api$/, '');
 };
 
 // 初始配置生成
@@ -67,7 +71,8 @@ const createInitialConfig = (): ConfigState => {
   
   return {
     api: {
-      baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010/api',
+      // Use backend origin here; OpenAPI client already prefixes paths with /api
+      baseUrl: normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'),
       timeout: parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || String(DEFAULT_CONFIG.api.timeout)),
       retries: parseInt(process.env.NEXT_PUBLIC_API_RETRIES || String(DEFAULT_CONFIG.api.retries)),
     },

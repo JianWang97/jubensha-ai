@@ -315,9 +315,9 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    // 从API配置中提取后端端口
-    const config = useConfigStore.getState();
-    const apiUrl = new URL(config.api.baseUrl);
+    // 从API配置中提取后端 host（兼容域名无显式端口的情况）
+    const configState = useConfigStore.getState();
+    const apiUrl = new URL(configState.api.baseUrl);
 
     // 构建WebSocket URL，包含script_id和token参数
     const params = new URLSearchParams();
@@ -330,10 +330,9 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     if (token) {
       params.append('token', token);
     }
-        const url = window.location.protocol === 'https:' ? apiUrl.hostname : apiUrl.hostname + ':' + apiUrl.port;
+      const host = apiUrl.host || apiUrl.hostname;
 
-
-    const wsUrl = `${protocol}//${url}/api/ws${params.toString() ? '?' + params.toString() : ''}`;
+      const wsUrl = `${protocol}//${host}/api/ws${params.toString() ? '?' + params.toString() : ''}`;
     console.log('正在连接WebSocket:', wsUrl);
 
     const ws = new WebSocket(wsUrl);

@@ -8,15 +8,21 @@ config({ path: path.resolve(__dirname, "../.env") });
 // 配置常量
 const DEFAULT_BACKEND_PORT = 8010;
 
-// 构建API URL
-const buildApiUrl = () => {
+const normalizeApiBaseUrl = (value: string) => {
+  // Accept both origin and legacy ".../api" forms; store as origin.
+  // Examples: "http://localhost:8010" or "http://localhost:8010/api"
+  return value.replace(/\/+$/, '').replace(/\/api$/, '');
+};
+
+// 构建API Base URL（origin，不包含 /api）
+const buildApiBaseUrl = () => {
   // 优先使用环境变量中的 NEXT_PUBLIC_API_URL
   if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+    return normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
   }
   // 回退到默认的后端端口（注意：这里应该使用后端端口，不是前端端口）
   const backendPort = process.env.BACKEND_PORT || DEFAULT_BACKEND_PORT;
-  return `http://localhost:${backendPort}/api`;
+  return `http://localhost:${backendPort}`;
 };
 
 const nextConfig: NextConfig = {
@@ -29,7 +35,7 @@ const nextConfig: NextConfig = {
   
   // 环境变量配置
   env: {
-    NEXT_PUBLIC_API_URL: buildApiUrl(),
+    NEXT_PUBLIC_API_URL: buildApiBaseUrl(),
   },
 
   // 图片配置
