@@ -109,13 +109,16 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
       };
       
       const responseData = await Service.generateImageApiImagesGeneratePost(request);
-      const response = responseData.data;
-      if (response.url) {
-        setImages([response, ...images]);
-        setImageUrl(response.url);
-        onImageChange(response.url);
+      const response = responseData?.data as any;
+      const url = response?.url as string | undefined;
+      if (url) {
+        setImageUrl(url);
+        onImageChange(url);
         toast('图片生成成功！');
         setIsDrawerOpen(false);
+        await fetchImages();
+      } else {
+        toast('图片生成失败：未返回图片URL');
       }
     } catch (error) {
       console.error('图片生成失败:', error);
