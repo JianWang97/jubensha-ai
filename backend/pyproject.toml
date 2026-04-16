@@ -32,12 +32,8 @@ dependencies = [
     "gradio-client>=1.11.1",
 ]
 
-[mypy]
-disable-error-code = "assignment, arg-type"  # 忽略赋值
-
 [dependency-groups]
 dev = [
-    "mypy>=1.17.0",
     "pyright>=1.1.300",
 ]
 

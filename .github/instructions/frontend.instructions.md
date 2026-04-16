@@ -2,296 +2,243 @@
 applyTo: 'frontend/**'
 ---
 
-# 剧本杀项目开发规范
+# 前端开发规范
 
 ## 基础配置
 
-该项目使用的是 Next.js 框架
-修改完不用启动项目，可以直接在浏览器中查看
-如果出现端口被占用，那么说明已经有项目在运行了，可以不必启动
-请保持 TypeScript 的类型检查
+- **框架**: Next.js 15（Pages Router），React 19，TypeScript 严格模式
+- **状态管理**: Zustand 5
+- **UI**: Radix UI + shadcn/ui + Tailwind CSS v4
+- **图标**: Lucide React
+- **API 客户端**: openapi-typescript-codegen 自动生成（axios）
+- 修改完不用重启开发服务器，热更新会自动生效
+- 如果端口被占用，说明已有实例在运行，不必再次启动
 
-## 项目架构规范
+```bash
+npm run dev               # 开发服务器（端口 3001）
+npm run build && npm run start  # 生产构建（端口 8009）
+npm run generate-api      # 重新生成 API 客户端（需后端运行在 8010）
+```
 
-### 1. 目录结构
+## 项目结构
 
 ```
 src/
-├── client/          # API 客户端代码（自动生成）
-├── components/      # 组件目录
-│   ├── ui/         # 基础 UI 组件（shadcn/ui）
-│   └── *.tsx       # 业务组件
-├── hooks/          # 自定义 Hooks
-├── lib/            # 工具函数
-├── pages/          # Next.js 页面
-├── services/       # 服务层
-├── stores/         # 状态管理（Zustand）
-├── styles/         # 样式文件
-├── types/          # TypeScript 类型定义
-└── utils/          # 工具函数
+├── client/           # 自动生成的 OpenAPI 客户端（禁止手动编辑）
+│   ├── core/         # OpenAPI 配置、请求运行时（axios）
+│   ├── models/       # 生成的类型定义
+│   └── services/     # 生成的 API 服务类
+├── components/
+│   ├── ui/           # shadcn/ui 基础组件（kebab-case 文件名）
+│   └── *.tsx         # 业务组件（PascalCase 文件名）
+├── hooks/            # 自定义 Hooks
+├── lib/              # 工具函数（cn 等）
+├── pages/            # Next.js 页面（纯客户端渲染，无 SSR）
+├── services/         # 手写 API 封装（fetch 方式）
+├── stores/           # Zustand 状态管理
+├── styles/           # 全局样式
+└── types/            # 手写 TypeScript 类型定义
 ```
 
-### 2. 技术栈
+## 页面路由
 
-- **框架**: Next.js 15.3.5
-- **语言**: TypeScript（严格模式）
-- **状态管理**: Zustand
-- **UI 组件库**: Radix UI + shadcn/ui
-- **样式**: Tailwind CSS
-- **图标**: Lucide React
-- **API 客户端**: 自动生成（OpenAPI）
+项目使用 Pages Router，**纯客户端渲染**（不使用 `getServerSideProps` / `getStaticProps`）。
 
-### 3. 组件架构
+关键页面：
+- `/` — 首页
+- `/auth/login`、`/auth/register` — 认证
+- `/script-center` — 剧本中心
+- `/script-manager/create`、`/script-manager/edit/[id]` — 剧本编辑
+- `/game` — 游戏房间
+- `/game-history/[sessionId]` — 游戏记录详情/回放/续玩
+- `/profile` — 个人中心
 
-#### 3.1 组件分层
+认证守卫通过 `AuthGuard` 或 `ProtectedRoute` 组件在客户端实现。
 
-- **基础组件** (`src/components/ui/`): 使用 shadcn/ui 规范的可复用基础组件
-- **业务组件** (`src/components/`): 包含业务逻辑的功能组件
-- **布局组件**: `Layout.tsx`, `AppLayout.tsx` 等
-- **页面组件** (`src/pages/`): Next.js 页面级组件
+## API 调用
 
-#### 3.2 组件命名规范
+项目存在两种 API 调用方式：
 
-- 使用 PascalCase 命名组件文件和组件名
-- 基础 UI 组件使用 kebab-case 文件名（如 `button.tsx`）
-- 业务组件使用 PascalCase 文件名（如 `UserMenu.tsx`）
+### 1. 自动生成客户端（推荐用于新代码）
 
-#### 3.3 组件结构
+`src/client/` 由 `npm run generate-api` 从后端 OpenAPI schema 自动生成。客户端使用 axios，Base URL 和 Token 在 `src/client/core/OpenAPI.ts` 中从 `configStore` 读取。
 
 ```typescript
-// 组件 Props 接口定义
-interface ComponentProps {
-  children?: React.ReactNode;
-  className?: string;
-  // 其他 props
+import { ScriptsService } from '@/client';
+
+const scripts = await ScriptsService.getScripts();
+```
+
+### 2. 手写 Service（存量代码）
+
+`src/services/` 中的服务使用 `fetch` 手动调用，从 `configStore` 读取 baseUrl，从 `localStorage` 读取 token。
+
+```typescript
+import { authService } from '@/services/authService';
+
+const result = await authService.login(username, password);
+```
+
+**重要**：修改后端接口后需运行 `npm run generate-api` 重新生成客户端代码。
+
+## 状态管理（Zustand）
+
+### Store 命名约定
+- 文件名: `xxxStore.ts`（camelCase）
+- 导出 Hook: `useXxxStore`（PascalCase）
+
+### 核心 Store
+
+| Store | 用途 | 持久化 |
+|-------|------|--------|
+| `authStore` | 认证状态、用户信息 | ✅ partialize |
+| `configStore` | API Base URL 配置 | ✅ partialize |
+| `websocketStore` | WebSocket 连接、游戏运行时状态 | ❌ |
+| `scriptsStore` | 剧本列表缓存 | 视情况 |
+| `gameHistoryStore` | 游戏历史记录 | 视情况 |
+| `ttsStore` | TTS 播放状态 | 视情况 |
+
+### Store 模式
+
+```typescript
+interface MyState {
+  data: DataType | null;
+  isLoading: boolean;
+  // actions 和 state 放在同一个对象
+  fetchData: () => Promise<void>;
 }
 
-// 组件实现
-const Component: React.FC<ComponentProps> = ({ 
-  children, 
-  className,
-  ...props 
-}) => {
+// 需要持久化
+export const useMyStore = create<MyState>()(
+  persist(
+    (set, get) => ({ ... }),
+    {
+      name: 'my-storage',
+      partialize: (state) => ({ data: state.data }),  // 只持久化必要字段
+    }
+  )
+);
+
+// 不需要持久化
+export const useMyStore = create<MyState>((set, get) => ({ ... }));
+```
+
+### configStore 特殊用法
+
+`configStore` 除了导出 `useConfigStore` Hook 外，还导出一个 `config` 对象供非 React 上下文使用（如生成客户端配置）：
+
+```typescript
+import { config } from '@/stores/configStore';
+// config.api.baseUrl 可在 React 外使用
+```
+
+### WebSocket Store
+
+`websocketStore` 解析后端消息并通过浏览器 `CustomEvent` 分发，供跨组件通信：
+
+```typescript
+// 监听游戏事件
+window.addEventListener('game_event', handler);
+```
+
+## 组件规范
+
+### 组件分层
+
+- **UI 组件** (`components/ui/`): shadcn/ui 标准组件，kebab-case 文件名
+- **业务组件** (`components/`): PascalCase 文件名，包含业务逻辑
+- **布局组件**: `Layout.tsx`、`AppLayout.tsx`
+- **页面组件** (`pages/`): Next.js 页面
+
+### 组件结构
+
+```typescript
+interface MyComponentProps {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}
+
+const MyComponent: React.FC<MyComponentProps> = ({ value, onChange, className }) => {
   return (
-    <div className={cn("base-styles", className)} {...props}>
-      {children}
+    <div className={cn("base-styles", className)}>
+      {/* ... */}
     </div>
   );
 };
 
-export default Component;
+export default MyComponent;
 ```
 
-### 4. 状态管理规范
+### 样式合并
 
-#### 4.1 Zustand Store 结构
+使用 `cn()` 函数（`clsx` + `tailwind-merge`）合并类名：
 
 ```typescript
-interface StoreState {
-  // 状态定义
-  data: DataType | null;
-  isLoading: boolean;
-  error: string | null;
-  
-  // 操作方法
-  fetchData: () => Promise<void>;
-  updateData: (data: DataType) => void;
-  clearError: () => void;
-}
+import { cn } from "@/lib/utils";
 
-export const useStore = create<StoreState>()(persist(
-  (set, get) => ({
-    // 实现
-  }),
-  {
-    name: 'store-name',
-    // 持久化配置
-  }
-));
+<div className={cn("base-styles", { "active": isActive }, className)} />
 ```
-
-#### 4.2 Store 命名规范
-
-- Store 文件使用 camelCase + "Store" 后缀（如 `authStore.ts`）
-- Hook 使用 "use" + PascalCase + "Store"（如 `useAuthStore`）
-
-### 5. 服务层规范
-
-- 所有 API 调用封装在 `services/` 目录
-- 使用自动生成的 API 客户端
-- 服务文件命名：`xxxService.ts`
-
-### 6. 类型定义规范
-
-- 业务类型定义在 `types/` 目录
-- 使用自动生成的 API 类型（`src/client/`）
-- 组件 Props 接口在组件文件内定义
 
 ## UI 设计规范
 
-### 1. 设计系统
+### 主题
 
-#### 1.1 颜色规范
+- **深色主题**，主色调：深蓝紫渐变 `from-[#1a237e] via-[#311b92] to-[#4a148c]`
+- 文本主要使用白色适配深色背景
+- 按钮默认 `bg-slate-700/80`，危险 `bg-red-600/80`
 
-- **主色调**: 深蓝紫色渐变 (`from-[#1a237e] via-[#311b92] to-[#4a148c]`)
-- **按钮色彩**: 
-  - 默认: `bg-slate-700/80`
-  - 危险: `bg-red-600/80`
-  - 次要: `bg-slate-600/80`
-- **文本颜色**: 主要使用白色文本适配深色主题
+### 关键 Tailwind 约定
 
-#### 1.2 间距规范
+- 自定义断点: `xs: 475px`（移动优先）
+- 圆角: 按钮 `rounded-md`，卡片 `rounded-lg`
+- 自定义动画: `spin-slow`、`float`、`glow`（定义在 `tailwind.config.ts`）
+- 全屏布局: `h-screen w-screen` + 背景层/遮罩层/内容层分层
 
-- 使用 Tailwind CSS 标准间距系统
-- 组件内边距: `px-4 py-2` (默认)
-- 组件间距: `gap-2`, `gap-4`, `gap-6`
+### 标准布局结构
 
-#### 1.3 圆角规范
-
-- 默认圆角: `rounded-md` (0.375rem)
-- 按钮圆角: `rounded-md`
-- 卡片圆角: `rounded-lg`
-
-#### 1.4 阴影规范
-
-- 轻微阴影: `shadow-xs`
-- 卡片阴影: `shadow-sm`
-- 悬浮阴影: `shadow-md`
-
-### 2. 组件设计规范
-
-#### 2.1 按钮规范
-
-```typescript
-// 使用 CVA (Class Variance Authority) 定义变体
-const buttonVariants = cva(
-  "base-classes",
-  {
-    variants: {
-      variant: {
-        default: "bg-slate-700/80 text-white",
-        destructive: "bg-red-600/80 text-white",
-        outline: "border border-slate-600/50 bg-slate-700/30",
-        // ...
-      },
-      size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 px-3",
-        lg: "h-10 px-6",
-        // ...
-      }
-    }
-  }
-);
-```
-
-#### 2.2 布局规范
-
-- **全屏布局**: 使用 `h-screen w-screen` 占满视口
-- **背景处理**: 支持背景图片 + 遮罩层设计
-- **层级管理**: 使用 `z-index` 合理分层
-
-```typescript
-// 标准布局结构
+```tsx
 <div className="relative h-screen w-screen">
-  {/* 背景层 */}
-  <div className="absolute inset-0 bg-cover bg-center" />
-  
-  {/* 遮罩层 */}
-  <div className="absolute inset-0 bg-black/40" />
-  
-  {/* 内容层 */}
-  <div className="relative z-10 h-full w-full">
-    {children}
-  </div>
+  <div className="absolute inset-0 bg-cover bg-center" />   {/* 背景层 */}
+  <div className="absolute inset-0 bg-black/40" />           {/* 遮罩层 */}
+  <div className="relative z-10 h-full w-full">{children}</div> {/* 内容层 */}
 </div>
 ```
 
-#### 2.3 响应式设计
+## 类型定义
 
-- **断点**: 使用 Tailwind 标准断点 + 自定义 `xs: 475px`
-- **移动优先**: 默认移动端样式，向上适配
-- **组件适配**: 重要组件需要提供移动端优化版本
+- **生成类型**: `src/client/models/` — 从后端 OpenAPI schema 生成，禁止手动编辑
+- **手写类型**: `src/types/` — 前端特有的业务类型（`auth.ts`、`game.ts`、`tts.ts`）
+- **组件 Props**: 在组件文件内定义 interface
 
-### 3. 动画规范
+新代码优先使用生成的类型，避免与 `src/types/` 中的类型重复定义。
 
-#### 3.1 自定义动画
-
-```css
-/* 已定义的动画 */
-'spin-slow': 'spin 3s linear infinite',
-'float': 'float 6s ease-in-out infinite',
-'glow': 'glow 2s ease-in-out infinite alternate',
-```
-
-#### 3.2 过渡效果
-
-- 使用 `transition-[color,box-shadow]` 进行颜色和阴影过渡
-- 悬停效果使用 `hover:` 前缀
-- 焦点效果使用 `focus-visible:` 前缀
-
-### 4. 可访问性规范
-
-- **焦点管理**: 使用 `focus-visible:ring-[3px]` 提供清晰的焦点指示
-- **语义化**: 使用适当的 HTML 语义标签
-- **键盘导航**: 确保所有交互元素可通过键盘访问
-- **屏幕阅读器**: 使用 `aria-*` 属性提供额外信息
-
-### 5. 工具函数规范
-
-#### 5.1 样式合并
+## 导入规范
 
 ```typescript
-// 使用 cn 函数合并 className
-import { cn } from "@/lib/utils";
+// 1. React / Next.js
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 
-<div className={cn("base-classes", conditionalClasses, className)} />
+// 2. UI 组件
+import { Button } from '@/components/ui/button';
+
+// 3. 状态管理
+import { useAuthStore } from '@/stores/authStore';
+
+// 4. 服务 / 客户端
+import { ScriptsService } from '@/client';
+
+// 5. 工具函数
+import { cn } from '@/lib/utils';
+
+// 6. 类型（type-only import）
+import type { User } from '@/types/auth';
 ```
 
-#### 5.2 条件样式
+## 开发注意事项
 
-```typescript
-// 推荐的条件样式写法
-className={cn(
-  "base-classes",
-  {
-    "active-classes": isActive,
-    "disabled-classes": isDisabled,
-  },
-  className
-)}
-```
-
-## 开发规范
-
-### 1. 代码规范
-
-- 使用 ESLint 进行代码检查
-- 遵循 TypeScript 严格模式
-- 使用 Prettier 进行代码格式化
-
-### 2. 导入规范
-
-```typescript
-// 导入顺序
-import React from 'react';           // React 相关
-import { NextPage } from 'next';     // Next.js 相关
-import { Button } from '@/components/ui/button';  // UI 组件
-import { useAuthStore } from '@/stores/authStore'; // 状态管理
-import { authService } from '@/services/authService'; // 服务
-import { cn } from '@/lib/utils';     // 工具函数
-import type { User } from '@/types/auth'; // 类型定义
-```
-
-### 3. 性能优化
-
-- 使用 `React.memo` 优化组件重渲染
-- 合理使用 `useCallback` 和 `useMemo`
-- 图片使用 Next.js `Image` 组件
-- 路由使用 Next.js `Link` 组件
-
-### 4. 错误处理
-
-- 使用 Error Boundary 捕获组件错误
-- API 错误统一在 Store 中处理
-- 提供用户友好的错误提示
+- `src/client/` 目录是自动生成的，**禁止手动编辑**
+- `next.config.ts` 从根目录 `.env` 加载环境变量并注入 `NEXT_PUBLIC_API_URL`
+- 图片远程模式允许 `localhost:8010` 和任意 `https` 域名
+- ESLint 在构建时已禁用（`eslint.ignoreDuringBuilds: true`）

@@ -1,167 +1,185 @@
 ---
 applyTo: 'backend/**'
 ---
-以下是针对 FastAPI 架构的 Cursor 规则（代码规范与最佳实践），旨在帮助团队保持代码一致性、可维护性和性能优化：
 
+# 后端开发规范
 
-### 1. 项目结构规范
-- 采用模块化分层结构，推荐目录如下：
-  ```
-  project/
-  ├── app/
-  │   ├── __init__.py
-  │   ├── main.py          # 应用入口（创建FastAPI实例）
-  │   ├── api/             # 路由模块
-  │   │   ├── __init__.py
-  │   │   └── deps.py      # 路由依赖
-  │   ├── core/            # 核心配置
-  │   │   ├── __init__.py
-  │   │   ├── config.py    # 配置管理
-  │   │   ├── security.py  # 安全工具（JWT等）
-  │   ├── services/        # 业务逻辑
-  │   ├── dependencies/    # 依赖注入
-  │   ├── crud/            # 数据库操作
-  │   ├── db/              # 数据库连接
-  │   ├── models/          # 数据模型（ORM/Pydantic）
-  │   ├── schemas/         # Pydantic序列化模型
-  │   └── utils/           # 工具函数
-  ├── tests/               # 测试用例
-  └── pyproject.toml       # 依赖管理
-  ```
+## 基础配置
 
+- **语言**: Python 3.13+，包管理使用 `uv`
+- **框架**: FastAPI，入口 `main.py` → 应用组装在 `src/core/server.py`
+- **ORM**: SQLAlchemy（同步模式），数据库 PostgreSQL
+- **类型检查**: pyright（见 `pyrightconfig.json`）
 
-### 2. 路由设计规则
-- **路由分组**：按业务域划分路由（如`/users`、`/items`），使用`APIRouter`模块化管理。
-- **HTTP方法**：严格对应语义（`GET`查询、`POST`创建、`PUT`全量更新、`PATCH`部分更新、`DELETE`删除）。
-- **路径命名**：使用小写蛇形命名（`/user-profiles`），避免动词（用`GET /items`而非`GET /get-items`）。
-- **版本控制**：通过路由前缀（如`/api/v1`）管理API版本，便于迭代兼容。
-- **路由函数**：函数名格式为`{http_method}_{resource}_{action}`，例如`get_item`、`create_user`。
+```bash
+uv sync                   # 安装依赖
+uv run python main.py     # 启动开发服务器（端口 8010）
+uv run pytest             # 运行全部测试
+uv run pytest -m api      # 按标记运行（api / unit / integration / slow）
+```
 
-  ```python
-  # 示例
-  from fastapi import APIRouter
+## 项目结构
 
-  router = APIRouter(prefix="/items", tags=["items"])
+```
+backend/
+├── main.py                    # 应用入口（端口 8010）
+├── src/
+│   ├── api/routes/            # 路由处理器（按业务域划分）
+│   ├── core/                  # 应用组装、DI 容器、认证中间件、WebSocket、游戏引擎
+│   ├── db/
+│   │   ├── base.py            # ORM 基类（BaseSQLAlchemyModel）
+│   │   ├── session.py         # Engine + Session 工厂
+│   │   ├── models/            # SQLAlchemy 模型
+│   │   ├── repositories/      # 数据访问层（Repository 模式）
+│   │   └── migrations/        # Alembic 迁移
+│   ├── schemas/               # Pydantic 请求/响应模型
+│   └── services/              # 业务逻辑层
+└── tests/                     # 测试用例
+```
 
-  @router.get("/{item_id}")
-  def get_item(item_id: int):
-      return {"item_id": item_id}
-  ```
+## 路由规范
 
+路由文件位于 `src/api/routes/`，每个路由模块使用 `APIRouter`，前缀包含 `/api`：
 
-### 3. 模型与数据验证
-- **区分模型**：使用Pydantic模型分离输入（`CreateItem`）、输出（`Item`）和更新（`UpdateItem`）。
-- **字段规范**：必选字段不设默认值，可选字段明确默认值或使用`Optional`。
-- **类型严格**：所有字段指定明确类型（避免`Any`），利用`constr`、`Field`做精细化验证。
-- **ORM集成**：数据库模型（如SQLAlchemy）与Pydantic模型分离，通过`from_orm`转换。
+```python
+from fastapi import APIRouter, Depends
+from src.core.container_integration import get_scoped_service
+from src.services.my_service import MyService
 
-  ```python
-  # 示例
-  from pydantic import BaseModel, Field
-  from typing import Optional
+router = APIRouter(prefix="/api/my-resource", tags=["my-resource"])
 
-  class CreateItem(BaseModel):
-      name: str = Field(..., min_length=1, max_length=100)
-      price: float = Field(..., gt=0)
-      is_offer: Optional[bool] = None
-  ```
+MyServiceDep = get_scoped_service(MyService)
 
+@router.get("/")
+async def list_items(svc: MyService = Depends(MyServiceDep)):
+    return svc.list_all()
+```
 
-### 4. 依赖注入规则
-- **依赖分类**：公共依赖（如认证）放在`api/deps.py`，业务依赖随模块定义。
-- **依赖复用**：通过函数或类封装可复用逻辑（如数据库会话、权限校验）。
-- **异步优先**：数据库操作等I/O密集型依赖使用异步函数（`async def`）。
+**注意**：
+- 路由前缀直接使用 `/api/xxx`，无版本号前缀
+- 路由函数使用 `async def`（即使调用同步 ORM）
+- HTTP 方法严格对应语义（GET 查询、POST 创建、PUT/PATCH 更新、DELETE 删除）
 
-  ```python
-  # 示例：认证依赖
-  from fastapi import Depends, HTTPException
-  from fastapi.security import OAuth2PasswordBearer
+## 依赖注入
 
-  oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+项目使用自定义 DI 容器（非 FastAPI 原生），详见 [DEPENDENCY_INJECTION_MIGRATION.md](../docs/DEPENDENCY_INJECTION_MIGRATION.md)。
 
-  async def get_current_user(token: str = Depends(oauth2_scheme)):
-      if not token:
-          raise HTTPException(status_code=401, detail="未认证")
-      return {"user": "current_user"}
-  ```
+- **容器定义**: `src/core/dependency_container.py`，支持三种生命周期：`singleton`、`scoped`、`transient`
+- **FastAPI 集成**: `src/core/container_integration.py` 提供辅助函数
+- **Singleton**: `DatabaseManager`、`LLMService`
+- **Scoped**（每请求，自动 commit/rollback）: 各 Repository、大部分 Service
 
+```python
+# 获取 scoped 服务作为 FastAPI 依赖
+from src.core.container_integration import get_scoped_service, get_db_session_depends
 
-### 5. 错误处理规则
-- **统一异常**：使用`HTTPException`处理已知错误，自定义异常类处理业务异常。
-- **异常处理器**：全局注册异常处理器，格式化错误响应（包含`code`、`message`）。
-- **日志记录**：异常发生时记录详细日志（避免暴露敏感信息到响应）。
+# 方式一：使用 get_scoped_service（推荐）
+MyServiceDep = get_scoped_service(MyService)
+async def handler(svc: MyService = Depends(MyServiceDep)): ...
 
-  ```python
-  # 示例：全局异常处理
-  from fastapi import Request, FastAPI
-  from fastapi.responses import JSONResponse
+# 方式二：获取 DB session
+async def handler(db: Session = get_db_session_depends()): ...
+```
 
-  app = FastAPI()
+**重要**: Scoped session 在请求结束时自动 commit（成功时）或 rollback（异常时）。Repository 中使用 `flush()` 而非 `commit()`，事务边界由 scope 管理。
 
-  @app.exception_handler(ValueError)
-  async def value_error_handler(request: Request, exc: ValueError):
-      return JSONResponse(
-          status_code=400,
-          content={"code": "INVALID_VALUE", "message": str(exc)}
-      )
-  ```
+## 认证
 
+项目使用**中间件 + 传统 Depends 共存**模式，详见 [AUTH_MIDDLEWARE_GUIDE.md](../docs/AUTH_MIDDLEWARE_GUIDE.md)。
 
-### 6. 文档与注释规范
-- **API文档**：为路由、参数、响应添加`summary`、`description`和`response_description`。
-- **标签分类**：用`tags`对路由分组（如`["users"]`、`["items"]`），提升文档可读性。
-- **类型注释**：所有函数参数、返回值必须添加类型注释（便于FastAPI自动生成文档）。
-- **复杂逻辑**：核心业务逻辑需添加文档字符串（说明功能、参数、返回值）。
+### 中间件认证（推荐用于新路由）
+- 配置在 `src/core/auth_middleware.py`，按路径正则设置策略：`NONE` / `OPTIONAL` / `REQUIRED` / `ADMIN`
+- 中间件注入 `request.state.current_user` 和 `request.state.is_authenticated`
+- 读取用户：通过 `src/core/middleware_dependencies.py` 的辅助函数
 
-  ```python
-  @router.post(
-      "/",
-      summary="创建新物品",
-      description="根据输入数据创建新物品，返回创建结果",
-      response_description="成功创建的物品信息"
-  )
-  def create_item(item: CreateItem) -> Item:
-      """
-      创建物品的详细说明：
-      - 参数: item - 包含物品名称、价格等信息的对象
-      - 返回: 包含创建的物品完整信息（含ID）
-      """
-      return {"id": 1, **item.dict()}
-  ```
+### Depends 认证（存量路由）
+- 使用 `Depends(get_current_active_user)` from `src/core/auth_dependencies.py`
 
+```python
+# 中间件方式（推荐）
+from src.core.middleware_dependencies import get_current_active_user_from_request
 
-### 7. 性能与安全规则
--** 异步支持 **：I/O操作（数据库、HTTP请求）优先使用异步客户端（如`asyncpg`、`httpx.AsyncClient`）。
--** 缓存策略 **：高频访问接口通过`lru_cache`或外部缓存（如Redis）减少计算/数据库压力。
--** 安全头 **：启用`CORSMiddleware`、`HSTS`等安全中间件，限制跨域请求。
--** 数据过滤 **：用户输入必须经过验证，数据库查询避免原始SQL（防注入）。
--** 速率限制 **：添加`slowapi`等中间件限制接口访问频率，防止滥用。
+@router.get("/me")
+async def get_profile(request: Request):
+    user = get_current_active_user_from_request(request)
+    return user
 
+# Depends 方式（存量）
+from src.core.auth_dependencies import get_current_active_user
 
-### 8. 测试规则
--** 测试分层 **：单元测试（工具函数）、集成测试（API端点）、端到端测试（关键流程）。
--** 测试客户端 **：使用`TestClient`测试API，覆盖正常流程和异常场景。
--**  fixtures **：通过`pytest fixtures`复用测试资源（如测试数据库会话）。
+@router.get("/me")
+async def get_profile(current_user: User = Depends(get_current_active_user)):
+    return current_user
+```
 
-  ```python
-  # 示例：API测试
-  from fastapi.testclient import TestClient
-  from app.main import app
+## 数据库与 ORM
 
-  client = TestClient(app)
+- **同步模式**: 使用 `sqlalchemy.orm.Session`（`sessionmaker(autocommit=False, autoflush=False)`）
+- **ORM 基类**: `src/db/base.py` 的 `BaseSQLAlchemyModel` 提供 `id`、`created_at`、`updated_at` 和 `to_dict()`/`from_dict()` 方法
+- **迁移**: Alembic 位于 `src/db/migrations/`
+- **启动时**: `init_database()` 调用 `create_tables()` 自动建表（与 Alembic 共存）
 
-  def test_get_item():
-      response = client.get("/items/1")
-      assert response.status_code == 200
-      assert response.json() == {"item_id": 1}
-  ```
+### Repository 模式
 
+```python
+from src.db.repositories.base import BaseRepository
 
-### 9. 代码风格规则
--** 格式化 **：使用`black`统一代码格式，`isort`排序导入语句。
--** 命名规范 **：
-  - 变量/函数：小写蛇形（`user_id`、`get_user`）
-  - 类：帕斯卡命名（`UserModel`、`AuthDependency`）
-  - 常量：全大写蛇形（`MAX_RETRY`、`API_PREFIX`）
--** 导入顺序 **：标准库 → 第三方库 → 本地模块，用空行分隔。
+class MyRepository(BaseRepository):
+    def __init__(self, session: Session):
+        super().__init__(session, MyModel)
+
+    def find_by_name(self, name: str) -> MyModel | None:
+        return self.session.query(MyModel).filter_by(name=name).first()
+```
+
+Repository 中使用 `flush()` 推送变更，`commit()` 由 DI scope 自动管理。
+
+## Pydantic 模型
+
+- **基类**: `src/schemas/base.py` 的 `BaseDataModel`，使用 Pydantic v2 `ConfigDict(from_attributes=True)`
+- 区分请求模型（`CreateXxx`）和响应模型（`XxxResponse`）
+- 支持 Field alias 映射数据库字段名
+
+```python
+from src.schemas.base import BaseDataModel
+
+class ScriptInfo(BaseDataModel):
+    title: str
+    difficulty: DifficultyLevel = Field(alias="difficulty_level")
+```
+
+## 测试规范
+
+测试位于 `tests/`，使用 pytest，标记：`api`、`unit`、`integration`、`slow`。
+
+- `conftest.py` 提供 `test_client`（模块级）、`mock_db_session`（autouse，全局 mock 数据库）、`mock_current_user`
+- `factories.py` 提供可复用的模型工厂函数
+- 单元测试不连接真实数据库，完全使用 mock
+
+```python
+import pytest
+
+@pytest.mark.api
+def test_get_scripts(test_client):
+    response = test_client.get("/api/scripts")
+    assert response.status_code in [200, 401]
+```
+
+## 代码风格
+
+- 变量/函数：`snake_case`（如 `user_id`、`get_user`）
+- 类：`PascalCase`（如 `UserModel`、`AuthService`）
+- 常量：`UPPER_SNAKE_CASE`（如 `MAX_RETRY`、`API_PREFIX`）
+- 导入顺序：标准库 → 第三方库 → 本地模块，空行分隔
+- 所有函数参数和返回值添加类型注释
+
+## 关键文档
+
+| 文档 | 主题 |
+|------|------|
+| [AUTH_MIDDLEWARE_GUIDE.md](../docs/AUTH_MIDDLEWARE_GUIDE.md) | 认证中间件使用指南 |
+| [DEPENDENCY_INJECTION_MIGRATION.md](../docs/DEPENDENCY_INJECTION_MIGRATION.md) | DI 容器迁移和用法 |
+| [SERVICE_ARCHITECTURE.md](../docs/SERVICE_ARCHITECTURE.md) | 服务层设计模式 |
+| [MINIMAX_CLIENT_GUIDE.md](../docs/MINIMAX_CLIENT_GUIDE.md) | MiniMax TTS/图像集成 |
+| [README_SCRIPT_MANAGER.md](../docs/README_SCRIPT_MANAGER.md) | 剧本管理功能 |
 
