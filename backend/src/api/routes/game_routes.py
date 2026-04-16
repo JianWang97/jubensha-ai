@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Optional
 
-from ...core.websocket_server import game_server
+from ...core.websocket_server import game_server, GameModeHandler
 from ...schemas.game_schemas import GameResponse
 from ...schemas.user_schemas import GameSessionDeleteRequest, GameSessionDeleteResponse, GameSessionDeleteFailedItem
 from ...db.repositories.game_session_repository import GameSessionRepository
@@ -32,7 +32,7 @@ async def get_game_status(session_id: str | None = None):
         
         # 确保游戏已初始化
         if not session.game_initialized:
-            await game_server.initialize_game(session)
+            await GameModeHandler.initialize_game(session)
         
         return {
             "success": True,
@@ -53,7 +53,7 @@ async def start_game(session_id: str | None = None, script_id: int = 1):
         if session_id is None:
             session_id = "default"
         
-        await game_server.start_game(session_id, script_id)
+        await GameModeHandler.start_game(game_server, session_id, script_id)
         return create_response(True, "游戏启动中...")
     except Exception as e:
         return create_response(False, f"Failed to start game: {str(e)}")
@@ -66,7 +66,7 @@ async def reset_game(session_id: str | None = None):
         if session_id is None:
             session_id = "default"
         
-        await game_server.reset_game(session_id)
+        await GameModeHandler.reset_game(game_server, session_id)
         return create_response(True, "游戏已重置")
     except Exception as e:
         return create_response(False, f"Failed to reset game: {str(e)}")

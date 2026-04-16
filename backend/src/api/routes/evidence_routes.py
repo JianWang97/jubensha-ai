@@ -88,7 +88,7 @@ async def delete_evidence(script_id: int, evidence_id: int, evidence_repository:
         # 如果证据有关联的图片，先删除图片文件
         if evidence.image_url:
             try:
-                await storage_manager.delete_file(evidence.image_url)
+                storage_manager.delete_file(evidence.image_url)
             except Exception as e:
                 # 图片删除失败不应该阻止证据删除
                 print(f"删除证据图片失败: {e}")

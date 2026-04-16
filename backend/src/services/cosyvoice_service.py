@@ -1,4 +1,5 @@
 """CosyVoice2-Ex TTS服务实现"""
+import asyncio
 import httpx
 import logging
 from typing import AsyncGenerator, List, Dict, Any

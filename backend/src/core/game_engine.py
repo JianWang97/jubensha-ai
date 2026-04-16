@@ -10,7 +10,7 @@ from ..schemas.script import (
 )
 from ..schemas.game_phase import GamePhaseEnum
 from ..schemas.base import BaseDataModel
-from ..agents import AIAgent
+from ..agents import CharacterAgentManager
 from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
 from .conversation_flow_controller import ConversationFlowController
@@ -32,7 +32,7 @@ class GameEngine:
         # 核心数据结构
         self.script_data: Optional[Dict[str, Any]] = None
         self.characters: List[ScriptCharacter] = []
-        self.agents: Dict[str, AIAgent] = {}
+        self.agents: CharacterAgentManager = CharacterAgentManager()
         self.current_phase: GamePhaseEnum = GamePhaseEnum.BACKGROUND
 
         # 历史事件 & 聊天
@@ -392,13 +392,9 @@ class GameEngine:
             logger.warning("没有可用的角色来初始化AI代理")
             return
             
-        for character in self.characters:
-            if not character.is_victim:
-                try:
-                    self.agents[character.name] = AIAgent(character)
-                    logger.info(f"成功初始化AI代理: {character.name}")
-                except Exception as e:
-                    logger.error(f"初始化AI代理 {character.name} 失败: {e}", exc_info=True)
+        self.agents = CharacterAgentManager()
+        self.agents.create_agents(self.characters)
+        logger.info(f"成功初始化 {len(self.agents)} 个角色 Agent")
     
     async def next_phase(self):
         """进入下一个游戏阶段"""
@@ -709,10 +705,9 @@ class GameEngine:
                 turn_count += 1
                 continue
             
-            agent = self.agents[next_speaker]
             try:
                 # AI思考并行动
-                action = await agent.think_and_act(self.game_state, self.current_phase)
+                action = await self.agents.respond(next_speaker, self.current_phase, self.game_state)
                 
                 # 根据阶段确定消息类型
                 message_type = "chat"
@@ -766,6 +761,10 @@ class GameEngine:
                             session_id=self.session_id
                         )
                         self.game_state["discovered_evidence"] = self.evidence_manager.get_discovered_evidence()
+                        # 通知 AgentManager：发现者写入私有日志，其他角色更新工作记忆
+                        self.agents.notify_evidence_found(
+                            next_speaker, discovered['name'], discovered.get('description', '')
+                        )
                 
                 action_data = {
                     "character": next_speaker,
@@ -828,7 +827,8 @@ class GameEngine:
         elif self.current_phase == GamePhaseEnum.EVIDENCE_COLLECTION:
             if self.evidence_manager:
                 discovered_evidence = self.evidence_manager.get_discovered_evidence()
-                total_evidence = len(self.script_data.get("evidence", []))
+                script_data = self.script_data or {}
+                total_evidence = len(script_data.get("evidence", []))
                 # 如果发现了75%以上的证据，可以考虑结束搜证
                 if total_evidence > 0 and len(discovered_evidence) / total_evidence >= 0.75:
                     return True

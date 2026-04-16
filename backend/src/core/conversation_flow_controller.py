@@ -390,7 +390,7 @@ class ConversationFlowController:
         import re
         
         # 移除标点符号和语气词
-        core = re.sub(r'[？?！!。，,、；;：:""''()（）\s]+', '', message)
+        core = re.sub(r"""[？?！!。，,、；;：:""''()（）\s]+""", '', message)
         
         # 提取关键词组合
         key_patterns = [
@@ -405,8 +405,9 @@ class ConversationFlowController:
         ]
         
         for pattern in key_patterns:
-            if re.search(pattern, core):
-                return re.search(pattern, core).group()
+            match = re.search(pattern, core)
+            if match:
+                return match.group()
         
         # 如果没有匹配到特定模式，返回简化的核心内容
         # 保留主要名词和动词

@@ -48,7 +48,8 @@ async def generate_script_info(
     max_retries = 3
     last_error = None
     base_temperature = 0.8
-    
+    user_prompt = ""
+
     for attempt in range(max_retries):
         try:
             # 构建LLM提示
