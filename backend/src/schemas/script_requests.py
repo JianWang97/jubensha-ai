@@ -3,6 +3,15 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class GenerateScriptContentRequest(BaseModel):
+    """根据剧本背景生成角色和证据的请求模型"""
+    script_id: int
+    theme: str
+    background_story: str
+    player_count: int
+    script_type: Optional[str] = None
+
+
 class GenerateScriptInfoRequest(BaseModel):
     """生成剧本信息请求模型"""
     theme: str

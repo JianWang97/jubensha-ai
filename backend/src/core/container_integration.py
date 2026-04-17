@@ -118,6 +118,11 @@ def get_script_editor_svc_depends():
     from ..services.script_editor_service import ScriptEditorService
     return inject_scoped(ScriptEditorService)
 
+def get_script_generation_svc_depends():
+    """获取剧本生成服务的Depends对象"""
+    from ..services.script_generation_service import ScriptGenerationService
+    return inject_scoped(ScriptGenerationService)
+
 def get_background_story_repo_depends():
     """获取背景故事仓储的Depends对象"""
     from ..db.repositories.background_story_repository import BackgroundStoryRepository
