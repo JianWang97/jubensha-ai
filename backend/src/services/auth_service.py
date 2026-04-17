@@ -189,3 +189,26 @@ class AuthService:
         if user:
             setattr(user, 'last_login_at', datetime.utcnow())
             db.commit()
+
+    @staticmethod
+    def get_or_create_guest_user(db: Session, username: str, email: str) -> User:
+        """获取或创建默认访客用户（用于匿名访问）"""
+        user = AuthService.get_user_by_username(db, username)
+        if user:
+            return user
+
+        # 生成随机密码（访客账户密码不对外暴露）
+        import secrets
+        random_password = secrets.token_urlsafe(32)
+        hashed_password = AuthService.get_password_hash(random_password)
+
+        db_user = User(
+            username=username,
+            email=email,
+            hashed_password=hashed_password,
+            nickname="访客",
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
