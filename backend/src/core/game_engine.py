@@ -629,76 +629,36 @@ class GameEngine:
         consecutive_same_speaker = 0
         last_speaker = None
         
-        # 对于DISCUSSION和VOTING阶段，确保每个角色都有机会发言
-        if self.current_phase in [GamePhaseEnum.DISCUSSION, GamePhaseEnum.VOTING]:
-            # 获取还没有发言的角色
-            unspoken_characters = []
-            if self.conversation_flow_controller:
-                unspoken_characters = [char for char in available_characters 
-                                     if self.conversation_flow_controller.speaking_frequency.get(char, 0) == 0]
-            
-            # 如果还有角色没发言，优先让他们发言
-            if unspoken_characters:
-                logger.info(f"{self.current_phase.value}阶段：优先安排未发言角色: {unspoken_characters}")
-        
         while turn_count < max_turns and available_characters:
             # 获取最近的聊天记录用于智能选择
             recent_chat = self.get_recent_public_chat(limit=10)
             
-            # 选择下一个发言者的逻辑
+            # 统一委托给 ConversationFlowController 选人（CFC 内部已处理"优先未发言"逻辑）
             next_speaker = None
-            
-            # 对于DISCUSSION和VOTING阶段，确保公平发言
-            if self.current_phase in [GamePhaseEnum.DISCUSSION, GamePhaseEnum.VOTING] and self.conversation_flow_controller:
-                # 优先选择还没有发言的角色
-                unspoken = [char for char in available_characters 
-                           if self.conversation_flow_controller.speaking_frequency.get(char, 0) == 0]
-                
-                if unspoken:
-                    # 从未发言的角色中选择
-                    next_speaker = unspoken[0]
-                    logger.info(f"{self.current_phase.value}阶段：选择未发言角色 {next_speaker}")
-                else:
-                    # 所有角色都发言过，使用智能选择
-                    try:
-                        next_speaker = await self.conversation_flow_controller.select_next_speaker(
-                            available_characters, 
-                            self.game_state, 
-                            self.current_phase,
-                            recent_chat
-                        )
-                    except Exception as e:
-                        logger.error(f"智能选择发言者失败: {e}，使用轮流选择")
-                        next_speaker = available_characters[turn_count % len(available_characters)]
+            if self.conversation_flow_controller:
+                try:
+                    next_speaker = await self.conversation_flow_controller.select_next_speaker(
+                        available_characters,
+                        self.game_state,
+                        self.current_phase,
+                        recent_chat
+                    )
+                    # 避免同一角色连续发言超过2次
+                    if next_speaker == last_speaker:
+                        consecutive_same_speaker += 1
+                        if consecutive_same_speaker >= 2 and len(available_characters) > 1:
+                            other_characters = [char for char in available_characters if char != last_speaker]
+                            if other_characters:
+                                next_speaker = other_characters[0]
+                                logger.info(f"避免连续发言，强制切换到: {next_speaker}")
+                    else:
+                        consecutive_same_speaker = 0
+                except Exception as e:
+                    logger.error(f"智能选择发言者失败: {e}，使用随机选择")
+                    next_speaker = available_characters[0] if available_characters else None
             else:
-                # 其他阶段使用原有的智能选择逻辑
-                if self.conversation_flow_controller:
-                    try:
-                        next_speaker = await self.conversation_flow_controller.select_next_speaker(
-                            available_characters, 
-                            self.game_state, 
-                            self.current_phase,
-                            recent_chat
-                        )
-                        
-                        # 避免同一角色连续发言超过2次（紧急情况除外）
-                        if next_speaker == last_speaker:
-                            consecutive_same_speaker += 1
-                            if consecutive_same_speaker >= 2 and len(available_characters) > 1:
-                                # 强制选择其他角色
-                                other_characters = [char for char in available_characters if char != last_speaker]
-                                if other_characters:
-                                    next_speaker = other_characters[0]  # 选择第一个其他角色
-                                    logger.info(f"避免连续发言，强制切换到: {next_speaker}")
-                        else:
-                            consecutive_same_speaker = 0
-                            
-                    except Exception as e:
-                        logger.error(f"智能选择发言者失败: {e}，使用随机选择")
-                        next_speaker = available_characters[0] if available_characters else None
-                else:
-                    # 回退到简单的轮流发言
-                    next_speaker = available_characters[turn_count % len(available_characters)]
+                # 回退到简单的轮流发言
+                next_speaker = available_characters[turn_count % len(available_characters)]
             
             if not next_speaker or next_speaker not in self.agents:
                 logger.warning(f"无效的发言者: {next_speaker}，跳过此轮")

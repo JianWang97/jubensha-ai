@@ -42,8 +42,8 @@ class CharacterMemory:
     suspicion_map   —— {角色名: 怀疑度 0.0-1.0}
     """
 
-    # 工作记忆窗口大小（条）
-    WORKING_CAPACITY = 18
+    # 工作记忆窗口大小（条）——覆盖 DISCUSSION/INVESTIGATION 阶段的 N×5 轮对话
+    WORKING_CAPACITY = 30
     # 私有日志最大条数（超出时按重要性淘汰最低的）
     PERSONAL_LOG_CAPACITY = 60
 

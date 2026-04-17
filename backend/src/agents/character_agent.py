@@ -19,8 +19,7 @@ from typing import Any
 
 from ..schemas.script_character import ScriptCharacter
 from ..schemas.game_phase import GamePhaseEnum as GamePhase
-from ..services.llm_service import LLMService, LLMMessage
-from ..core.config import config
+from ..services.llm_service import BaseLLMService, LLMMessage
 from .character_identity import CharacterIdentity
 from .character_memory import CharacterMemory
 from .phase_director import PhaseDirector
@@ -36,12 +35,12 @@ class CharacterAgent:
     Layer 3 — director   : 无状态阶段任务指令构建器
     """
 
-    def __init__(self, character: ScriptCharacter) -> None:
+    def __init__(self, character: ScriptCharacter, llm: BaseLLMService) -> None:
         self.name: str = character.name
         self.identity = CharacterIdentity(character)
         self.memory = CharacterMemory()
         self._director = PhaseDirector()
-        self._llm = LLMService.from_config(config.llm_config)
+        self._llm = llm  # 共享单例，由 CharacterAgentManager 注入
 
     # ------------------------------------------------------------------
     # 主动接口（GameEngine 调用）

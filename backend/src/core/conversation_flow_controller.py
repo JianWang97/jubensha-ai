@@ -85,7 +85,7 @@ class ConversationFlowController:
                                        available_characters: List[str], 
                                        recent_chat: List[Dict[str, Any]], 
                                        game_state: Dict[str, Any]) -> str:
-        """调查阶段：基于对话内容智能选择最合适的提问者"""
+        """调查阶段：规则优先选人，无明确信号时才调用 LLM（降低约 50% 的选人 LLM 调用）"""
         
         if not recent_chat:
             return self._select_randomly_with_balance(available_characters)
@@ -93,37 +93,26 @@ class ConversationFlowController:
         # 分析对话内容，识别问答链和关键信息
         conversation_analysis = self._analyze_investigation_context(recent_chat, available_characters, game_state)
         
-        # 使用增强的LLM分析谁最适合接话
+        # 1. 先用规则判断 —— 有明确目标时无需调用 LLM
+        rule_pick = self._try_rule_based_pick(available_characters, recent_chat, conversation_analysis)
+        if rule_pick is not None:
+            logger.info(f"规则选择发言者: {rule_pick} (原因: {conversation_analysis.get('selection_reason', '规则匹配')})")
+            return rule_pick
+        
+        # 2. 无明确信号，使用 LLM 进行细粒度判断
         try:
             context = self._build_enhanced_conversation_context(recent_chat, available_characters, game_state, conversation_analysis)
             
-            system_prompt = """
-你是一个剧本杀游戏的智能对话流控制器。你的任务是分析当前调查阶段的对话情况，选择最合适的角色来接话。
+            system_prompt = """你是剧本杀游戏的对话流控制器，请从候选角色中选出最合适的下一位发言者。
 
-智能选择原则（按优先级排序）：
-1. **避免重复问题**：如果检测到重复问题，优先选择能够提供新信息或转换话题的角色
-2. **问答链式反应**：如果有人被直接提问且未回答，优先让被提问者回答
-3. **证据关联反应**：如果提到了新证据或线索，让最相关的角色（知情者/当事人）发言
-4. **质疑与澄清**：如果有人被质疑或指控，让当事人有机会澄清或反驳
-5. **信息补充**：如果有角色可能知道更多相关信息，让其主动提供线索
-6. **推理深入**：选择最有动机继续追问或分析的角色
-7. **发言平衡**：避免同一角色连续发言，确保每个角色都有参与机会
+选择原则（优先级从高到低）：
+1. 避免重复问题：若有重复问题，选能转换话题或提供新信息的角色
+2. 问答链：若有未回答问题且有明确目标，选被提问者
+3. 质疑回应：若有人被指控，选被指控者澄清
+4. 证据关联：若提到新证据，选最相关角色
+5. 发言平衡：避免同一角色连续发言
 
-重复问题处理策略：
-- 如果检测到重复问题，不要选择会继续重复相同问题的角色
-- 优先选择能够提供答案、澄清疑问或转换话题的角色
-- 如果被重复提问的角色还未回答，优先让其发言
-- 如果问题已被多次重复但无人回答，选择知情的第三方角色来推进对话
-
-分析要点：
-- 识别未解答的问题和悬疑点
-- 关注角色间的关系和利益冲突
-- 考虑角色的背景知识和秘密信息
-- 评估对话的紧张程度和情绪变化
-- 特别注意避免重复问题的循环
-
-请只返回一个角色名字，不要有任何其他内容。
-"""
+请只返回一个角色名字，不要有任何其他内容。"""
             
             messages = [
                 LLMMessage(role="system", content=system_prompt),
@@ -133,18 +122,17 @@ class ConversationFlowController:
             response = await self.llm_service.chat_completion(messages)
             selected_character = response.content.strip() if response and response.content else None
             
-            # 验证选择的角色是否有效
             if selected_character and selected_character in available_characters:
-                logger.info(f"智能选择下一个发言者: {selected_character} (基于: {conversation_analysis.get('selection_reason', '综合分析')})")
+                logger.info(f"LLM选择发言者: {selected_character}")
                 return selected_character
             else:
-                logger.warning(f"LLM选择的角色无效: {selected_character}，使用备选方案")
+                logger.warning(f"LLM选择的角色无效: {selected_character}，回退随机均衡选择")
                 
         except Exception as e:
             logger.error(f"LLM选择发言者失败: {e}")
             
-        # 备选方案：基于增强规则选择
-        return self._select_based_on_enhanced_rules(available_characters, recent_chat, conversation_analysis)
+        # 3. 最终兜底：随机均衡
+        return self._select_randomly_with_balance(available_characters)
         
     async def _select_for_discussion(self, 
                                     available_characters: List[str], 
@@ -160,6 +148,49 @@ class ConversationFlowController:
         # 如果所有角色都发言过，使用调查阶段的智能选择逻辑
         return await self._select_for_investigation(available_characters, recent_chat, game_state)
         
+    def _try_rule_based_pick(
+        self,
+        available_characters: List[str],
+        recent_chat: List[Dict[str, Any]],
+        analysis: Dict[str, Any],
+    ) -> Optional[str]:
+        """规则选人：有明确信号返回角色名，无明确信号返回 None（由上层决定是否调 LLM）。
+
+        规则覆盖以下高置信度场景：
+        1. 有未回答的问题且目标明确 → 让被提问者回答
+        2. 有指控且目标明确 → 让被指控者澄清
+        3. 某角色被频繁提及（≥2次）→ 让该角色发言
+        其余情况返回 None，由 LLM 做细粒度判断。
+        """
+        # 规则1：未回答问题 + 明确目标
+        if analysis.get('unanswered_questions'):
+            target = analysis['unanswered_questions'][-1].get('target', '')
+            if target and target in available_characters:
+                analysis['selection_reason'] = f"回答{analysis['unanswered_questions'][-1].get('asker', '某人')}的问题"
+                return target
+
+        # 规则2：指控 + 明确目标
+        if analysis.get('accusations'):
+            target = analysis['accusations'][-1].get('target', '')
+            if target and target in available_characters:
+                analysis['selection_reason'] = "回应指控或质疑"
+                return target
+
+        # 规则3：被频繁提及（≥2次）
+        if analysis.get('character_mentions'):
+            most_mentioned = max(
+                analysis['character_mentions'].items(),
+                key=lambda x: len(x[1]),
+                default=(None, []),
+            )
+            char, mentions = most_mentioned
+            if char and char in available_characters and len(mentions) >= 2:
+                analysis['selection_reason'] = "回应关于自己的讨论"
+                return char
+
+        # 无明确信号
+        return None
+
     def _select_for_voting(self, available_characters: List[str]) -> str:
         """投票阶段：确保每个人都投票"""
         # 优先选择还没投票的角色
@@ -323,16 +354,6 @@ class ConversationFlowController:
                         'asker': character,
                         'target': self._extract_question_target(message, available_characters)
                     })
-        
-        # 检测重复问题
-        for core, frequency in analysis['question_frequency'].items():
-            if frequency > 2:  # 如果同一个问题被问了超过2次
-                repeated_questions = [q for q in all_questions if q['core'] == core]
-                analysis['repeated_questions'].append({
-                    'core': core,
-                    'frequency': frequency,
-                    'questions': repeated_questions
-                })
             
             # 识别证据提及
             evidence_keywords = ["证据", "线索", "发现", "看到", "听到", "找到", "血迹", "指纹", "凶器"]
@@ -359,6 +380,16 @@ class ConversationFlowController:
                     'accuser': character,
                     'content': message,
                     'target': self._extract_accusation_target(message, available_characters)
+                })
+        
+        # 检测重复问题
+        for core, frequency in analysis['question_frequency'].items():
+            if frequency > 2:  # 如果同一个问题被问了超过2次
+                repeated_questions = [q for q in all_questions if q['core'] == core]
+                analysis['repeated_questions'].append({
+                    'core': core,
+                    'frequency': frequency,
+                    'questions': repeated_questions
                 })
         
         # 评估情绪紧张度（考虑重复问题的影响）

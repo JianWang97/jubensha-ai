@@ -14,6 +14,8 @@ from typing import Any
 
 from ..schemas.script_character import ScriptCharacter
 from ..schemas.game_phase import GamePhaseEnum as GamePhase
+from ..services.llm_service import LLMService
+from ..core.config import config
 from .character_agent import CharacterAgent
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,8 @@ class CharacterAgentManager:
 
     def __init__(self) -> None:
         self._agents: dict[str, CharacterAgent] = {}
+        # 所有角色共享同一个 LLMService 实例（避免每个 Agent 持有独立连接池）
+        self._shared_llm = LLMService.from_config(config.llm_config)
 
     # ------------------------------------------------------------------
     # 初始化
@@ -44,7 +48,7 @@ class CharacterAgentManager:
             if character.is_victim:
                 continue
             try:
-                self._agents[character.name] = CharacterAgent(character)
+                self._agents[character.name] = CharacterAgent(character, self._shared_llm)
                 logger.info(f"[CharacterAgentManager] 创建角色 Agent: {character.name}")
             except Exception as exc:
                 logger.error(f"[CharacterAgentManager] 创建 {character.name} 失败: {exc}")
