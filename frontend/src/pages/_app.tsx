@@ -2,10 +2,12 @@ import "@/styles/globals.css";
 import "@/styles/custom-scrollbar.css";
 import React from 'react';
 import type { AppProps } from "next/app";
+import { useRouter } from 'next/router';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useEffect, useState, useCallback } from 'react';
+import PageLoader from '@/components/PageLoader';
 
 // SSR安全的hooks
 const useSSRSafeState = (initialValue: any) => {
@@ -60,6 +62,8 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function App({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+  const [routeLoading, setRouteLoading] = useState(false);
   const [isInitialized, setIsInitialized, isClient] = useSSRSafeState(false);
   const [authLoading, setAuthLoading] = useSSRSafeState(true);
   
@@ -91,6 +95,22 @@ export default function App({ Component, pageProps }: AppProps) {
     initAuth();
   }, [isClient, safeCheckAuth]);
 
+  // 路由切换进度条
+  useEffect(() => {
+    const handleStart = () => setRouteLoading(true);
+    const handleComplete = () => setRouteLoading(false);
+
+    router.events.on('routeChangeStart', handleStart);
+    router.events.on('routeChangeComplete', handleComplete);
+    router.events.on('routeChangeError', handleComplete);
+
+    return () => {
+      router.events.off('routeChangeStart', handleStart);
+      router.events.off('routeChangeComplete', handleComplete);
+      router.events.off('routeChangeError', handleComplete);
+    };
+  }, [router]);
+
   // 显示加载状态
   if (!isClient || !isInitialized || authLoading) {
     return (
@@ -105,6 +125,7 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <ErrorBoundary>
+      <PageLoader visible={routeLoading} />
       <Component {...pageProps} />
       <Toaster
         position="top-right"

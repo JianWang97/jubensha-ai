@@ -1,62 +1,53 @@
-import React from 'react';
-import { Loader2, Gamepad2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useState } from 'react';
 
 interface PageLoaderProps {
-  message?: string;
-  fullScreen?: boolean;
-  className?: string;
+  visible: boolean;
 }
 
-const PageLoader: React.FC<PageLoaderProps> = ({ 
-  message = '正在加载...', 
-  fullScreen = true,
-  className 
-}) => {
-  const content = (
-    <div className="flex flex-col items-center justify-center space-y-4">
-      {/* 动画图标 */}
-      <div className="relative">
-        <div className="absolute inset-0 animate-ping">
-          <Gamepad2 className="h-12 w-12 text-purple-500/30" />
-        </div>
-        <Gamepad2 className="h-12 w-12 text-purple-500 relative z-10" />
-      </div>
-      
-      {/* 加载文字 */}
-      <div className="text-center space-y-2">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
-          <p className="text-lg font-medium text-white">{message}</p>
-        </div>
-        
-        {/* 加载进度条 */}
-        <div className="w-48 h-1 bg-gray-700 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-pulse" />
-        </div>
-        
-        <p className="text-sm text-gray-400">请稍候片刻...</p>
-      </div>
-    </div>
-  );
+const PageLoader: React.FC<PageLoaderProps> = ({ visible }) => {
+  const [show, setShow] = useState(false);
+  const [complete, setComplete] = useState(false);
 
-  if (fullScreen) {
-    return (
-      <div className={cn(
-        "fixed inset-0 z-50 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center",
-        className
-      )}>
-        {content}
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (visible) {
+      setShow(true);
+      setComplete(false);
+    } else if (show) {
+      setComplete(true);
+      const t = setTimeout(() => {
+        setShow(false);
+        setComplete(false);
+      }, 400);
+      return () => clearTimeout(t);
+    }
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!show) return null;
 
   return (
-    <div className={cn(
-      "flex items-center justify-center py-12",
-      className
-    )}>
-      {content}
+    <div className="fixed top-0 left-0 right-0 z-[100] h-1 pointer-events-none">
+      {complete ? (
+        <div
+          className="h-full w-full bg-gradient-to-r from-[#4a148c] via-purple-500 to-blue-400"
+          style={{ animation: 'pageLoaderComplete 400ms ease-out forwards' }}
+        />
+      ) : (
+        <div
+          className="h-full bg-gradient-to-r from-[#4a148c] via-purple-500 to-blue-400"
+          style={{ animation: 'pageLoaderSlide 1.5s ease-in-out infinite' }}
+        />
+      )}
+      <style>{`
+        @keyframes pageLoaderSlide {
+          0%   { width: 0%;   transform: translateX(-10%); }
+          60%  { width: 75%;  transform: translateX(0%);   }
+          100% { width: 0%;   transform: translateX(110%); }
+        }
+        @keyframes pageLoaderComplete {
+          0%   { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 };
