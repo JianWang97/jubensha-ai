@@ -170,6 +170,20 @@ async def startup_event():
         from .dependency_container import configure_services
         configure_services()
         print("依赖注入容器配置完成")
+
+        # 如果启用了匿名访问，确保默认访客账户存在
+        from src.core.config import config
+        if config.allow_anonymous_access:
+            from src.services.auth_service import AuthService
+            db_gen = get_db_session()
+            db = next(db_gen)
+            try:
+                AuthService.get_or_create_guest_user(
+                    db, config.guest_username, config.guest_email
+                )
+                print(f"访客账户已就绪: {config.guest_username}")
+            finally:
+                db.close()
     except Exception as e:
         print(f"应用初始化失败: {e}")
 

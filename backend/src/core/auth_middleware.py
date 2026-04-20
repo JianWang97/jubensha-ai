@@ -62,6 +62,7 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
             # 认证相关路径（注册、登录等）
             AuthRule(r"^/api/auth/register", AuthLevel.NONE, ["POST"]),
             AuthRule(r"^/api/auth/login", AuthLevel.NONE, ["POST"]),
+            AuthRule(r"^/api/auth/anonymous-login", AuthLevel.NONE, ["POST"]),
             AuthRule(r"^/api/auth/verify-token", AuthLevel.NONE, ["POST"]),
             
             # 公开的剧本搜索和浏览

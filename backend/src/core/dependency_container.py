@@ -395,7 +395,10 @@ def configure_services() -> DependencyContainer:
     
     # 注册服务（作用域）
     container.register_scoped(ScriptEditorService)
-    
+
+    from ..services.script_generation_service import ScriptGenerationService
+    container.register_scoped(ScriptGenerationService)
+
     # 注册LLM服务（单例）
     container.register_instance(LLMService, llm_service)
     

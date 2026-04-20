@@ -130,6 +130,21 @@ class ConfigManager:
             "port": int(os.getenv("PORT", "8000")),
             "debug": os.getenv("DEBUG", "false").lower() == "true"
         }
+    
+    @property
+    def allow_anonymous_access(self) -> bool:
+        """是否允许匿名访问（使用默认访客账户）"""
+        return os.getenv("ALLOW_ANONYMOUS_ACCESS", "false").lower() == "true"
+    
+    @property
+    def guest_username(self) -> str:
+        """默认访客账户用户名"""
+        return os.getenv("GUEST_USERNAME", "guest")
+    
+    @property
+    def guest_email(self) -> str:
+        """默认访客账户邮箱"""
+        return os.getenv("GUEST_EMAIL", "guest@jubensha.local")
 
 # 全局配置实例
 config = ConfigManager()

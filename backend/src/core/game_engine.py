@@ -10,7 +10,8 @@ from ..schemas.script import (
 )
 from ..schemas.game_phase import GamePhaseEnum
 from ..schemas.base import BaseDataModel
-from ..agents import AIAgent
+from ..agents import CharacterAgentManager
+from ..agents.gm_agent import GMAgent, PhaseStep
 from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
 from .conversation_flow_controller import ConversationFlowController
@@ -32,8 +33,13 @@ class GameEngine:
         # 核心数据结构
         self.script_data: Optional[Dict[str, Any]] = None
         self.characters: List[ScriptCharacter] = []
-        self.agents: Dict[str, AIAgent] = {}
-        self.current_phase: GamePhaseEnum = GamePhaseEnum.BACKGROUND
+        self.agents: CharacterAgentManager = CharacterAgentManager()
+
+        # 动态阶段计划（由 GMAgent 生成）
+        self._current_phase: GamePhaseEnum = GamePhaseEnum.BACKGROUND
+        self.game_plan: List[PhaseStep] = []
+        self.current_step_index: int = 0
+        self._gm_agent: Optional[GMAgent] = None
 
         # 历史事件 & 聊天
         self.events: List[Dict[str, Any]] = []
@@ -49,14 +55,38 @@ class GameEngine:
 
         # 游戏状态快照（供AI与前端使用）
         self.game_state: Dict[str, Any] = {
-            "phase": self.current_phase.value,
+            "phase": self._current_phase.value,
             "events": self.events,
             "characters": [],
             "votes": {},
             "evidence": [],
             "discovered_evidence": [],
+            "evidence_search_status": {},   # {location: searcher}
+            "all_locations": [],
             "public_chat": self.public_chat,
+            "game_plan": [],               # [{phase_type, name, description, round_number}]
+            "total_phases": 0,
+            "current_phase_index": 0,
+            "current_step_name": "",
         }
+
+    # ------------------------------------------------------------------
+    # 动态阶段属性
+    # ------------------------------------------------------------------
+
+    @property
+    def current_phase(self) -> GamePhaseEnum:
+        """当前阶段：优先从 game_plan 读取，无计划时使用 _current_phase 备份。"""
+        if self.game_plan and 0 <= self.current_step_index < len(self.game_plan):
+            return self.game_plan[self.current_step_index].phase_type
+        return self._current_phase
+
+    @property
+    def current_step(self) -> Optional[PhaseStep]:
+        """当前阶段步骤（PhaseStep），无计划时返回 None。"""
+        if self.game_plan and 0 <= self.current_step_index < len(self.game_plan):
+            return self.game_plan[self.current_step_index]
+        return None
 
     def get_history(self, from_event_id: int = 0, limit: Optional[int] = None) -> Dict[str, Any]:
         """获取历史事件与聊天（用于前端回看，不涉及断线状态恢复）
@@ -267,15 +297,30 @@ class GameEngine:
         # 初始化游戏组件
         try:
             self.characters = self._init_characters()
-            # 初始化证据管理器、投票管理器和对话流控制器
-            self.evidence_manager = EvidenceManager(self.script_data["evidence"])
+            # 初始化证据管理器（传入 locations 数据以支持精确地点匹配）
+            self.evidence_manager = EvidenceManager(
+                self.script_data["evidence"],
+                self.script_data.get("locations", []),
+            )
             self.voting_manager = VotingManager(self.characters)
             self.conversation_flow_controller = ConversationFlowController(self.characters)
-            
+
+            # 提取所有地点名称
+            all_location_names = [
+                loc["name"] for loc in self.script_data.get("locations", []) if loc.get("name")
+            ]
+            # 补充证据中的地点（可能不在 locations 表中）
+            for ev in self.script_data.get("evidence", []):
+                loc = ev.get("location", "")
+                if loc and loc not in all_location_names:
+                    all_location_names.append(loc)
+
             # 更新游戏状态
             self.game_state.update({
                 "characters": [char.name for char in self.characters],
-                "evidence": self.script_data["evidence"]
+                "evidence": self.script_data["evidence"],
+                "all_locations": all_location_names,
+                "evidence_search_status": {},
             })
             
             logger.info(f"游戏引擎初始化完成，剧本: {self.script_data.get('script_info', {}).get('title', '未知剧本')}")
@@ -387,48 +432,118 @@ class GameEngine:
         return True
 
     async def initialize_agents(self):
-        """初始化AI代理"""
+        """初始化 AI 代理，并由 GMAgent 生成动态阶段计划。"""
         if not self.characters:
             logger.warning("没有可用的角色来初始化AI代理")
             return
-            
-        for character in self.characters:
-            if not character.is_victim:
-                try:
-                    self.agents[character.name] = AIAgent(character)
-                    logger.info(f"成功初始化AI代理: {character.name}")
-                except Exception as e:
-                    logger.error(f"初始化AI代理 {character.name} 失败: {e}", exc_info=True)
-    
+
+        # 1. 创建角色 Agent
+        self.agents = CharacterAgentManager()
+        self.agents.create_agents(self.characters)
+        logger.info(f"成功初始化 {len(self.agents)} 个角色 Agent")
+
+        # 2. 创建 GMAgent 并生成动态游戏计划
+        try:
+            from ..services.llm_service import LLMService
+            from ..core.config import config as app_config
+            gm_llm = LLMService.from_config(app_config.llm_config)
+            self._gm_agent = GMAgent(gm_llm)
+            self.game_plan = await self._gm_agent.create_game_plan(self.script_data or {})
+            self.current_step_index = 0
+
+            # 同步游戏状态中的阶段信息
+            self.game_state["phase"] = self.current_phase.value
+            self.game_state["game_plan"] = [
+                {
+                    "phase_type": s.phase_type.value,
+                    "name": s.name,
+                    "description": s.description,
+                    "round_number": s.round_number,
+                }
+                for s in self.game_plan
+            ]
+            self.game_state["total_phases"] = len(self.game_plan)
+            self.game_state["current_phase_index"] = 0
+            self.game_state["current_step_name"] = self.game_plan[0].name if self.game_plan else ""
+
+            logger.info(
+                f"GMAgent 游戏计划生成完成，共 {len(self.game_plan)} 个阶段: "
+                f"{[s.name for s in self.game_plan]}"
+            )
+        except Exception as exc:
+            logger.error(f"GMAgent 初始化失败，将使用枚举回退模式: {exc}")
+            self._gm_agent = None
+            self.game_plan = []
+
+
     async def next_phase(self):
-        """进入下一个游戏阶段"""
-        phases = list(GamePhaseEnum)
-        current_index = phases.index(self.current_phase)
-        if current_index < len(phases) - 1:
-            self.current_phase = phases[current_index + 1]
-            self.game_state["phase"] = self.current_phase.value  # 使用枚举的值
-            
-            # 重置对话流控制器状态（重要：确保每个阶段的发言频率重新计算）
-            if self.conversation_flow_controller:
-                self.conversation_flow_controller.reset_for_new_phase(self.current_phase)
-                logger.info(f"已重置对话流控制器状态，进入{self.current_phase.value}阶段")
-            
-            # 阶段中文名称映射
-            phase_names = {
-                "background": "背景介绍",
-                "introduction": "自我介绍",
-                "evidence_collection": "搜证阶段",
-                "investigation": "调查取证",
-                "discussion": "自由讨论",
-                "voting": "投票表决",
-                "revelation": "真相揭晓",
-                "ended": "游戏结束"
-            }
-            
-            # 添加阶段转换事件
-            phase_display_name = phase_names.get(self.current_phase.value, self.current_phase.value)
-            self.add_event("系统", f"游戏进入{phase_display_name}阶段")
-    
+        """进入下一个游戏阶段（优先使用 game_plan，回退到枚举顺序）。"""
+        if self.game_plan:
+            # --- 动态计划模式 ---
+            if self.current_step_index < len(self.game_plan) - 1:
+                self.current_step_index += 1
+                step = self.game_plan[self.current_step_index]
+
+                # 同步 game_state
+                self.game_state["phase"] = self.current_phase.value
+                self.game_state["current_phase_index"] = self.current_step_index
+                self.game_state["current_step_name"] = step.name
+                # 每轮搜证开始时清空已搜地点记录
+                if step.phase_type == GamePhaseEnum.EVIDENCE_COLLECTION:
+                    if self.evidence_manager:
+                        self.evidence_manager.reset_for_new_round()
+                    self.game_state["evidence_search_status"] = {}
+
+                # 重置对话流控制器
+                if self.conversation_flow_controller:
+                    self.conversation_flow_controller.reset_for_new_phase(self.current_phase)
+
+                # GM 公告
+                announcement = ""
+                if self._gm_agent:
+                    try:
+                        announcement = await self._gm_agent.generate_phase_announcement(
+                            step, self.game_state
+                        )
+                    except Exception as exc:
+                        logger.warning(f"GM 公告生成失败: {exc}")
+                if announcement:
+                    self.add_public_chat("GM", announcement, "system",
+                                        session_id=self.session_id)
+
+                self.add_event("系统", f"游戏进入【{step.name}】阶段")
+                logger.info(f"阶段推进: step[{self.current_step_index}] = {step.name} "
+                            f"({self.current_phase.value})")
+            else:
+                # 计划已全部执行完毕 → ENDED
+                self._current_phase = GamePhaseEnum.ENDED
+                self.game_plan = []
+                self.game_state["phase"] = GamePhaseEnum.ENDED.value
+                self.game_state["current_step_name"] = "游戏结束"
+                self.add_event("系统", "游戏结束")
+        else:
+            # --- 枚举回退模式（无 game_plan 时使用）---
+            phases = list(GamePhaseEnum)
+            current_index = phases.index(self._current_phase)
+            if current_index < len(phases) - 1:
+                self._current_phase = phases[current_index + 1]
+                self.game_state["phase"] = self._current_phase.value
+
+                if self.conversation_flow_controller:
+                    self.conversation_flow_controller.reset_for_new_phase(self._current_phase)
+
+                phase_names = {
+                    "background": "背景介绍", "introduction": "自我介绍",
+                    "evidence_collection": "搜证阶段", "investigation": "调查取证",
+                    "discussion": "自由讨论", "voting": "投票表决",
+                    "revelation": "真相揭晓", "ended": "游戏结束",
+                }
+                display_name = phase_names.get(
+                    self._current_phase.value.lower(), self._current_phase.value
+                )
+                self.add_event("系统", f"游戏进入{display_name}阶段")
+
+
     def add_event(self, character: str, content: str):
         """添加游戏事件"""
         # 递增事件序号（保持单线程上下文内安全；如需并发扩展需加锁）
@@ -615,16 +730,24 @@ class GameEngine:
         # 动态对话流：每次发言后重新评估下一个发言者
         available_characters = list(self.agents.keys())
         
-        # 根据标准剧本杀流程设置各阶段最大轮数
+        # 最大轮数：优先使用 game_plan 中的设置，其次是默认值
         if max_turns is None:
-            phase_max_turns = {
-                GamePhaseEnum.INTRODUCTION: len(available_characters),  # 角色介绍：每人一次轮流发言
-                GamePhaseEnum.EVIDENCE_COLLECTION: len(available_characters) * 2,  # 搜证调查：每人最多搜证2次
-                GamePhaseEnum.INVESTIGATION: len(available_characters) * 4,  # 线索公开与调查：充分的信息交换
-                GamePhaseEnum.DISCUSSION: len(available_characters) * 5,  # 圆桌讨论：核心推理环节，需要更多轮次
-                GamePhaseEnum.VOTING: len(available_characters) + 3,  # 投票陈述：每人投票+可能的票后陈述
-            }
-            max_turns = phase_max_turns.get(self.current_phase, len(available_characters) * 2)
+            step = self.current_step
+            if step and step.max_turns is not None:
+                max_turns = step.max_turns
+            else:
+                phase_max_turns = {
+                    GamePhaseEnum.INTRODUCTION: len(available_characters),
+                    GamePhaseEnum.EVIDENCE_COLLECTION: len(available_characters) * 2,
+                    GamePhaseEnum.INVESTIGATION: len(available_characters) * 4,
+                    GamePhaseEnum.DISCUSSION: len(available_characters) * 5,
+                    GamePhaseEnum.VOTING: len(available_characters) + 3,
+                }
+                max_turns = phase_max_turns.get(self.current_phase, len(available_characters) * 2)
+
+        # 将 GM 特殊指令注入 game_state（供 PhaseDirector 读取）
+        _step = self.current_step
+        self.game_state["gm_instructions"] = _step.gm_instructions if _step else ""
         
         logger.info(f"开始{self.current_phase.value}阶段，最大轮数: {max_turns}")
         
@@ -633,86 +756,45 @@ class GameEngine:
         consecutive_same_speaker = 0
         last_speaker = None
         
-        # 对于DISCUSSION和VOTING阶段，确保每个角色都有机会发言
-        if self.current_phase in [GamePhaseEnum.DISCUSSION, GamePhaseEnum.VOTING]:
-            # 获取还没有发言的角色
-            unspoken_characters = []
-            if self.conversation_flow_controller:
-                unspoken_characters = [char for char in available_characters 
-                                     if self.conversation_flow_controller.speaking_frequency.get(char, 0) == 0]
-            
-            # 如果还有角色没发言，优先让他们发言
-            if unspoken_characters:
-                logger.info(f"{self.current_phase.value}阶段：优先安排未发言角色: {unspoken_characters}")
-        
         while turn_count < max_turns and available_characters:
             # 获取最近的聊天记录用于智能选择
             recent_chat = self.get_recent_public_chat(limit=10)
             
-            # 选择下一个发言者的逻辑
+            # 统一委托给 ConversationFlowController 选人（CFC 内部已处理"优先未发言"逻辑）
             next_speaker = None
-            
-            # 对于DISCUSSION和VOTING阶段，确保公平发言
-            if self.current_phase in [GamePhaseEnum.DISCUSSION, GamePhaseEnum.VOTING] and self.conversation_flow_controller:
-                # 优先选择还没有发言的角色
-                unspoken = [char for char in available_characters 
-                           if self.conversation_flow_controller.speaking_frequency.get(char, 0) == 0]
-                
-                if unspoken:
-                    # 从未发言的角色中选择
-                    next_speaker = unspoken[0]
-                    logger.info(f"{self.current_phase.value}阶段：选择未发言角色 {next_speaker}")
-                else:
-                    # 所有角色都发言过，使用智能选择
-                    try:
-                        next_speaker = await self.conversation_flow_controller.select_next_speaker(
-                            available_characters, 
-                            self.game_state, 
-                            self.current_phase,
-                            recent_chat
-                        )
-                    except Exception as e:
-                        logger.error(f"智能选择发言者失败: {e}，使用轮流选择")
-                        next_speaker = available_characters[turn_count % len(available_characters)]
+            if self.conversation_flow_controller:
+                try:
+                    next_speaker = await self.conversation_flow_controller.select_next_speaker(
+                        available_characters,
+                        self.game_state,
+                        self.current_phase,
+                        recent_chat
+                    )
+                    # 避免同一角色连续发言超过2次
+                    if next_speaker == last_speaker:
+                        consecutive_same_speaker += 1
+                        if consecutive_same_speaker >= 2 and len(available_characters) > 1:
+                            other_characters = [char for char in available_characters if char != last_speaker]
+                            if other_characters:
+                                next_speaker = other_characters[0]
+                                logger.info(f"避免连续发言，强制切换到: {next_speaker}")
+                    else:
+                        consecutive_same_speaker = 0
+                except Exception as e:
+                    logger.error(f"智能选择发言者失败: {e}，使用随机选择")
+                    next_speaker = available_characters[0] if available_characters else None
             else:
-                # 其他阶段使用原有的智能选择逻辑
-                if self.conversation_flow_controller:
-                    try:
-                        next_speaker = await self.conversation_flow_controller.select_next_speaker(
-                            available_characters, 
-                            self.game_state, 
-                            self.current_phase,
-                            recent_chat
-                        )
-                        
-                        # 避免同一角色连续发言超过2次（紧急情况除外）
-                        if next_speaker == last_speaker:
-                            consecutive_same_speaker += 1
-                            if consecutive_same_speaker >= 2 and len(available_characters) > 1:
-                                # 强制选择其他角色
-                                other_characters = [char for char in available_characters if char != last_speaker]
-                                if other_characters:
-                                    next_speaker = other_characters[0]  # 选择第一个其他角色
-                                    logger.info(f"避免连续发言，强制切换到: {next_speaker}")
-                        else:
-                            consecutive_same_speaker = 0
-                            
-                    except Exception as e:
-                        logger.error(f"智能选择发言者失败: {e}，使用随机选择")
-                        next_speaker = available_characters[0] if available_characters else None
-                else:
-                    # 回退到简单的轮流发言
-                    next_speaker = available_characters[turn_count % len(available_characters)]
+                # 回退到简单的轮流发言
+                next_speaker = available_characters[turn_count % len(available_characters)]
             
             if not next_speaker or next_speaker not in self.agents:
                 logger.warning(f"无效的发言者: {next_speaker}，跳过此轮")
                 turn_count += 1
                 continue
             
-            agent = self.agents[next_speaker]
             try:
                 # AI思考并行动
-                action = await agent.think_and_act(self.game_state, self.current_phase)
+                action = await self.agents.respond(next_speaker, self.current_phase, self.game_state)
                 
                 # 根据阶段确定消息类型
                 message_type = "chat"
@@ -755,17 +837,39 @@ class GameEngine:
                         self.conversation_flow_controller.speaking_frequency[next_speaker] = 0
                     self.conversation_flow_controller.speaking_frequency[next_speaker] += 1
                 
-                # 搜证阶段处理证据发现
+                # 搜证阶段：处理证据发现
                 if self.current_phase == GamePhaseEnum.EVIDENCE_COLLECTION and self.evidence_manager:
-                    discovered = self.evidence_manager.process_evidence_search(action, next_speaker)
-                    if discovered:
-                        self.add_public_chat(
-                            character="系统", 
-                            message=f"{next_speaker}发现了证据：{discovered['name']}", 
-                            message_type="system",
-                            session_id=self.session_id
-                        )
+                    found_list, searched_location = self.evidence_manager.process_evidence_search(
+                        action, next_speaker
+                    )
+                    if searched_location:
+                        if found_list:
+                            for item in found_list:
+                                ev_name = item['name']
+                                ev_desc = item.get('description', '')
+                                msg = (
+                                    f"{next_speaker}在「{searched_location}」发现了证据："
+                                    f"《{ev_name}》——{ev_desc}"
+                                )
+                                self.add_public_chat(
+                                    character="系统",
+                                    message=msg,
+                                    message_type="evidence",
+                                    session_id=self.session_id,
+                                )
+                                self.agents.notify_evidence_found(
+                                    next_speaker, ev_name, ev_desc
+                                )
+                        else:
+                            self.add_public_chat(
+                                character="系统",
+                                message=f"{next_speaker}搜查了「{searched_location}」，未发现新的线索。",
+                                message_type="system",
+                                session_id=self.session_id,
+                            )
+                        # 同步搜证状态到 game_state
                         self.game_state["discovered_evidence"] = self.evidence_manager.get_discovered_evidence()
+                        self.game_state["evidence_search_status"] = self.evidence_manager.get_location_search_status()
                 
                 action_data = {
                     "character": next_speaker,
@@ -828,7 +932,8 @@ class GameEngine:
         elif self.current_phase == GamePhaseEnum.EVIDENCE_COLLECTION:
             if self.evidence_manager:
                 discovered_evidence = self.evidence_manager.get_discovered_evidence()
-                total_evidence = len(self.script_data.get("evidence", []))
+                script_data = self.script_data or {}
+                total_evidence = len(script_data.get("evidence", []))
                 # 如果发现了75%以上的证据，可以考虑结束搜证
                 if total_evidence > 0 and len(discovered_evidence) / total_evidence >= 0.75:
                     return True

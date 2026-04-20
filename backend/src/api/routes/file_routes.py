@@ -133,7 +133,7 @@ async def delete_file(file_url: str):
             raise HTTPException(status_code=503, detail="存储服务不可用")
         
         # 删除文件
-        success = await storage_manager.delete_file(file_url)
+        success = storage_manager.delete_file(file_url)
         
         if success:
             return create_response(True, "文件删除成功")

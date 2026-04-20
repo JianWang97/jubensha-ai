@@ -77,7 +77,7 @@ class TTSEventService:
                 db.commit()
                 db.refresh(game_event)
                 
-                event_id = game_event.id
+                event_id = int(game_event.id)
                 logger.info(f"创建游戏事件 {event_id}: {character_name} - {content[:50]}...")
                 
                 # 异步生成TTS
@@ -233,7 +233,7 @@ class TTSEventService:
             with db_manager.session_scope() as db:
                 event = db.query(GameEventDBModel).filter(GameEventDBModel.id == event_id).first()
                 if event and event.tts_status == TTSGeneratedStatus.COMPLETED:
-                    return event.tts_file_url
+                    return str(event.tts_file_url) if event.tts_file_url else None
                 return None
         except Exception as e:
             logger.error(f"获取事件音频URL失败 (事件 {event_id}): {e}")
@@ -242,6 +242,7 @@ class TTSEventService:
     async def get_session_events_with_audio(self, session_id: str) -> List[Dict[str, Any]]:
         """获取会话的所有事件及其音频信息"""
         try:
+            from ..db.session import db_manager  # type: ignore
             with db_manager.session_scope() as db:
                 events = db.query(GameEventDBModel).filter(
                     GameEventDBModel.session_id == session_id

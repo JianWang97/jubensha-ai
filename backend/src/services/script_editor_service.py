@@ -1289,6 +1289,7 @@ class ScriptEditorService:
         max_retries = 3
         last_error = None
         base_temperature = 0.7
+        context_info = ""
         
         for attempt in range(max_retries):
             try:
@@ -1373,6 +1374,7 @@ class ScriptEditorService:
         max_retries = 3
         last_error = None
         base_temperature = 0.7
+        script_context = ""
         
         for attempt in range(max_retries):
             try:

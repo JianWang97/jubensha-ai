@@ -14,9 +14,40 @@ from src.schemas.user_schemas import (
 )
 from src.db.models.user import User
 from src.core.container_integration import get_db_session_depends
+from src.core.config import config
 
 router = APIRouter(prefix="/api/auth", tags=["用户认证"])
 security = HTTPBearer()
+
+@router.post("/anonymous-login", response_model=Token, summary="匿名登录")
+async def anonymous_login(
+    db: Session = get_db_session_depends()
+):
+    """匿名登录 — 仅在 ALLOW_ANONYMOUS_ACCESS=true 时可用，自动以默认访客账户登录"""
+    if not config.allow_anonymous_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="匿名访问未启用，请先注册账号",
+        )
+
+    user = AuthService.get_or_create_guest_user(
+        db, config.guest_username, config.guest_email
+    )
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = AuthService.create_access_token(
+        data={"sub": user.username, "user_id": getattr(user, "id")},
+        expires_delta=access_token_expires,
+    )
+
+    AuthService.update_last_login(db, getattr(user, "id"))
+
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user=UserResponse.from_orm(user),
+    )
 
 @router.post("/register", response_model=UserResponse, summary="用户注册")
 async def register(
