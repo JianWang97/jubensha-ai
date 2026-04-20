@@ -418,11 +418,14 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
                       : message.type === 'user'
                       ? 'bg-blue-500 text-white'
                       : message.type === 'assistant'
-                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
+                      ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30 border border-purple-500/20 text-gray-100 dark:text-gray-100'
                       : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                   }`}>
                     <div className="whitespace-pre-wrap text-sm leading-relaxed">
                       {message.content}
+                      {message.type === 'assistant' && message.status === 'pending' && (
+                        <span className="inline-block w-0.5 h-4 bg-purple-400 animate-pulse ml-0.5 align-middle" />
+                      )}
                     </div>
                     
                     {/* 操作结果数据 */}

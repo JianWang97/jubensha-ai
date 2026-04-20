@@ -69,6 +69,9 @@ const ScriptEditPage = () => {
 
   const [script, setScript] = useState<Script | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('basic');
+  const [characterCount, setCharacterCount] = useState<number>(0);
+  const [evidenceCount, setEvidenceCount] = useState<number>(0);
+  const [locationCount, setLocationCount] = useState<number>(0);
 
   // 基础信息表单数据
   const [basicFormData, setBasicFormData] = useState({
@@ -190,12 +193,11 @@ const ScriptEditPage = () => {
 
   // Tab配置
   const tabs = [
-    { key: 'basic' as TabType, label: '剧本基础信息', icon: FileText },
-    { key: 'background' as TabType, label: '背景故事', icon: BookOpen },
-    { key: 'evidence' as TabType, label: '证据管理', icon: Search },
-    { key: 'characters' as TabType, label: '角色管理', icon: Users },
-    { key: 'locations' as TabType, label: '场景管理', icon: Building },
-
+    { key: 'basic' as TabType, label: '剧本基础信息', icon: FileText, count: null },
+    { key: 'background' as TabType, label: '背景故事', icon: BookOpen, count: null },
+    { key: 'evidence' as TabType, label: '证据管理', icon: Search, count: evidenceCount },
+    { key: 'characters' as TabType, label: '角色管理', icon: Users, count: characterCount },
+    { key: 'locations' as TabType, label: '场景管理', icon: Building, count: locationCount },
   ];
 
   // Loading and error states are now handled within the main render instead of early returns
@@ -711,6 +713,9 @@ const ScriptEditPage = () => {
                         <div className="flex items-center gap-1.5">
                           <tab.icon className="w-4 h-4" />
                           <span className="hidden sm:inline font-medium text-xs sm:text-sm">{tab.label}</span>
+                          {tab.count !== null && tab.count > 0 && (
+                            <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-purple-600/30 text-purple-300">{tab.count}</span>
+                          )}
                         </div>
                         {/* 活跃指示器 */}
                         <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 data-[state=active]:w-8 transition-all duration-300"></div>
@@ -726,16 +731,19 @@ const ScriptEditPage = () => {
                     {activeTab === 'evidence' && (
                       <EvidenceManager
                         scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
+                        onCountChange={setEvidenceCount}
                       />
                     )}
                     {activeTab === 'characters' && (
                       <CharacterManager
                         scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
+                        onCountChange={setCharacterCount}
                       />
                     )}
                     {activeTab === 'locations' && (
                       <LocationManager
                         scriptId={id && typeof id === 'string' && !isNaN(parseInt(id)) ? id : ''}
+                        onCountChange={setLocationCount}
                       />
                     )}
                     {activeTab === 'background' && <BackgroundTab />}

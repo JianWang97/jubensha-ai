@@ -17,10 +17,12 @@ import ImageSelector from '@/components/ImageSelector';
 
 interface LocationManagerProps {
   scriptId: string;
+  onCountChange?: (count: number) => void;
 }
 
 const LocationManager: React.FC<LocationManagerProps> = ({
-  scriptId
+  scriptId,
+  onCountChange
 }) => {
   // 场景相关状态
   const [locations, setLocations] = useState<Location[]>([]);
@@ -93,9 +95,11 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         if(response && Array.isArray(response.locations)){
           console.log('response.locations', response.locations);
           setLocations(response.locations);
+          onCountChange?.(response.locations.length);
         } else {
           // 如果返回的格式不正确，设置为空数组
           setLocations([]);
+          onCountChange?.(0);
           console.warn('API返回的场景数据格式不正确:', response);
         }
       } catch (error) {
@@ -103,6 +107,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         toast('获取场景列表失败');
         // 出错时也设置为空数组
         setLocations([]);
+        onCountChange?.(0);
       }
     }
   };

@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { UserUpdate } from '@/types/auth';
-import { Edit3, Globe, Mail, Save, Smile, User, X } from 'lucide-react';
+import { Camera, Edit3, Mail, Save, Smile, User, X } from 'lucide-react';
 import { useRouter } from 'next/router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 const ProfilePage: React.FC = () => {
@@ -21,6 +22,9 @@ const ProfilePage: React.FC = () => {
     email: '',
     avatar_url: '',
   });
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [gameHistoryCount, setGameHistoryCount] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 检查认证状态
   useEffect(() => {
@@ -30,6 +34,15 @@ const ProfilePage: React.FC = () => {
     }
     // 移除getCurrentUser调用，因为ProtectedRoute已经处理了认证状态
   }, [isAuthenticated, router]);
+
+  // 加载游戏历史场次
+  useEffect(() => {
+    if (isAuthenticated) {
+      authService.getUserGameHistory(0, 200).then(history => {
+        setGameHistoryCount(history.length);
+      }).catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   // 初始化表单数据
   useEffect(() => {
@@ -50,6 +63,18 @@ const ProfilePage: React.FC = () => {
     }));
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const base64 = evt.target?.result as string;
+      setAvatarPreview(base64);
+      setFormData(prev => ({ ...prev, avatar_url: base64 }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     try {
       await updateProfile(formData);
@@ -68,6 +93,7 @@ const ProfilePage: React.FC = () => {
         avatar_url: user.avatar_url || '',
       });
     }
+    setAvatarPreview('');
     setIsEditing(false);
   };
 
@@ -145,18 +171,39 @@ const ProfilePage: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* 战绩统计卡片 */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    {[
+                      { label: '游玩场次', value: gameHistoryCount !== null ? String(gameHistoryCount) : '--' },
+                      { label: '完成率', value: '--' },
+                      { label: '最爱角色', value: '--' },
+                      { label: '游玩时长', value: '--' },
+                    ].map(stat => (
+                      <div key={stat.label} className="bg-slate-800/50 rounded-lg p-4 text-center border border-slate-700/30">
+                        <div className="text-2xl font-bold text-purple-400">{stat.value}</div>
+                        <div className="text-xs text-gray-400 mt-1">{stat.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
                   {/* 头像 */}
                   <div className="flex items-center space-x-4">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
-                      {user.avatar_url ? (
+                    <div className="relative w-24 h-24 mx-auto cursor-pointer group flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
+                      {(avatarPreview || user.avatar_url) ? (
                         <img
-                          src={user.avatar_url}
+                          src={avatarPreview || user.avatar_url || ''}
                           alt="头像"
-                          className="h-20 w-20 rounded-full object-cover"
+                          className="w-24 h-24 rounded-full object-cover ring-2 ring-purple-500/50"
                         />
                       ) : (
-                        <User className="h-10 w-10 text-white" />
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center ring-2 ring-purple-500/50">
+                          <User className="h-10 w-10 text-white" />
+                        </div>
                       )}
+                      <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Camera className="w-6 h-6 text-white" />
+                      </div>
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                     </div>
                     <div>
                       <h3 className="text-lg font-medium text-white">
@@ -165,6 +212,7 @@ const ProfilePage: React.FC = () => {
                       <p className="text-gray-300 text-sm">
                         @{user.username}
                       </p>
+                      <p className="text-gray-400 text-xs mt-1">点击头像可上传图片</p>
                     </div>
                   </div>
 
@@ -211,22 +259,6 @@ const ProfilePage: React.FC = () => {
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           placeholder="请输入邮箱地址"
-                          className={`pl-10 ${isEditing ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/20 text-gray-300'}`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 头像URL */}
-                    <div className="space-y-2">
-                      <Label className="text-white">头像URL</Label>
-                      <div className="relative">
-                        <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          name="avatar_url"
-                          value={formData.avatar_url}
-                          onChange={handleInputChange}
-                          disabled={!isEditing}
-                          placeholder="请输入头像URL"
                           className={`pl-10 ${isEditing ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/20 text-gray-300'}`}
                         />
                       </div>

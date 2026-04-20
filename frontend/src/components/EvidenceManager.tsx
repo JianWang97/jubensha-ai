@@ -14,11 +14,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 interface EvidenceManagerProps {
   scriptId: string;
+  onCountChange?: (count: number) => void;
 }
 
 const EvidenceManager: React.FC<EvidenceManagerProps> = ({
 
-  scriptId
+  scriptId,
+  onCountChange
 }) => {
   // 证据相关状态
   const [evidences, setEvidences] = useState<Evidence[]>([]);
@@ -65,9 +67,10 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
       const evidences = script?.evidence || [];
       if(evidences){
         setEvidences(evidences);
+        onCountChange?.(evidences.length);
       }
     }
-  }, [scriptId]);
+  }, [scriptId, onCountChange]);
 
   useEffect(() => {
     initEvidenceForm();
