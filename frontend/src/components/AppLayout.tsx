@@ -18,6 +18,24 @@ interface AppLayoutProps {
   isGamePage?: boolean;
 }
 
+const PAGE_TITLES: Record<string, string> = {
+  '/': '首页',
+  '/script-center': '剧本中心',
+  '/game': '游戏',
+  '/profile': '个人资料',
+  '/profile/game-history': '游戏历史',
+  '/profile/change-password': '设置',
+  '/script-manager/create': '创建剧本',
+};
+
+const getPageTitle = (pathname: string): string => {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  const matched = Object.keys(PAGE_TITLES).find(
+    key => key !== '/' && pathname.startsWith(key)
+  );
+  return matched ? PAGE_TITLES[matched] : '';
+};
+
 // 移动端导航项
 interface NavItem {
   href: string;
@@ -71,9 +89,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
       {/* 移动端顶部栏 */}
       <div className="fixed top-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 md:hidden">
-        <div className="flex justify-between items-center h-14 px-4">
+        <div className="relative flex items-center h-14 px-4">
           {/* 左侧区域 */}
-          <div className="flex items-center space-x-4">
+          <div className="flex-1 flex items-center space-x-4">
             {/* 侧边栏切换按钮 */}
             {showSidebar && !isGamePage && (
               <Button
@@ -106,8 +124,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             )}
           </div>
 
+          {/* 居中页面标题 */}
+          {!isGamePage && (() => {
+            const title = getPageTitle(router.pathname);
+            return title ? (
+              <span className="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 pointer-events-none">
+                {title}
+              </span>
+            ) : null;
+          })()}
+
           {/* 右侧用户菜单 */}
-          <div className="flex items-center">
+          <div className="flex-1 flex items-center justify-end">
             <UserMenu variant="compact" />
           </div>
         </div>
