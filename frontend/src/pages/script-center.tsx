@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
-import { Bookmark, BookOpen, Clock, Grid, Heart, Library, List, Play, Plus, Search, Share2, Star, User, Users } from 'lucide-react';
+import { Bookmark, BookOpen, Clock, Grid, Heart, Library, List, Loader2, Play, Plus, Search, Share2, Star, User, Users } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
@@ -16,8 +16,29 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 type TabType = 'my-scripts' | 'script-library';
+
+const ScriptCardSkeleton = () => (
+  <div className="relative overflow-hidden rounded-lg border border-slate-700/30 bg-slate-900/50 h-80 animate-pulse">
+    <div className="absolute inset-0 bg-white/10" />
+    <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="h-4 bg-white/10 rounded w-16" />
+        <div className="h-4 bg-white/10 rounded w-10" />
+      </div>
+      <div className="h-5 bg-white/10 rounded w-3/4" />
+      <div className="h-4 bg-white/10 rounded w-full" />
+      <div className="h-4 bg-white/10 rounded w-5/6" />
+      <div className="flex gap-2 pt-1">
+        <div className="h-5 bg-white/10 rounded-full w-12" />
+        <div className="h-5 bg-white/10 rounded-full w-14" />
+        <div className="h-5 bg-white/10 rounded-full w-10" />
+      </div>
+    </div>
+  </div>
+);
 
 
 
@@ -38,6 +59,30 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
         />
         {/* 渐变遮罩 - 从底部开始更强烈 */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+      </div>
+
+      {/* Hover快捷操作覆盖层 */}
+      <div className="absolute inset-0 z-20 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-3 pointer-events-none group-hover:pointer-events-auto">
+        <Button
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium shadow-lg"
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/game?script_id=${script.id}`);
+          }}
+        >
+          <Play className="h-4 w-4 mr-2" />
+          立即游玩
+        </Button>
+        <Button
+          variant="outline"
+          className="border-white/50 text-white hover:bg-white/10 hover:text-white px-6 py-2 rounded-lg font-medium backdrop-blur-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDetailClick && onDetailClick(script);
+          }}
+        >
+          查看详情
+        </Button>
       </div>
 
       {/* 顶部浮动元素 */}
@@ -575,8 +620,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
 
                         <div className="text-center py-4">
                           <p className="text-slate-400 text-sm">暂无用户评价</p>
-                          -                         <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的玩家</p>
-                          +                         <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的用户</p>
+                          <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的用户</p>
                         </div>
                       </>
                     )}
@@ -624,7 +668,11 @@ export default function ScriptCenter() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('my-scripts');
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const isDebouncing = searchQuery !== searchTerm;
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [selectedScript, setSelectedScript] = useState<ScriptInfo | null>(null);
@@ -673,6 +721,13 @@ export default function ScriptCenter() {
   useEffect(() => {
     fetchScripts();
   }, [activeTab]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // 编辑脚本处理（仅限我的剧本）
   const handleEdit = (scriptId: number) => {
@@ -740,6 +795,22 @@ export default function ScriptCenter() {
       );
     }
 
+    // 难度筛选
+    if (selectedDifficulty) {
+      filtered = filtered.filter(script => script.difficulty === selectedDifficulty);
+    }
+
+    // 时长筛选
+    if (selectedDuration) {
+      filtered = filtered.filter(script => {
+        const duration = script.duration_minutes;
+        if (selectedDuration === '1小时内') return duration != null && duration <= 60;
+        if (selectedDuration === '1-2小时') return duration != null && duration > 60 && duration <= 120;
+        if (selectedDuration === '2小时以上') return duration != null && duration > 120;
+        return true;
+      });
+    }
+
     return filtered;
   };
 
@@ -766,10 +837,13 @@ export default function ScriptCenter() {
                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
                       placeholder="搜索剧本..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-12 h-12 bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-400 focus:border-indigo-400 focus:bg-slate-800/70 transition-all rounded-xl"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-12 pr-12 h-12 bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-400 focus:border-indigo-400 focus:bg-slate-800/70 transition-all rounded-xl"
                     />
+                    {isDebouncing && (
+                      <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
+                    )}
                   </div>
                 </div>
 
@@ -844,6 +918,46 @@ export default function ScriptCenter() {
             </div>
           </div>
 
+          {/* Chip 筛选条 */}
+          <div className="max-w-7xl mx-auto px-6 pb-3">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-400 whitespace-nowrap">难度：</span>
+                {['全部', '简单', '中等', '困难'].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDifficulty(d === '全部' ? null : d)}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-sm cursor-pointer transition-colors',
+                      selectedDifficulty === (d === '全部' ? null : d)
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-700/50 text-gray-300 hover:bg-slate-600/50'
+                    )}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-400 whitespace-nowrap">时长：</span>
+                {['全部', '1小时内', '1-2小时', '2小时以上'].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDuration(d === '全部' ? null : d)}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-sm cursor-pointer transition-colors',
+                      selectedDuration === (d === '全部' ? null : d)
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-700/50 text-gray-300 hover:bg-slate-600/50'
+                    )}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* 主内容区域 */}
           <div className="max-w-7xl mx-auto px-6 pb-8">
             <div className="flex gap-8">
@@ -852,11 +966,13 @@ export default function ScriptCenter() {
               {/* 主内容区域 */}
               <div className="flex-1 min-w-0">
                 {loading ? (
-                  <div className="flex items-center justify-center py-24">
-                    <div className="text-center space-y-4">
-                      <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mx-auto"></div>
-                      <div className="text-slate-400 text-lg">加载中...</div>
-                    </div>
+                  <div className={`grid gap-6 ${viewMode === 'grid'
+                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+                      : 'grid-cols-1 max-w-4xl mx-auto'
+                    }`}>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <ScriptCardSkeleton key={i} />
+                    ))}
                   </div>
                 ) : error ? (
                   <div className="flex items-center justify-center py-24">
@@ -871,50 +987,68 @@ export default function ScriptCenter() {
                     </div>
                   </div>
                 ) : filteredScripts.length === 0 ? (
-                  <div className="bg-slate-900/50 rounded-lg p-12 text-center">
-                    <div className="w-16 h-16 mx-auto mb-6 bg-indigo-500/20 rounded-full flex items-center justify-center">
-                      {isMyScripts ? (
-                        <User className="w-8 h-8 text-indigo-400" />
-                      ) : (
-                        <Library className="w-8 h-8 text-indigo-400" />
+                  (searchTerm || selectedDifficulty || selectedDuration) ? (
+                    <div className="bg-slate-900/50 rounded-lg p-12 text-center">
+                      <div className="w-16 h-16 mx-auto mb-6 bg-slate-800/50 rounded-full flex items-center justify-center">
+                        <Search className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <div className="space-y-3 mb-6">
+                        <h3 className="text-xl font-semibold text-white">没有找到匹配的剧本</h3>
+                        <p className="text-gray-400">尝试调整搜索条件或筛选项</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSearchTerm('');
+                          setSelectedDifficulty(null);
+                          setSelectedDuration(null);
+                        }}
+                        variant="outline"
+                        className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 px-6 py-3 rounded-lg font-medium"
+                      >
+                        清除筛选
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-900/50 rounded-lg p-12 text-center">
+                      <div className="w-16 h-16 mx-auto mb-6 bg-indigo-500/20 rounded-full flex items-center justify-center">
+                        {isMyScripts ? (
+                          <User className="w-8 h-8 text-indigo-400" />
+                        ) : (
+                          <Library className="w-8 h-8 text-indigo-400" />
+                        )}
+                      </div>
+
+                      <div className="space-y-3 mb-6">
+                        <h3 className="text-xl font-semibold text-white">
+                          {isMyScripts ? '暂无我的剧本' : '剧本库为空'}
+                        </h3>
+                        <p className="text-gray-400">
+                          {isMyScripts ? '开始创建您的第一个剧本' : '暂时没有公开的剧本'}
+                        </p>
+                      </div>
+
+                      {isMyScripts && (
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                          <Button
+                            onClick={() => router.push('/script-manager/create')}
+                            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            创建新剧本
+                          </Button>
+                          <Button
+                            onClick={() => setActiveTab('script-library')}
+                            variant="outline"
+                            className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 px-6 py-3 rounded-lg font-medium"
+                          >
+                            <Library className="w-4 h-4 mr-2" />
+                            浏览剧本库
+                          </Button>
+                        </div>
                       )}
                     </div>
-
-                    <div className="space-y-3 mb-6">
-                      <h3 className="text-xl font-semibold text-white">
-                        {searchTerm
-                          ? '没有找到匹配的剧本'
-                          : (isMyScripts ? '暂无我的剧本' : '剧本库为空')
-                        }
-                      </h3>
-                      <p className="text-gray-400">
-                        {searchTerm
-                          ? '尝试调整搜索条件'
-                          : (isMyScripts ? '开始创建您的第一个剧本' : '暂时没有公开的剧本')
-                        }
-                      </p>
-                    </div>
-
-                    {isMyScripts && !searchTerm && (
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                        <Button
-                          onClick={() => router.push('/script-manager/create')}
-                          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          创建新剧本
-                        </Button>
-                        <Button
-                          onClick={() => setActiveTab('script-library')}
-                          variant="outline"
-                          className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 px-6 py-3 rounded-lg font-medium"
-                        >
-                          <Library className="w-4 h-4 mr-2" />
-                          浏览剧本库
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  )
                 ) : (
                   <div className={`grid gap-6 ${viewMode === 'grid'
                       ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
