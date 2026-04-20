@@ -16,6 +16,7 @@ interface GameControlDrawerProps {
   onNextPhase: () => void;
   currentSpeakingCharacter?: string | null;
   currentSpeechText?: string | null;
+  hideFloatButton?: boolean;
 }
 
 const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
@@ -31,19 +32,31 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
   phase,
   onNextPhase,
   currentSpeakingCharacter,
-  currentSpeechText
+  currentSpeechText,
+  hideFloatButton = false,
 }) => {
   const [activeSection, setActiveSection] = useState<'log' | 'controls' | 'tts'>('log');
 
-  // 日志相关辅助
-  const getLogStyle = (entry: any) => {
-    if (entry.character === '系统') return 'bg-blue-800/40 border-l-4 border-blue-400/70';
-    if (entry.type === 'action') return 'bg-green-800/40 border-l-4 border-green-400/70';
-    if (entry.type === 'evidence') return 'bg-yellow-700/40 border-l-4 border-yellow-400/70';
-    if (entry.type === 'vote') return 'bg-red-800/40 border-l-4 border-red-400/70';
-    if (entry.type === 'phase') return 'bg-purple-800/40 border-l-4 border-purple-400/70';
-    return 'bg-white/10 border-l-4 border-gray-500/60';
+  // 根据角色名字生成固定 HSL 颜色
+  const getCharacterColor = (name: string): string => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 70%, 60%)`;
   };
+
+  // 日志相关辅助
+  const getLogBg = (entry: any) => {
+    if (entry.character === '系统') return 'bg-blue-800/40';
+    if (entry.type === 'action') return 'bg-green-800/40';
+    if (entry.type === 'evidence') return 'bg-yellow-700/40';
+    if (entry.type === 'vote') return 'bg-red-800/40';
+    if (entry.type === 'phase') return 'bg-purple-800/40';
+    return 'bg-white/10';
+  };
+  const getLogStyle = (entry: any) => getLogBg(entry);
   const getCharacterIcon = (character: string) => {
     if (character === '系统') return '🤖';
     if (character.includes('侦探')) return '🕵️';
@@ -77,6 +90,7 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
 
   return (
     <>
+      {!hideFloatButton && (
       <button
         onClick={onToggle}
         className={`fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full shadow-lg border border-white/20 backdrop-blur-md transition-all flex items-center justify-center text-white font-semibold text-sm ${
@@ -86,6 +100,7 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
       >
         {open ? '关闭' : '面板'}
       </button>
+      )}
 
       <div
         className={`fixed top-0 right-0 h-full w-full max-w-[440px] z-30 transform transition-transform duration-300 ease-in-out backdrop-blur-xl bg-gradient-to-b from-black/80 to-black/60 border-l border-white/10 flex flex-col ${
@@ -201,12 +216,23 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
                     暂无日志，等待游戏事件...
                   </div>
                 )}
-                {gameLog && gameLog.map((entry: any, idx: number) => (
-                  <div key={idx} className={`p-3 rounded-xl transition-colors ${getLogStyle(entry)} shadow-sm`}> 
+                {gameLog && gameLog.map((entry: any, idx: number) => {
+                  const charColor = entry.character === '系统' ? 'rgb(96, 165, 250)' : getCharacterColor(entry.character);
+                  return (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-xl transition-colors ${getLogStyle(entry)} border-l-4 shadow-sm`}
+                    style={{ borderLeftColor: charColor }}
+                  >
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-semibold text-xs text-white flex items-center gap-2">
-                        <span className="text-base leading-none">{getCharacterIcon(entry.character)}</span>
-                        <span>{entry.character}</span>
+                      <p className="font-semibold text-xs flex items-center gap-1.5">
+                        <span
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                          style={{ backgroundColor: charColor }}
+                        >
+                          {entry.character[0]}
+                        </span>
+                        <span style={{ color: charColor }}>{entry.character}</span>
                       </p>
                       {entry.timestamp && (
                         <span className="text-[10px] text-gray-400">{formatTimestamp(entry.timestamp)}</span>
@@ -229,7 +255,8 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 <div ref={logEndRef} />
               </div>
             </div>

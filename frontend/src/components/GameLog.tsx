@@ -42,23 +42,32 @@ const GameLog = ({ gameLog = [] }: GameLogProps) => {
   };
 
 
+  const getCharacterColor = (name: string): string => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 70%, 60%)`;
+  };
+
   const getLogStyle = (entry: GameLogEntry) => {
     if (entry.character === '系统') {
-      return 'bg-blue-800/50 border-l-4 border-blue-400';
+      return 'bg-blue-800/50';
     }
     if (entry.type === 'action') {
-      return 'bg-green-800/50 border-l-4 border-green-400';
+      return 'bg-green-800/50';
     }
     if (entry.type === 'evidence') {
-      return 'bg-yellow-800/50 border-l-4 border-yellow-400';
+      return 'bg-yellow-800/50';
     }
     if (entry.type === 'vote') {
-      return 'bg-red-800/50 border-l-4 border-red-400';
+      return 'bg-red-800/50';
     }
     if (entry.type === 'phase') {
-      return 'bg-purple-800/50 border-l-4 border-purple-400';
+      return 'bg-purple-800/50';
     }
-    return 'bg-white/10 border-l-4 border-gray-400';
+    return 'bg-white/10';
   };
 
   const getCharacterIcon = (character: string) => {
@@ -176,12 +185,23 @@ const GameLog = ({ gameLog = [] }: GameLogProps) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {gameLog.map((entry, index) => (
-                  <div key={index} className={`p-4 rounded-xl transition-all duration-300 hover:scale-[1.02] ${getLogStyle(entry)}`}>
+                {gameLog.map((entry, index) => {
+                  const charColor = entry.character === '系统' ? 'rgb(96, 165, 250)' : getCharacterColor(entry.character);
+                  return (
+                  <div
+                    key={index}
+                    className={`p-4 rounded-xl transition-all duration-300 hover:scale-[1.02] ${getLogStyle(entry)} border-l-4`}
+                    style={{ borderLeftColor: charColor }}
+                  >
                     <div className="flex items-center justify-between mb-2">
-                      <p className="font-bold text-sm text-white flex items-center gap-2">
-                        <span className="text-lg">{getCharacterIcon(entry.character)}</span>
-                        {entry.character}
+                      <p className="font-bold text-sm flex items-center gap-2">
+                        <span
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                          style={{ backgroundColor: charColor }}
+                        >
+                          {entry.character[0]}
+                        </span>
+                        <span style={{ color: charColor }}>{entry.character}</span>
                       </p>
                       {entry.timestamp && (
                         <span className="text-xs text-gray-400 opacity-60">
@@ -208,7 +228,8 @@ const GameLog = ({ gameLog = [] }: GameLogProps) => {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 <div ref={logEndRef} />
               </div>
             )}
