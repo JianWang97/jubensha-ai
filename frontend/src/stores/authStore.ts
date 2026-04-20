@@ -14,6 +14,7 @@ interface AuthState {
 
   // 操作
   login: (credentials: UserLogin) => Promise<void>;
+  anonymousLogin: () => Promise<void>;
   register: (userData: UserRegister) => Promise<void>;
   logout: () => Promise<void>;
   getCurrentUser: () => Promise<void>;
@@ -54,6 +55,29 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             isLoading: false,
             error: error instanceof Error ? error.message : '登录失败',
+          });
+          throw error;
+        }
+      },
+
+      // 匿名登录
+      anonymousLogin: async () => {
+        try {
+          set({ isLoading: true, error: null });
+          const response = await authService.anonymousLogin();
+          authService.setToken(response.access_token);
+          set({
+            user: response.user,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          set({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: error instanceof Error ? error.message : '匿名登录失败',
           });
           throw error;
         }

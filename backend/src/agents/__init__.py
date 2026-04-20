@@ -5,6 +5,7 @@ from .character_memory import CharacterMemory
 from .phase_director import PhaseDirector
 from .character_agent import CharacterAgent
 from .character_agent_manager import CharacterAgentManager
+from .gm_agent import GMAgent, PhaseStep
 
 __all__ = [
     'AIAgent',
@@ -13,4 +14,6 @@ __all__ = [
     'PhaseDirector',
     'CharacterAgent',
     'CharacterAgentManager',
+    'GMAgent',
+    'PhaseStep',
 ]

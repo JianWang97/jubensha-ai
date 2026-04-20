@@ -136,6 +136,7 @@ class PhaseDirector:
           [阶段专属内容（可搜证地点 / 投票候选人等）]
           [已发现的证据]
           [当前阶段核心任务指令]
+          [GM 特殊指令（可选）]
         """
         parts: list[str] = []
 
@@ -170,6 +171,11 @@ class PhaseDirector:
 
         parts.append(f"【当前阶段：{phase.value}】\n\n**=== 你的核心任务 ===**\n{task}\n**====================**")
 
+        # 5. GM 特殊指令（来自 PhaseStep.gm_instructions）
+        gm_instructions = game_state.get("gm_instructions", "").strip()
+        if gm_instructions:
+            parts.append(f"【GM 特别提示】{gm_instructions}")
+
         parts.append("请严格按照你的核心任务进行回应，只说角色会说的话。")
 
         return "\n\n".join(parts)
@@ -202,19 +208,34 @@ class PhaseDirector:
         return ""
 
     def _build_searchable_locations(self, game_state: dict[str, Any]) -> str:
-        discovered_ids = {e["id"] for e in game_state.get("discovered_evidence", [])}
-        searchable = sorted({
-            ev["location"]
-            for ev in game_state.get("evidence", [])
-            if ev["id"] not in discovered_ids
-        })
-        if not searchable:
-            return "所有地点都已搜查完毕。请等待其他玩家行动。"
-        locations_str = "\n".join(f"- {loc}" for loc in searchable)
-        return (
-            f"**你可以搜查的地点：**\n{locations_str}\n\n"
-            "请从上述地点中选择一个进行搜查。直接说出你的选择，例如：'我要搜查书房'。"
-        )
+        """构建搜证阶段的地点列表：显示可搜查 vs 已搜查。"""
+        search_status: dict[str, str] = game_state.get("evidence_search_status", {})
+
+        # 优先使用 game_state 中的 all_locations，否则从证据中推断
+        all_locations: list[str] = list(game_state.get("all_locations", []))
+        if not all_locations:
+            all_locations = sorted({
+                ev["location"]
+                for ev in game_state.get("evidence", [])
+                if ev.get("location")
+            })
+
+        available = [loc for loc in all_locations if loc not in search_status]
+        searched = {loc: searcher for loc, searcher in search_status.items()
+                    if loc in all_locations or loc in search_status}
+
+        if not available:
+            return "所有地点都已搜查完毕。请等待其他玩家或考虑提问。"
+
+        lines = [f"- {loc}" for loc in available]
+        result = "**本轮可搜查的地点（每次只能搜一处）：**\n" + "\n".join(lines)
+
+        if searched:
+            s_lines = [f"- {loc}（{searcher}已搜查）" for loc, searcher in searched.items()]
+            result += "\n\n**已搜查的地点：**\n" + "\n".join(s_lines)
+
+        result += "\n\n请明确说出你要搜查的地点，例如：「我要搜查书房」。每次只能选一个地点。"
+        return result
 
     def _build_queryable_characters(
         self, identity: "CharacterIdentity", game_state: dict[str, Any]

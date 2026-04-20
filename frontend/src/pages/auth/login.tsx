@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Eye, EyeOff, LogIn, User, Lock } from 'lucide-react';
+import { Eye, EyeOff, LogIn, User, Lock, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
-  const { login, isLoading, error, isAuthenticated, clearError } = useAuthStore();
+  const { login, anonymousLogin, isLoading, error, isAuthenticated, clearError } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<UserLogin>({
     username: '',
@@ -61,6 +61,16 @@ const LoginPage: React.FC = () => {
       router.push('/');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '登录失败');
+    }
+  };
+
+  const handleAnonymousLogin = async () => {
+    try {
+      await anonymousLogin();
+      toast.success('已以访客身份登录');
+      router.push('/');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '匿名登录失败，请检查是否已启用匿名访问');
     }
   };
 
@@ -162,6 +172,35 @@ const LoginPage: React.FC = () => {
                     <div className="flex items-center justify-center">
                       <LogIn className="h-4 w-4 mr-2" />
                       登录
+                    </div>
+                  )}
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-white/20" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-transparent px-2 text-gray-400">或</span>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-white/20 text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200"
+                  onClick={handleAnonymousLogin}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-300 mr-2"></div>
+                      登录中...
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <UserX className="h-4 w-4 mr-2" />
+                      访客登录
                     </div>
                   )}
                 </Button>

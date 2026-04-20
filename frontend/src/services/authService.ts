@@ -120,6 +120,21 @@ class AuthService {
     }
   }
 
+  /**
+   * 匿名登录（需后端启用 ALLOW_ANONYMOUS_ACCESS）
+   * @returns 登录响应
+   */
+  async anonymousLogin(): Promise<Token> {
+    try {
+      return await this.request<Token>('/api/auth/anonymous-login', {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('匿名登录失败:', error);
+      throw error;
+    }
+  }
+
   // 用户登出
   async logout(): Promise<void> {
     try {
