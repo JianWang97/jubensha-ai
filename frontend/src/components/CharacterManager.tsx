@@ -14,6 +14,8 @@ import {
   Book,
   Briefcase,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   Edit,
   EyeOff,
   Mic,
@@ -32,6 +34,7 @@ import { toast } from 'sonner';
 interface CharacterManagerProps {
   scriptId: string;
   onCharacterUpdate?: () => void;
+  onCountChange?: (count: number) => void;
 }
 interface VoiceOption {
   voice_id: string;
@@ -41,9 +44,11 @@ interface VoiceOption {
 }
 const CharacterManager: React.FC<CharacterManagerProps> = ({ 
   scriptId, 
-  onCharacterUpdate 
+  onCharacterUpdate,
+  onCountChange
 }) => {
   const [characters, setCharacters] = useState<ScriptCharacter[]>([]);
+  const [expandedIds, setExpandedIds] = useState<Set<string | number>>(new Set());
   const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>([]);
   const [showCharacterForm, setShowCharacterForm] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<ScriptCharacter | null>(null);
@@ -102,13 +107,14 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
         const charactersData = await getCharacters(Number(scriptId));
         if(charactersData){
           setCharacters(charactersData);
+          onCountChange?.(charactersData.length);
         }
       }
     } catch (error) {
       console.error('加载角色失败:', error);
       toast('加载角色失败');
     }
-  }, [scriptId]);
+  }, [scriptId, onCountChange]);
 
   // 加载语音选项
   const loadVoiceOptions = useCallback(async () => {
@@ -230,10 +236,23 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {characters.map((character) => (
-                <div key={character.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl p-6 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/20 hover:scale-[1.02] group modern-card character-card">
-                  {/* 卡片头部 */}
-                  <div className="flex items-start justify-between mb-4">
+              {characters.map((character) => {
+                const isExpanded = expandedIds.has(character.id!);
+                const toggleExpand = () => {
+                  setExpandedIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(character.id!)) next.delete(character.id!);
+                    else next.add(character.id!);
+                    return next;
+                  });
+                };
+                return (
+                <div key={character.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl border border-blue-500/20 hover:border-blue-400/40 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/20 group modern-card character-card overflow-hidden">
+                  {/* 卡片头部 - 始终显示 */}
+                  <div
+                    className="flex items-start justify-between p-6 cursor-pointer"
+                    onClick={toggleExpand}
+                  >
                     <div className="flex-1">
                       <h4 className="text-xl font-bold text-blue-200 mb-3 group-hover:text-blue-100 transition-colors flex items-center gap-2">
                         <User className="w-5 h-5" />
@@ -261,129 +280,146 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                           </Badge>
                         )}
                       </div>
+                      {!isExpanded && character.profession && (
+                        <p className="text-sm text-blue-300/70 mt-2 flex items-center gap-1">
+                          <Briefcase className="w-3 h-3" /> {character.profession}
+                        </p>
+                      )}
+                      {!isExpanded && character.background && (
+                        <p className="text-xs text-blue-100/60 mt-1 line-clamp-1">{character.background}</p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 ml-2 text-blue-400">
+                      {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                     </div>
                   </div>
 
-                  {/* 头像区域 */}
-                  <div className="mb-6">
-                    {character.avatar_url ? (
-                      <div className="w-full h-48 rounded-xl overflow-hidden border border-blue-500/30 bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
-                        <Image 
-                          src={character.avatar_url || ''} 
-                          alt={character.name || ''}
-                          width={256}
-                          height={192}
-                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ci8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
-                          }}
-                        />
+                  {/* 可折叠内容 */}
+                  <div className={`transition-all duration-300 overflow-hidden ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="px-6 pb-6">
+                      {/* 头像区域 */}
+                      <div className="mb-6">
+                        {character.avatar_url ? (
+                          <div className="w-full h-48 rounded-xl overflow-hidden border border-blue-500/30 bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
+                            <Image 
+                              src={character.avatar_url || ''} 
+                              alt={character.name || ''}
+                              width={256}
+                              height={192}
+                              className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+PC9zdmc+Cg==';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full h-48 rounded-xl border-2 border-dashed border-blue-500/30 flex items-center justify-center bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-sm">
+                            <div className="text-center">
+                              <div className="text-5xl mb-3 opacity-60"><User className="w-12 h-12 mx-auto" /></div>
+                              <div className="text-sm text-blue-300 opacity-70">暂无头像</div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="w-full h-48 rounded-xl border-2 border-dashed border-blue-500/30 flex items-center justify-center bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-sm">
-                        <div className="text-center">
-                          <div className="text-5xl mb-3 opacity-60"><User className="w-12 h-12 mx-auto" /></div>
-                          <div className="text-sm text-blue-300 opacity-70">暂无头像</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* 角色信息 */}
-                  <div className="space-y-3 mb-4">
-                    {character.profession && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Briefcase className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-200 font-medium">职业:</span>
-                        <span className="text-blue-100 flex-1">{character.profession}</span>
+                      {/* 角色信息 */}
+                      <div className="space-y-3 mb-4">
+                        {character.profession && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Briefcase className="w-4 h-4 text-blue-400" />
+                            <span className="text-blue-200 font-medium">职业:</span>
+                            <span className="text-blue-100 flex-1">{character.profession}</span>
+                          </div>
+                        )}
+                        
+                        {character.background && (
+                          <div className="text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Book className="w-4 h-4 text-blue-400" />
+                              <span className="text-blue-200 font-medium">背景:</span>
+                            </div>
+                            <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-3">{character.background}</p>
+                          </div>
+                        )}
+                        
+                        {character.secret && (
+                          <div className="text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <EyeOff className="w-4 h-4 text-blue-400" />
+                              <span className="text-blue-200 font-medium">秘密:</span>
+                            </div>
+                            <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{character.secret}</p>
+                          </div>
+                        )}
+                        
+                        {character.objective && (
+                          <div className="text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Target className="w-4 h-4 text-blue-400" />
+                              <span className="text-blue-200 font-medium">目标:</span>
+                            </div>
+                            <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{character.objective}</p>
+                          </div>
+                        )}
+                        
+                        {character.personality_traits && character.personality_traits.length > 0 && (
+                          <div className="text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <User className="w-4 h-4 text-blue-400" />
+                              <span className="text-blue-200 font-medium">性格:</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1 pl-6">
+                              {character.personality_traits.map((trait, index) => (
+                                <Badge key={index} variant="outline" className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
+                                  {trait}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {character.voice_id && (
+                          <div className="text-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Mic className="w-4 h-4 text-blue-400" />
+                              <span className="text-blue-200 font-medium">语音:</span>
+                            </div>
+                            <div className="pl-6">
+                              <Badge variant="outline" className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                                {voiceOptions.find(v => v.voice_id === character.voice_id)?.voice_name || character.voice_id}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    
-                    {character.background && (
-                      <div className="text-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Book className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-200 font-medium">背景:</span>
-                        </div>
-                        <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-3">{character.background}</p>
+                      
+                      {/* 操作按钮 */}
+                      <div className="flex gap-3 pt-6 border-t border-blue-500/20">
+                        <Button
+                          onClick={(e) => { e.stopPropagation(); handleEditCharacter(character); }}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 border-blue-500/30 hover:from-blue-600/40 hover:to-cyan-600/40 hover:border-blue-400/50 transition-all duration-300 modern-button"
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          <span>编辑</span>
+                        </Button>
+                        <Button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteCharacter(character.id!); }}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 bg-gradient-to-r from-red-600/20 to-pink-600/20 text-red-300 border-red-500/30 hover:from-red-600/40 hover:to-pink-600/40 hover:border-red-400/50 transition-all duration-300 modern-button"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          <span>删除</span>
+                        </Button>
                       </div>
-                    )}
-                    
-                    {character.secret && (
-                      <div className="text-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <EyeOff className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-200 font-medium">秘密:</span>
-                        </div>
-                        <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{character.secret}</p>
-                      </div>
-                    )}
-                    
-                    {character.objective && (
-                      <div className="text-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Target className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-200 font-medium">目标:</span>
-                        </div>
-                        <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{character.objective}</p>
-                      </div>
-                    )}
-                    
-                    {character.personality_traits && character.personality_traits.length > 0 && (
-                      <div className="text-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <User className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-200 font-medium">性格:</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1 pl-6">
-                          {character.personality_traits.map((trait, index) => (
-                            <Badge key={index} variant="outline" className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
-                              {trait}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {character.voice_id && (
-                      <div className="text-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Mic className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-200 font-medium">语音:</span>
-                        </div>
-                        <div className="pl-6">
-                          <Badge variant="outline" className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
-                            {voiceOptions.find(v => v.voice_id === character.voice_id)?.voice_name || character.voice_id}
-                          </Badge>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* 操作按钮 */}
-                  <div className="flex gap-3 pt-6 border-t border-blue-500/20">
-                    <Button
-                      onClick={() => handleEditCharacter(character)}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 border-blue-500/30 hover:from-blue-600/40 hover:to-cyan-600/40 hover:border-blue-400/50 transition-all duration-300 modern-button"
-                    >
-                      <Edit className="w-3 h-3 mr-1" />
-                      <span>编辑</span>
-                    </Button>
-                    <Button
-                      onClick={() => handleDeleteCharacter(character.id!)}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 bg-gradient-to-r from-red-600/20 to-pink-600/20 text-red-300 border-red-500/30 hover:from-red-600/40 hover:to-pink-600/40 hover:border-red-400/50 transition-all duration-300 modern-button"
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      <span>删除</span>
-                    </Button>
+                    </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
