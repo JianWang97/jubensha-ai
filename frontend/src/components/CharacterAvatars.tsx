@@ -60,7 +60,7 @@ const CharacterAvatars = ({ characters = [] }: CharacterAvatarsProps) => {
       <div key={character.id} className={`relative flex flex-col items-center transition-all duration-500`}>
         {/* 角色头像 */}
         <div className={`relative w-16 h-16 rounded-full border-4 ${getCharacterBorderColor(character)} ${getCharacterBgColor(character)} backdrop-blur-sm flex items-center justify-center transition-all duration-500 shadow-lg ${
-          isSpeaking ? 'scale-125 shadow-2xl ring-4 ring-yellow-400/70 ring-offset-2 ring-offset-transparent' : 'hover:scale-110 hover:shadow-xl'
+          isSpeaking ? 'scale-125 shadow-2xl ring-2 ring-purple-400' : 'hover:scale-110 hover:shadow-xl'
         }`}>
           <div className="w-full h-full flex items-center justify-center text-2xl">
             {getCharacterAvatar(character)}
@@ -71,15 +71,15 @@ const CharacterAvatars = ({ characters = [] }: CharacterAvatarsProps) => {
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full border-2 border-white animate-pulse shadow-lg"></div>
           )}
           
-          {/* 角色状态光环 */}
-          <div className={`absolute inset-0 rounded-full transition-all duration-500 ${
-            isSpeaking ? 'bg-gradient-to-r from-yellow-400/20 to-orange-400/20 animate-pulse' : ''
-          }`}></div>
+          {/* 说话时的脉冲光晕 */}
+          {isSpeaking && (
+            <div className="absolute inset-0 rounded-full bg-purple-400/30 animate-ping" />
+          )}
         </div>
         
         {/* 角色名称 */}
-        <div className={`mt-1 text-white font-medium text-center bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full text-xs whitespace-nowrap ${
-          isSpeaking ? 'bg-yellow-500/50 text-yellow-100' : ''
+        <div className={`mt-1 font-medium text-center bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full text-xs whitespace-nowrap ${
+          isSpeaking ? 'bg-purple-900/50 text-purple-300 font-bold' : 'text-white'
         }`}>
           {character.name}
         </div>

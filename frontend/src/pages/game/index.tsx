@@ -2,9 +2,10 @@ import AppLayout from '@/components/AppLayout';
 import CharacterAvatars from '@/components/CharacterAvatars';
 import GameControlDrawer from '@/components/GameControlDrawer';
 import { useGameState } from '@/hooks/useGameState';
+import { cn } from '@/lib/utils';
 import { useTTSService } from '@/stores/ttsStore';
 import { useWebSocketStore } from '@/stores/websocketStore';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -199,6 +200,18 @@ const GamePage = () => {
     sendMessage(message);
   };
 
+  // 阶段进度条配置
+  const PHASES = ['简介', '调查', '讨论', '投票', '揭晓'];
+  const PHASE_MAP: Record<string, number> = {
+    background: 0, intro: 0,
+    investigation: 1,
+    discussion: 2,
+    voting: 3,
+    reveal: 4,
+  };
+  const currentPhaseIdx = gameState?.phase != null ? (PHASE_MAP[gameState.phase] ?? -1) : -1;
+  const currentPhaseName = currentPhaseIdx >= 0 ? PHASES[currentPhaseIdx] : (gameState?.phase || '');
+
   return (
     <AppLayout showSidebar={false} backgroundImage={getSceneBackground()} isGamePage={true}>
       {(
@@ -250,7 +263,17 @@ const GamePage = () => {
           
           {/* 游戏进行中的界面 - 类似游戏画面布局 */}
           {enteredGame && isGameRunning && (
-            <div className="min-h-screen flex flex-col relative">
+            <div className="min-h-screen flex flex-col relative overflow-hidden">
+              {/* 剧本封面模糊背景 */}
+              {selectedScript?.info.cover_image_url && (
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div
+                    className="absolute inset-0 bg-cover bg-center scale-110 blur-sm opacity-20"
+                    style={{ backgroundImage: `url(${selectedScript.info.cover_image_url})` }}
+                  />
+                </div>
+              )}
+
               <GameControlDrawer
                 open={drawerOpen}
                 onToggle={() => setDrawerOpen(o => !o)}
@@ -264,15 +287,35 @@ const GamePage = () => {
                 onNextPhase={handleNextPhase}
                 currentSpeakingCharacter={currentSpeakingCharacter}
                 currentSpeechText={currentSpeechText}
+                hideFloatButton={true}
                 onExitGame={() => {
                   setShowBackgroundModeDialog(true);
                 }}
               />
 
               {/* 主要内容区域 - 占据大部分空间 */}
-              <div className="flex-1 relative mt-32 mb-32 flex items-center justify-center">
+              <div className="flex-1 relative mt-32 mb-32 pb-20 flex items-center justify-center">
                 {/* 角色头像显示在页面中央 */}
                 <div className="flex flex-col items-center space-y-8">
+                  {/* 阶段进度条 */}
+                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-black/20 backdrop-blur-sm rounded-2xl">
+                    {PHASES.map((phase, idx) => (
+                      <React.Fragment key={phase}>
+                        <div className={cn(
+                          'px-3 py-1 rounded-full text-xs font-medium transition-all',
+                          idx === currentPhaseIdx
+                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                            : idx < currentPhaseIdx
+                              ? 'bg-purple-900/50 text-purple-300'
+                              : 'bg-slate-700/50 text-gray-400'
+                        )}>
+                          {phase}
+                        </div>
+                        {idx < PHASES.length - 1 && <div className="w-6 h-px bg-slate-600" />}
+                      </React.Fragment>
+                    ))}
+                  </div>
+
                   <h2 className="text-2xl font-bold text-white mb-4">游戏角色</h2>
                   <CharacterAvatars
                     characters={characters.map((c: any) => ({ ...c, avatar_url: c.avatar_url === null ? undefined : c.avatar_url }))}
@@ -280,8 +323,8 @@ const GamePage = () => {
                 </div>
               </div>
 
-              {/* 底部游戏界面区域 - 类似游戏画面 */}
-              <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10 fixed bottom-0 left-0 right-0">
+              {/* 底部字幕区域 - 在 ActionBar 上方 */}
+              <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10 fixed bottom-16 left-0 right-0">
                 {/* 字幕显示区域 */}
                 <div className="px-6 py-6 min-h-[140px] flex items-center justify-center">
                   <div className="w-full max-w-5xl flex items-start gap-6">
@@ -353,6 +396,25 @@ const GamePage = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* 底部 ActionBar */}
+              <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-gray-900/90 backdrop-blur-sm border-t border-gray-700/50 flex items-center px-4 gap-3">
+                <button
+                  onClick={handleNextPhase}
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  下一阶段
+                </button>
+                <div className="flex-1 text-center text-sm text-gray-300 truncate">
+                  {currentPhaseName || gameState?.phase || '游戏进行中'}
+                </div>
+                <button
+                  onClick={() => setDrawerOpen(o => !o)}
+                  className="bg-slate-700/80 hover:bg-slate-600/80 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  控制面板
+                </button>
               </div>
             </div>
           )}
