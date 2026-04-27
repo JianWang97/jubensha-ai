@@ -6,6 +6,7 @@
 
 import json
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 from ..services.llm_service import llm_service, LLMMessage
@@ -20,15 +21,69 @@ logger = logging.getLogger(__name__)
 
 
 def _strip_json_markdown(content: str) -> str:
-    """去除 LLM 返回内容中可能包含的 markdown 代码块标记"""
+    """从 LLM 输出中提取可解析的 JSON 文本。"""
     content = content.strip()
+
+    # 部分思考模型会输出 <think>...</think>，先去除后再提取 JSON
+    content = re.sub(r"<think>[\s\S]*?</think>", "", content, flags=re.IGNORECASE)
+    content = content.strip()
+
+    # 优先提取 markdown 中的 JSON 代码块
+    fence_match = re.search(
+        r"```(?:json)?\s*([\s\S]*?)\s*```", content, flags=re.IGNORECASE
+    )
+    if fence_match:
+        return fence_match.group(1).strip()
+
+    # 兼容仅包含代码块起止标记但无完整匹配的场景
     if content.startswith("```json"):
         content = content[7:]
     elif content.startswith("```"):
         content = content[3:]
     if content.endswith("```"):
         content = content[:-3]
-    return content.strip()
+
+    content = content.strip()
+
+    # 若仍有额外说明文本，尝试提取第一个平衡的 JSON 对象/数组
+    start_positions = [
+        pos for pos in (content.find("{"), content.find("[")) if pos != -1
+    ]
+    if not start_positions:
+        return content
+
+    start = min(start_positions)
+    opening = content[start]
+    closing = "}" if opening == "{" else "]"
+
+    depth = 0
+    in_string = False
+    escaped = False
+
+    for i in range(start, len(content)):
+        ch = content[i]
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+            continue
+
+        if ch == opening:
+            depth += 1
+        elif ch == closing:
+            depth -= 1
+            if depth == 0:
+                return content[start : i + 1].strip()
+
+    return content[start:].strip()
 
 
 class ScriptGenerationService:
@@ -103,9 +158,10 @@ class ScriptGenerationService:
                     return json.loads(_strip_json_markdown(response.content))
                 except json.JSONDecodeError:
                     # 解析失败时返回原始内容作为 description
+                    cleaned_content = _strip_json_markdown(response.content)
                     return {
                         "title": "AI生成的剧本",
-                        "description": response.content.strip(),
+                        "description": cleaned_content,
                         "background": "",
                         "suggested_type": script_type or "mystery",
                         "suggested_player_count": str(player_count or 6),
