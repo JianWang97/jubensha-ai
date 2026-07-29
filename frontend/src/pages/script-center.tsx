@@ -5,7 +5,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Bookmark, BookOpen, Clock, Grid, Heart, Library, List, Loader2, Play, Plus, Search, Share2, Star, User, Users } from 'lucide-react';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { ScriptInfo, ScriptsService, ScriptStatus, Service } from '@/client';
 import type { ScriptCharacter } from '@/client/models/ScriptCharacter';
@@ -52,6 +52,7 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
     >
       {/* 背景图片 - 覆盖整个卡片 */}
       <div className="absolute inset-0">
+        {/* eslint-disable-next-line @next/next/no-img-element -- 动态远程封面URL（含兜底生图接口），next/image 优化器无法保证可加载，保持 <img> 以避免渲染风险 */}
         <img
           src={script.cover_image_url || script.image || `https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent('mystery script book cover, dark theme, elegant design')}&image_size=landscape_4_3`}
           alt={script.title}
@@ -78,7 +79,7 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
           className="border-white/50 text-white hover:bg-white/10 hover:text-white px-6 py-2 rounded-lg font-medium backdrop-blur-sm"
           onClick={(e) => {
             e.stopPropagation();
-            onDetailClick && onDetailClick(script);
+            if (onDetailClick) onDetailClick(script);
           }}
         >
           查看详情
@@ -95,7 +96,7 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
             className="absolute top-3 right-3 h-8 w-8 p-0 bg-slate-900/40 hover:bg-slate-900/60 border-0 backdrop-blur-sm"
             onClick={(e) => {
               e.stopPropagation();
-              onFavoriteToggle && onFavoriteToggle(script.id);
+              if (onFavoriteToggle) onFavoriteToggle(script.id);
             }}
           >
             <Heart className={`h-4 w-4 ${script.isFavorite ? 'fill-rose-400 text-rose-400' : 'text-white/80'}`} />
@@ -184,7 +185,7 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
                     className="h-7 px-2 bg-indigo-500/80 hover:bg-indigo-600 text-white border-0 text-xs backdrop-blur-sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onEdit && onEdit(script.id);
+                      if (onEdit) onEdit(script.id);
                     }}
                   >
                     编辑
@@ -195,7 +196,7 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
                       className="h-7 px-2 bg-emerald-500/80 hover:bg-emerald-600 text-white border-0 text-xs backdrop-blur-sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onPublish && onPublish(script.id);
+                        if (onPublish) onPublish(script.id);
                       }}
                     >
                       发布
@@ -206,7 +207,7 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
                     className="h-7 px-2 bg-rose-500/80 hover:bg-rose-600 text-white border-0 text-xs backdrop-blur-sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDelete && onDelete(script.id);
+                      if (onDelete) onDelete(script.id);
                     }}
                   >
                     删除
@@ -239,17 +240,10 @@ const ScriptCard = ({ script, onDetailClick, onFavoriteToggle, onEdit, onDelete,
 const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
   const [scriptDetails, setScriptDetails] = useState<Script_Output | null>(null);
   const [characters, setCharacters] = useState<ScriptCharacter[]>([]);
-  const [gamePhases, setGamePhases] = useState<any[]>([]);
+  const [gamePhases] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 获取剧本详细信息
-  useEffect(() => {
-    if (script && isOpen) {
-      fetchScriptDetails();
-    }
-  }, [script, isOpen]);
-
-  const fetchScriptDetails = async () => {
+  const fetchScriptDetails = useCallback(async () => {
     if (!script?.id) return;
 
     try {
@@ -279,7 +273,14 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [script]);
+
+  // 获取剧本详细信息
+  useEffect(() => {
+    if (script && isOpen) {
+      fetchScriptDetails();
+    }
+  }, [script, isOpen, fetchScriptDetails]);
 
   if (!script) return null;
 
@@ -301,6 +302,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
           <DrawerHeader className="pb-6">
             <div className="flex items-start gap-6">
               <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element -- 动态远程封面URL（含兜底生图接口），next/image 优化器无法保证可加载，保持 <img> 以避免渲染风险 */}
                 <img
                   src={displayScript.cover_image_url || displayScript.image || `https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent('mystery script book cover, dark theme, elegant design')}&image_size=square_hd`}
                   alt={displayScript.title}
@@ -430,6 +432,7 @@ const ScriptDetailDrawer = ({ script, isOpen, onClose }) => {
                         <div key={character.id || index} className="border border-slate-600/30 rounded-xl p-5 bg-slate-800/30 backdrop-blur-sm">
                           <div className="flex items-start gap-4">
                             {character.avatar_url && (
+                              // eslint-disable-next-line @next/next/no-img-element -- 角色头像为动态远程URL，next/image 优化器无法保证可加载，保持 <img> 以避免渲染风险
                               <img
                                 src={character.avatar_url}
                                 alt={character.name}
@@ -683,23 +686,23 @@ export default function ScriptCenter() {
   const [libraryScripts, setLibraryScripts] = useState<ScriptInfo[]>([]);
 
   // 获取我的剧本
-  const getMyScripts = async () => {
+  const getMyScripts = useCallback(async () => {
     const response = await ScriptsService.getScriptsApiScriptsGet();
     return response.items || [];
-  };
+  }, []);
 
   // 获取剧本库（公开剧本）
-  const getLibraryScripts = async () => {
+  const getLibraryScripts = useCallback(async () => {
     const response = await ScriptsService.getPublicScriptsApiScriptsPublicGet();
     return response.items || [];
-  };
+  }, []);
 
   const deleteScript = async (scriptId: number) => {
     await ScriptsService.deleteScriptApiScriptsScriptIdDelete(scriptId);
   };
 
   // 获取脚本数据
-  const fetchScripts = async () => {
+  const fetchScripts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -716,11 +719,11 @@ export default function ScriptCenter() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, getMyScripts, getLibraryScripts]);
 
   useEffect(() => {
     fetchScripts();
-  }, [activeTab]);
+  }, [activeTab, fetchScripts]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

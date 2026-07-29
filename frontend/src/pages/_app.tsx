@@ -68,14 +68,14 @@ export default function App({ Component, pageProps }: AppProps) {
   const [authLoading, setAuthLoading] = useSSRSafeState(true);
   
   // 始终调用useAuthStore，但只在客户端使用其功能
-  const authStore = useAuthStore();
-  
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+
   const safeCheckAuth = useCallback(async () => {
     if (isClient) {
-      return authStore.checkAuth();
+      return checkAuth();
     }
     return Promise.resolve();
-  }, [isClient, authStore.checkAuth]);
+  }, [isClient, checkAuth]);
 
   // 初始化认证状态
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function App({ Component, pageProps }: AppProps) {
     };
 
     initAuth();
-  }, [isClient, safeCheckAuth]);
+  }, [isClient, safeCheckAuth, setIsInitialized, setAuthLoading]);
 
   // 路由切换进度条
   useEffect(() => {

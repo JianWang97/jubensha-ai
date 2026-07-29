@@ -2,7 +2,9 @@
 
 覆盖范围：
   - parse_agent_response：JSON 提取与降级（围栏 / 夹杂散文 / 非法输入）
-  - CharacterAgent.respond：返回 AgentResponse，LLM 异常时降级发言
+  - agent_tools：阶段工具映射、tool call 合并进 AgentResponse
+  - CharacterAgent.respond：原生 tool calling 路径 + 无工具调用时的 JSON 兜底，
+    LLM 异常时降级发言
   - CharacterAgentManager.respond：只广播 say，不泄露 vote 等内部字段
   - GameEngine._resolve_vote / process_voting：vote 字段 → 发言提名 → 随机兜底
   - 证据私有化：发现者私有 knowledge、reveal_evidence 公开、提示词不泄露未公开证据
@@ -12,6 +14,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from src.agents.agent_tools import apply_tool_calls, tools_for_phase
 from src.agents.character_agent import (
     AgentResponse,
     CharacterAgent,
@@ -23,6 +26,7 @@ from src.core.game_engine import GameEngine
 from src.core.voting_manager import VotingManager
 from src.schemas.game_phase import GamePhaseEnum
 from src.schemas.script_character import ScriptCharacter
+from src.services.llm_service import LLMResponse, ToolCall
 
 pytestmark = pytest.mark.unit
 
@@ -43,10 +47,12 @@ def make_character(name: str, is_murderer: bool = False) -> ScriptCharacter:
     )
 
 
-def make_llm(content: str) -> Mock:
+def make_llm(content: str, tool_calls: list | None = None) -> Mock:
     """构造返回固定内容的 mock LLM 服务"""
     llm = Mock()
-    llm.chat_completion = AsyncMock(return_value=Mock(content=content))
+    llm.chat_completion = AsyncMock(
+        return_value=LLMResponse(content=content, tool_calls=tool_calls)
+    )
     return llm
 
 
@@ -319,3 +325,164 @@ class TestEvidencePrivacy:
         murderer = make_agent("赵六", is_murderer=True)
         prompt = murderer.identity.to_system_prompt()
         assert "隐瞒" in prompt and "说谎" in prompt
+
+
+# ---------------------------------------------------------------------------
+# 阶段工具映射与 tool call 合并
+# ---------------------------------------------------------------------------
+
+class TestToolsForPhase:
+    """各阶段应向 LLM 提供的 tools 数组"""
+
+    def tool_names(self, phase) -> set[str]:
+        return {t["function"]["name"] for t in tools_for_phase(phase)}
+
+    def test_evidence_collection_offers_search(self):
+        assert self.tool_names(GamePhaseEnum.EVIDENCE_COLLECTION) == {"search_location"}
+
+    def test_investigation_and_discussion_offer_question_and_reveal(self):
+        for phase in (GamePhaseEnum.INVESTIGATION, GamePhaseEnum.DISCUSSION):
+            assert self.tool_names(phase) == {"ask_question", "reveal_evidence"}
+
+    def test_voting_offers_cast_vote(self):
+        assert self.tool_names(GamePhaseEnum.VOTING) == {"cast_vote"}
+
+    def test_speech_phases_have_no_tools(self):
+        for phase in (GamePhaseEnum.INTRODUCTION, GamePhaseEnum.REVELATION, GamePhaseEnum.BACKGROUND):
+            assert tools_for_phase(phase) == []
+
+    def test_schemas_are_openai_function_format(self):
+        for tool in tools_for_phase(GamePhaseEnum.INVESTIGATION):
+            assert tool["type"] == "function"
+            assert tool["function"]["parameters"]["type"] == "object"
+
+
+class TestApplyToolCalls:
+    """apply_tool_calls：把 tool call 合并进 AgentResponse"""
+
+    def test_single_search_call(self):
+        resp = apply_tool_calls(
+            [ToolCall(name="search_location", arguments={"location": "书房"})],
+            AgentResponse(say="我去看看书房。"),
+        )
+        assert resp.action == {"type": "search", "target": "书房"}
+        assert resp.say == "我去看看书房。"
+
+    def test_multiple_calls_merged(self):
+        """质询 + 公开证据可以合并进同一次回应"""
+        resp = apply_tool_calls(
+            [
+                ToolCall(name="ask_question", arguments={"target": "李四", "question": "你昨晚在哪里？"}),
+                ToolCall(name="reveal_evidence", arguments={"evidence_names": ["血迹", "断针"]}),
+            ],
+            AgentResponse(say=""),
+        )
+        assert resp.action == {"type": "question", "target": "李四"}
+        # content 为空时用质询问题充当公开发言
+        assert resp.say == "你昨晚在哪里？"
+        assert resp.reveal_evidence == ["血迹", "断针"]
+
+    def test_reveal_dedupes_and_accepts_string(self):
+        resp = apply_tool_calls(
+            [
+                ToolCall(name="reveal_evidence", arguments={"evidence_names": ["血迹", "血迹"]}),
+                ToolCall(name="reveal_evidence", arguments={"evidence_names": "断针"}),
+            ],
+            AgentResponse(say="x"),
+        )
+        assert resp.reveal_evidence == ["血迹", "断针"]
+
+    def test_cast_vote(self):
+        resp = apply_tool_calls(
+            [ToolCall(name="cast_vote", arguments={"suspect": "李四"})],
+            AgentResponse(say="我投李四。"),
+        )
+        assert resp.vote == "李四"
+
+    def test_unknown_tool_ignored(self):
+        resp = apply_tool_calls(
+            [ToolCall(name="hack_game", arguments={"target": "李四"})],
+            AgentResponse(say="你好"),
+        )
+        assert resp.action is None
+        assert resp.vote is None
+        assert resp.say == "你好"
+
+    def test_bad_arguments_tolerated(self):
+        """arguments JSON 解析失败降级为 {"_raw": ...} 后不应崩坏，仅忽略该调用"""
+        resp = apply_tool_calls(
+            [ToolCall(name="search_location", arguments={"_raw": "not-json{"})],
+            AgentResponse(say="呃"),
+        )
+        assert resp.action is None
+
+    def test_empty_tool_calls_returns_response_unchanged(self):
+        resp = apply_tool_calls([], AgentResponse(say="只发言"))
+        assert resp.say == "只发言"
+        assert resp.action is None
+
+
+# ---------------------------------------------------------------------------
+# CharacterAgent.respond 的 tool calling 路径
+# ---------------------------------------------------------------------------
+
+class TestRespondToolCalling:
+    """respond() 优先走原生 tool calling，无工具调用时回退 JSON 契约"""
+
+    def test_vote_via_tool_call(self):
+        agent = CharacterAgent(
+            make_character("张三"),
+            make_llm("我的理由如上。", tool_calls=[ToolCall(name="cast_vote", arguments={"suspect": "李四"})]),
+        )
+        resp = asyncio.run(agent.respond(GamePhaseEnum.VOTING, {}))
+        assert resp.vote == "李四"
+        assert resp.say == "我的理由如上。"
+        # 有工具的阶段必须携带 tools / tool_choice 调用 LLM
+        kwargs = agent._llm.chat_completion.call_args.kwargs
+        assert kwargs["tool_choice"] == "auto"
+        assert any(t["function"]["name"] == "cast_vote" for t in kwargs["tools"])
+
+    def test_search_via_tool_call(self):
+        agent = CharacterAgent(
+            make_character("张三"),
+            make_llm("", tool_calls=[ToolCall(name="search_location", arguments={"location": "书房"})]),
+        )
+        resp = asyncio.run(agent.respond(GamePhaseEnum.EVIDENCE_COLLECTION, {}))
+        assert resp.action == {"type": "search", "target": "书房"}
+        # 正文为空时合成占位发言
+        assert resp.say == "……"
+
+    def test_question_and_reveal_via_tool_calls(self):
+        agent = CharacterAgent(
+            make_character("张三"),
+            make_llm("", tool_calls=[
+                ToolCall(name="ask_question", arguments={"target": "李四", "question": "你昨晚在哪里？"}),
+                ToolCall(name="reveal_evidence", arguments={"evidence_names": ["血迹手帕"]}),
+            ]),
+        )
+        resp = asyncio.run(agent.respond(GamePhaseEnum.INVESTIGATION, {}))
+        assert resp.action == {"type": "question", "target": "李四"}
+        assert resp.say == "你昨晚在哪里？"
+        assert resp.reveal_evidence == ["血迹手帕"]
+
+    def test_no_tool_calls_falls_back_to_json_contract(self):
+        """模型未调用工具（如不支持 tool calling）时仍按旧版 JSON 契约解析"""
+        agent = CharacterAgent(
+            make_character("张三"),
+            make_llm('{"say": "我怀疑王五", "vote": "王五"}'),
+        )
+        resp = asyncio.run(agent.respond(GamePhaseEnum.VOTING, {}))
+        assert resp.say == "我怀疑王五"
+        assert resp.vote == "王五"
+
+    def test_no_tool_calls_plain_text_fallback(self):
+        agent = CharacterAgent(make_character("张三"), make_llm("我什么都不知道。"))
+        resp = asyncio.run(agent.respond(GamePhaseEnum.DISCUSSION, {}))
+        assert resp.say == "我什么都不知道。"
+
+    def test_toolless_phase_calls_llm_without_tools(self):
+        """自我介绍等无工具阶段不应携带 tools 参数"""
+        agent = CharacterAgent(make_character("张三"), make_llm("大家好，我是张三。"))
+        resp = asyncio.run(agent.respond(GamePhaseEnum.INTRODUCTION, {}))
+        assert resp.say == "大家好，我是张三。"
+        assert agent._llm.chat_completion.call_args.kwargs == {}

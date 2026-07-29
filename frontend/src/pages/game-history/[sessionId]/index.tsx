@@ -8,7 +8,7 @@ export default function GameDetailPage(){
   const router = useRouter();
   const { sessionId } = router.query;
   const { loadDetail, detail } = useGameHistoryStore();
-  useEffect(()=> { if(sessionId && typeof sessionId==='string') loadDetail(sessionId); }, [sessionId]);
+  useEffect(()=> { if(sessionId && typeof sessionId==='string') loadDetail(sessionId); }, [sessionId, loadDetail]);
   if(!sessionId) return <div className='p-6'>加载中...</div>;
   if(!detail) return <div className='p-6'>加载中或未找到...</div>;
   const { session_info, statistics } = detail;

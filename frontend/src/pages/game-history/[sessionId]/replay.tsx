@@ -1,8 +1,6 @@
-import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '../../../components/AppLayout';
-import { GameEventItem } from '../../../services/gameHistoryService';
 import { useGameHistoryStore } from '../../../stores/gameHistoryStore';
 import ReplayControlDrawer from '@/components/ReplayControlDrawer';
 import CharacterAvatars from '@/components/CharacterAvatars';
@@ -73,18 +71,6 @@ export default function ReplayPage() {
     }
   }, [detail, loadCharacters]);
   
-  // 调试输出
-  useEffect(() => {
-    console.log('数据状态更新:', {
-      sessionId,
-      eventsLoading,
-      eventsCount: events.length,
-      detailExists: !!detail,
-      error,
-      ttsEventsCount: ttsTimeline.events.length
-    });
-  }, [sessionId, eventsLoading, events.length, detail, error]);
-
   // 计算TTS时间线
   const ttsTimeline = useMemo(() => {
     if (!events.length) return { events: [], totalDurationMs: 0 };
@@ -108,22 +94,20 @@ export default function ReplayPage() {
     return { events: ttsEvents, totalDurationMs: currentTime };
   }, [events]);
 
-  // 更新当前发言角色
+  // 调试输出
   useEffect(() => {
-    const currentEvent = getCurrentEvent();
-    if (currentEvent?.character_name) {
-      setCurrentSpeakingCharacter(currentEvent.character_name);
-    } else {
-      setCurrentSpeakingCharacter(null);
-    }
-  }, [currentEventIndex, currentTimeMs, ttsTimeline.events]);
-
-
-
-
+    console.log('数据状态更新:', {
+      sessionId,
+      eventsLoading,
+      eventsCount: events.length,
+      detailExists: !!detail,
+      error,
+      ttsEventsCount: ttsTimeline.events.length
+    });
+  }, [sessionId, eventsLoading, events.length, detail, error, ttsTimeline.events.length]);
 
   // 查找当前播放事件
-  const getCurrentEvent = () => {
+  const getCurrentEvent = useCallback(() => {
     // 优先使用currentEventIndex来获取当前事件，确保与右侧列表选中项一致
     if (currentEventIndex >= 0 && currentEventIndex < ttsTimeline.events.length) {
       return ttsTimeline.events[currentEventIndex];
@@ -132,7 +116,21 @@ export default function ReplayPage() {
     return ttsTimeline.events.find(
       event => currentTimeMs >= event.startTimeMs && currentTimeMs <= event.endTimeMs
     );
-  };
+  }, [currentEventIndex, currentTimeMs, ttsTimeline.events]);
+
+  // 更新当前发言角色
+  useEffect(() => {
+    const currentEvent = getCurrentEvent();
+    if (currentEvent?.character_name) {
+      setCurrentSpeakingCharacter(currentEvent.character_name);
+    } else {
+      setCurrentSpeakingCharacter(null);
+    }
+  }, [currentEventIndex, currentTimeMs, ttsTimeline.events, getCurrentEvent]);
+
+
+
+
 
   // 懒加载并播放指定事件（含缓存与音量控制）
   const playEvent = useCallback(async (event: TTSEvent) => {
@@ -289,7 +287,7 @@ export default function ReplayPage() {
         }
       }
     }
-  }, [ttsTimeline.events, isPlaying, currentAudio, getCurrentEvent, playEvent, isMuted, volume]);
+  }, [ttsTimeline.events, ttsTimeline.totalDurationMs, isPlaying, currentAudio, currentEventIndex, getCurrentEvent, playEvent, isMuted, volume]);
 
 
 

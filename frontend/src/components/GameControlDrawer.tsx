@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import CharacterAvatars from './CharacterAvatars';
 // 已内联日志渲染逻辑，避免单独抽屉重复
 
 interface GameControlDrawerProps {
@@ -22,7 +21,6 @@ interface GameControlDrawerProps {
 const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
   open,
   onToggle,
-  characters,
   gameLog,
   onExitGame,
   ttsEnabled,
@@ -57,14 +55,6 @@ const GameControlDrawer: React.FC<GameControlDrawerProps> = ({
     return 'bg-white/10';
   };
   const getLogStyle = (entry: any) => getLogBg(entry);
-  const getCharacterIcon = (character: string) => {
-    if (character === '系统') return '🤖';
-    if (character.includes('侦探')) return '🕵️';
-    if (character.includes('医生')) return '👨‍⚕️';
-    if (character.includes('小姐') || character.includes('女士')) return '👩';
-    if (character.includes('先生')) return '👨';
-    return '👤';
-  };
   const formatTimestamp = (timestamp?: string | Date) => {
     if (!timestamp) return '';
     const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;

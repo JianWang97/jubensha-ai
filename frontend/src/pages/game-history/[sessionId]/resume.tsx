@@ -7,7 +7,7 @@ export default function ResumePage(){
   const router = useRouter();
   const { sessionId } = router.query;
   const { resumeInfo, resume } = useGameHistoryStore();
-  useEffect(()=> { if(sessionId && typeof sessionId==='string') resume(sessionId); }, [sessionId]);
+  useEffect(()=> { if(sessionId && typeof sessionId==='string') resume(sessionId); }, [sessionId, resume]);
   if(!sessionId) return <div className='p-6'>加载中...</div>;
   return <div className='p-6 space-y-4'>
     <h1 className='text-xl font-semibold'>继续游戏 - {sessionId}</h1>

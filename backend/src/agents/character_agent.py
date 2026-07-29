@@ -11,7 +11,8 @@
   - user message  = 记忆上下文 + 阶段任务（PhaseDirector 动态构建）
   - memory        = 分层私有记忆（CharacterMemory）
   - observe()     = 被动接收他人发言，更新工作记忆
-  - respond()     = 返回结构化 AgentResponse（JSON 输出，解析失败自动降级）
+  - respond()     = 返回结构化 AgentResponse（优先原生 tool calling，
+                    模型不返回工具调用时回退旧版 JSON 输出契约）
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from typing import Any
 from ..schemas.script_character import ScriptCharacter
 from ..schemas.game_phase import GamePhaseEnum as GamePhase
 from ..services.llm_service import BaseLLMService, LLMMessage
+from .agent_tools import apply_tool_calls, tools_for_phase
 from .character_identity import CharacterIdentity
 from .character_memory import CharacterMemory
 from .phase_director import PhaseDirector
@@ -36,7 +38,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentResponse:
-    """角色一次回应的结构化结果（对应 PhaseDirector 约定的 JSON 输出契约）。
+    """角色一次回应的结构化结果。
+
+    由原生 tool calling（agent_tools.apply_tool_calls）或旧版 JSON 输出契约
+    （parse_agent_response 兜底）构建，字段语义两者一致：
 
     say             : 公开发言（唯一会广播给其他角色与前端的内容）
     action          : {"type": "search|question|none", "target": 地点名/角色名/None}
@@ -169,8 +174,10 @@ class CharacterAgent:
         """根据当前阶段和游戏状态生成角色发言（结构化输出）。
 
         参照 hello-agents NPCAgentManager.chat() 的完整流程。
-        LLM 被要求输出 JSON（见 PhaseDirector 的输出契约）；
-        解析失败时降级为纯文本发言，绝不向游戏循环抛异常。
+        有工具的阶段优先走原生 tool calling（tools + tool_choice="auto"），
+        行动来自工具调用、回复正文即公开发言；模型未返回任何工具调用时
+        回退到旧版 JSON 输出契约（parse_agent_response），
+        任何失败都降级为纯文本发言，绝不向游戏循环抛异常。
         """
         # 1. system prompt = 稳定身份（全程不变）
         system_prompt = self.identity.to_system_prompt()
@@ -183,20 +190,25 @@ class CharacterAgent:
             game_state=game_state,
         )
 
-        # 3. LLM 调用
+        # 3. LLM 调用（有工具的阶段携带 tools，无工具阶段走纯文本）
         messages = [
             LLMMessage(role="system", content=system_prompt),
             LLMMessage(role="user", content=user_message),
         ]
+        tools = tools_for_phase(phase)
         try:
-            llm_result = await self._llm.chat_completion(messages)
-            raw_text = llm_result.content if llm_result and llm_result.content else "我需要仔细想想……"
+            if tools:
+                llm_result = await self._llm.chat_completion(
+                    messages, tools=tools, tool_choice="auto"
+                )
+            else:
+                llm_result = await self._llm.chat_completion(messages)
         except Exception as exc:
             logger.error(f"[{self.name}] LLM 调用失败: {exc}")
-            raw_text = "我现在有点困惑，让我整理一下思路……"
+            llm_result = None
 
-        # 4. 解析结构化输出（解析失败自动降级为纯文本发言）
-        response = parse_agent_response(raw_text)
+        # 4. 构建结构化输出（tool calling 优先，无工具调用走 JSON 兜底解析）
+        response = self._build_response(llm_result)
 
         logger.info(
             f"[{self.name}] 输出: {response.say[:80]}{'…' if len(response.say) > 80 else ''}"
@@ -207,6 +219,29 @@ class CharacterAgent:
         self.memory.record_personal_event(f"我说：{response.say}", importance=0.6)
 
         return response
+
+    def _build_response(self, llm_result) -> AgentResponse:
+        """把 LLM 结果构建为 AgentResponse。
+
+        - LLM 调用失败（None）：固定降级发言
+        - 返回了工具调用：行动由 apply_tool_calls 合并，正文即公开发言；
+          正文为空时优先用质询问题文本，否则用占位符
+        - 未返回工具调用：回退旧版 JSON 输出契约（兼容不支持 tool calling
+          的模型，如未 bind_tools 的 LangChain 路径）
+        """
+        if llm_result is None:
+            return AgentResponse(say="我现在有点困惑，让我整理一下思路……")
+
+        content = (llm_result.content or "").strip()
+        tool_calls = getattr(llm_result, "tool_calls", None)
+        if isinstance(tool_calls, (list, tuple)) and tool_calls:
+            response = apply_tool_calls(list(tool_calls), AgentResponse(say=content))
+            if not response.say:
+                response.say = "……"
+            return response
+
+        raw_text = content or "我需要仔细想想……"
+        return parse_agent_response(raw_text)
 
     # ------------------------------------------------------------------
     # 被动接口（CharacterAgentManager 广播调用）

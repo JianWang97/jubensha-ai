@@ -23,7 +23,7 @@ const FEATURES = [
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
-  const { login, anonymousLogin, isLoading, error, isAuthenticated, clearError } = useAuthStore();
+  const { login, isLoading, error, isAuthenticated, clearError } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState<UserLogin>({ username: '', password: '' });
@@ -117,7 +117,7 @@ const LoginPage: React.FC = () => {
             {/* 名言 */}
             <blockquote className="max-w-xs border-l-2 border-purple-400/50 pl-4 text-left">
               <p className="text-purple-200/80 text-sm italic leading-relaxed">
-                "每一个谎言的背后，都藏着一段真实的故事。"
+                &quot;每一个谎言的背后，都藏着一段真实的故事。&quot;
               </p>
               <footer className="mt-1 text-purple-400/60 text-xs">— 剧本杀玩家格言</footer>
             </blockquote>

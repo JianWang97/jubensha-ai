@@ -1,7 +1,11 @@
 """LLM服务抽象层"""
+import json
+import logging
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, AsyncGenerator, Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class LLMMessage:
@@ -10,11 +14,39 @@ class LLMMessage:
     content: str
 
 @dataclass
+class ToolCall:
+    """一次工具调用（OpenAI function calling 范式）"""
+    name: str
+    arguments: Dict[str, Any]
+
+@dataclass
 class LLMResponse:
     """LLM响应"""
     content: str
     usage: Optional[Dict[str, int]] = None
     model: Optional[str] = None
+    tool_calls: Optional[List[ToolCall]] = None
+
+def _parse_openai_tool_calls(message) -> Optional[List[ToolCall]]:
+    """把 OpenAI 响应 message.tool_calls 解析为 ToolCall 列表。
+
+    单个调用的 arguments JSON 解析失败时降级为 {"_raw": 原始字符串}，
+    不中断其余调用的解析。
+    """
+    raw_calls = getattr(message, "tool_calls", None)
+    if not raw_calls:
+        return None
+    tool_calls: List[ToolCall] = []
+    for tc in raw_calls:
+        raw_arguments = getattr(tc.function, "arguments", None) or "{}"
+        try:
+            arguments = json.loads(raw_arguments)
+        except (json.JSONDecodeError, ValueError):
+            arguments = {"_raw": raw_arguments}
+        if not isinstance(arguments, dict):
+            arguments = {"_raw": raw_arguments}
+        tool_calls.append(ToolCall(name=tc.function.name, arguments=arguments))
+    return tool_calls
 
 class BaseLLMService(ABC):
     """LLM服务基类"""
@@ -72,10 +104,12 @@ class OpenAILLMService(BaseLLMService):
         
         response = await client.chat.completions.create(**params)
         
+        message = response.choices[0].message
         return LLMResponse(
-            content=response.choices[0].message.content,
+            content=message.content or "",  # 模型只调用工具时 content 可能为 None
             usage=response.usage.model_dump() if response.usage else None,
-            model=response.model
+            model=response.model,
+            tool_calls=_parse_openai_tool_calls(message),
         )
     
     async def chat_completion_stream(self, messages: List[LLMMessage], **kwargs) -> AsyncGenerator[str, None]:
@@ -129,7 +163,7 @@ class LangChainLLMService(BaseLLMService):
         return self._llm
     
     async def chat_completion(self, messages: List[LLMMessage], **kwargs) -> LLMResponse:
-        """聊天补全"""
+        """聊天补全（尽力支持 tool calling：kwargs 带 tools 时通过 bind_tools 绑定）"""
         llm = self._get_llm()
         
         # 转换为LangChain消息格式
@@ -144,11 +178,29 @@ class LangChainLLMService(BaseLLMService):
             elif msg.role == "assistant":
                 lc_messages.append(AIMessage(content=msg.content))
         
+        tools = kwargs.pop("tools", None)
+        tool_choice = kwargs.pop("tool_choice", None)
+        if tools:
+            try:
+                llm = llm.bind_tools(tools, tool_choice=tool_choice or "auto")
+            except Exception as exc:
+                # 底层模型不支持工具绑定时退回普通调用（调用方走 JSON 兜底解析）
+                logger.warning(f"LangChain bind_tools 失败，按无工具调用处理: {exc}")
+                llm = self._get_llm()
+        
         response = await llm.ainvoke(lc_messages)
         
+        # LangChain tool_calls 格式：[{"name": ..., "args": {...}, "id": ...}]
+        tool_calls = [
+            ToolCall(name=tc.get("name", ""), arguments=tc.get("args") or {})
+            for tc in (getattr(response, "tool_calls", None) or [])
+        ]
+        content = response.content if isinstance(response.content, str) else ""
+        
         return LLMResponse(
-            content=response.content,
-            model=self.model
+            content=content,
+            model=self.model,
+            tool_calls=tool_calls or None,
         )
     
     async def chat_completion_stream(self, messages: List[LLMMessage], **kwargs) -> AsyncGenerator[str, None]:

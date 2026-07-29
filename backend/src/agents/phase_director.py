@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ..schemas.game_phase import GamePhaseEnum as GamePhase
+from .agent_tools import tools_for_phase
 
 if TYPE_CHECKING:
     from .character_identity import CharacterIdentity
@@ -44,7 +45,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 你的任务：选择一个具体的地点或物品进行搜查，为后续线索公开做准备。
 
 指令要求：
-- 必须明确说出要搜查的地点名称（如"我要搜查书房"、"我检查一下花瓶"）
+- 必须调用 search_location 工具选定要搜查的地点名称（发言中也可说明，如"我要搜查书房"）
 - 可以简要说明搜查理由，但不要透露过多策略
 - 一次只能搜查一个地方
 - 搜到的线索默认只有你自己知道，之后你可以选择公开或隐瞒""",
@@ -61,7 +62,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 注意事项：
 - 问题要有针对性，能推进案件调查
 - 根据已发现的证据来提问和分析
-- 你可以选择公开你掌握的证据（填入 reveal_evidence），也可以暂时隐瞒
+- 你可以选择公开你掌握的证据（调用 reveal_evidence 工具），也可以暂时隐瞒
 - 避免重复提问相同问题""",
 
     GamePhase.DISCUSSION: """现在是【圆桌讨论】阶段 - 核心推理环节
@@ -77,7 +78,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 - 可以提出自己的推理和怀疑
 - 可以反驳或支持他人的观点，但要加上自己的理由
 - 要结合已发现的证据来论证
-- 你可以选择公开你掌握的证据（填入 reveal_evidence），也可以暂时隐瞒
+- 你可以选择公开你掌握的证据（调用 reveal_evidence 工具），也可以暂时隐瞒
 - 避免直接重复他人的话，要有自己的独特观点
 - 保持逻辑清晰，做到有理有据""",
 
@@ -90,7 +91,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 - 票后陈述：如果被质疑，为自己进行最后的辩解
 
 指令要求：
-- 必须明确说出你投票的对象
+- 必须调用 cast_vote 工具投出你的投票对象
 - 说明你的核心理由（1-2个最重要的证据或逻辑）
 - 要坚定表达你的判断
 - 不要犹豫不决或说"我不知道是谁"之类的模糊表达""",
@@ -114,34 +115,38 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 
 
 # ---------------------------------------------------------------------------
-# 结构化输出契约（所有阶段统一，解析端见 character_agent.parse_agent_response）
+# 回应方式说明（行动走原生 tool calling，发言走回复正文；
+# 解析端见 character_agent.CharacterAgent._build_response / agent_tools）
 # ---------------------------------------------------------------------------
 
-_OUTPUT_FORMAT = """**=== 输出格式（严格遵守）===**
-你必须只输出一个 JSON 对象，不要输出任何其他文字、解释或 markdown 代码围栏：
-{
-  "say": "你的公开发言内容（必填，角色口吻）",
-  "action": {"type": "search|question|none", "target": "地点名或角色名，无则为 null"},
-  "reveal_evidence": ["你选择公开的证据名称列表，可空数组"],
-  "vote": "投票对象角色名，仅投票阶段填写，否则为 null",
-  "emotion": "当前情绪一词，如 平静/紧张/愤怒/慌乱"
-}
-**=========================**"""
+# 有工具的阶段（搜证 / 调查 / 讨论 / 投票）
+_OUTPUT_FORMAT_TOOLS = """**=== 回应方式（严格遵守）===**
+- 公开发言：直接作为回复正文输出，保持你的角色口吻；不要输出 JSON、代码围栏或任何格式标记。
+- 游戏行动：通过调用系统提供的工具完成（不要只在文字里描述）；没有想做的行动时可以不调用任何工具。
+**=================**"""
 
-# 各阶段对输出字段的补充要求（追加在输出契约之后）
+# 无工具的阶段（背景 / 自我介绍 / 复盘）
+_OUTPUT_FORMAT_PLAIN = """**=== 回应方式（严格遵守）===**
+- 直接把你的公开发言作为回复正文输出，保持你的角色口吻。
+- 不要输出 JSON、代码围栏或任何格式标记。
+**=================**"""
+
+# 各阶段对工具使用的补充要求（追加在回应方式说明之后）
 _PHASE_OUTPUT_HINTS: dict[GamePhase, str] = {
     GamePhase.EVIDENCE_COLLECTION: (
-        "本阶段要搜证时，必须把 action.type 设为 \"search\"，action.target 填要搜查的地点名。"
+        "本阶段要搜证时，调用 search_location 工具，location 填要搜查的地点名。"
     ),
     GamePhase.INVESTIGATION: (
-        "本阶段如需提问，可把 action.type 设为 \"question\"，action.target 填被提问的角色名；"
-        "要公开证据时在 reveal_evidence 中填入证据名称。"
+        "本阶段可以用 ask_question 工具质询（target 填被提问的角色名，question 填问题内容），"
+        "也可以用 reveal_evidence 工具公开你掌握的证据（evidence_names 只能填你自己掌握的证据名称），"
+        "也可以都不用、只发言。"
     ),
     GamePhase.DISCUSSION: (
-        "要公开证据时在 reveal_evidence 中填入证据名称，暂不公开则保持空数组。"
+        "可以用 ask_question 工具质询，或用 reveal_evidence 工具公开你掌握的证据"
+        "（evidence_names 只能填你自己掌握的证据名称），暂不公开则不调用、只发言。"
     ),
     GamePhase.VOTING: (
-        "本阶段必须在 vote 字段填写你的投票对象角色名，并在 say 中说明理由。"
+        "本阶段必须调用 cast_vote 工具投票（suspect 填你指认的角色名），并在发言中说明理由。"
     ),
 }
 
@@ -171,7 +176,7 @@ class PhaseDirector:
           [阶段专属内容（可搜证地点 / 投票候选人等）]
           [本角色可见的证据（已公开的 + 自己私藏的）]
           [当前阶段核心任务指令]
-          [结构化输出契约]
+          [回应方式说明（tool calling）]
           [GM 特殊指令（可选）]
         """
         parts: list[str] = []
@@ -203,12 +208,13 @@ class PhaseDirector:
             )
         # 凶手在投票前不要暴露
         elif identity.is_murderer and phase in (GamePhase.INVESTIGATION, GamePhase.DISCUSSION, GamePhase.VOTING):
-            task += "\n\n【凶手提示】继续隐藏你的身份，自然地将怀疑引向他人；你可以隐瞒或选择性公开自己掌握的证据，在 say 中也可以说谎。"
+            task += "\n\n【凶手提示】继续隐藏你的身份，自然地将怀疑引向他人；你可以隐瞒或选择性公开自己掌握的证据，在发言中也可以说谎。"
 
         parts.append(f"【当前阶段：{phase.value}】\n\n**=== 你的核心任务 ===**\n{task}\n**====================**")
 
-        # 5. 结构化输出契约（统一 JSON schema，各阶段仅字段要求不同）
-        output_block = _OUTPUT_FORMAT
+        # 5. 回应方式说明（有工具的阶段说明 tool calling，无工具阶段只要求直接发言）
+        has_tools = bool(tools_for_phase(phase))
+        output_block = _OUTPUT_FORMAT_TOOLS if has_tools else _OUTPUT_FORMAT_PLAIN
         output_hint = _PHASE_OUTPUT_HINTS.get(phase)
         if output_hint:
             output_block += f"\n{output_hint}"
@@ -219,7 +225,10 @@ class PhaseDirector:
         if gm_instructions:
             parts.append(f"【GM 特别提示】{gm_instructions}")
 
-        parts.append("请严格按照你的核心任务进行回应，只输出符合上述格式的 JSON 对象。")
+        if has_tools:
+            parts.append("请严格按照你的核心任务进行回应：公开发言直接作为正文输出，行动通过调用工具完成。")
+        else:
+            parts.append("请严格按照你的核心任务进行回应，直接输出你的发言。")
 
         return "\n\n".join(parts)
 
@@ -277,7 +286,7 @@ class PhaseDirector:
             s_lines = [f"- {loc}（{searcher}已搜查）" for loc, searcher in searched.items()]
             result += "\n\n**已搜查的地点：**\n" + "\n".join(s_lines)
 
-        result += "\n\n请明确说出你要搜查的地点，例如：「我要搜查书房」。每次只能选一个地点。"
+        result += "\n\n请调用 search_location 工具选定你要搜查的地点（发言中也可说明，如「我要搜查书房」）。每次只能选一个地点。"
         return result
 
     def _build_queryable_characters(
@@ -341,6 +350,6 @@ class PhaseDirector:
             lines = [f"- {ev['name']}：{ev.get('description', '')}" for ev in private]
             parts.append(
                 "**你私下掌握的证据（尚未公开，其他人不知道）：**\n" + "\n".join(lines)
-                + "\n你可以选择公开这些证据（填入 reveal_evidence），也可以继续隐瞒。"
+                + "\n你可以选择公开这些证据（调用 reveal_evidence 工具），也可以继续隐瞒。"
             )
         return "\n\n".join(parts)

@@ -1,40 +1,10 @@
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { ScriptsService, ScriptInfo } from '@/client';
 import AppLayout from '@/components/AppLayout';
 import { Users, Sparkles, TrendingUp, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
-// 剧本数据接口
-interface ScriptDisplay {
-  id: string;
-  title: string;
-  description: string;
-  difficulty: string;
-  players: string;
-  duration: string;
-  rating?: number;
-  playCount?: number;
-}
-
-// 将后端数据转换为显示格式
-const convertScriptInfo = (scriptInfo: ScriptInfo): ScriptDisplay => {
-  const duration = scriptInfo.duration_minutes || 0;
-  const difficulty = scriptInfo.difficulty || '未知';
-  
-  return {
-    id: scriptInfo.id?.toString() || '0',
-    title: scriptInfo.title || '未命名剧本',
-    description: scriptInfo.description || '暂无描述',
-    difficulty,
-    players: `AI 自主演绎`,
-    duration: `${Math.floor(duration / 60)}小时${duration % 60 > 0 ? `${duration % 60}分钟` : ''}`,
-    rating: Number(scriptInfo.rating) || 4.0,
-    playCount: scriptInfo.play_count || 0
-  };
-};
 
 // 英雄区域组件
 const HeroSection = () => {
@@ -154,11 +124,6 @@ const FeaturesSection = () => {
 
 export default function HomePage() {
   const router = useRouter();
-  const [scriptId, setScriptId] = useState('1');
-  const [scripts, setScripts] = useState<ScriptDisplay[]>([]);
-  const [selectedScript, setSelectedScript] = useState<ScriptDisplay | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // 检查是否已访问过首页，如果是则重定向到剧本库
   useEffect(() => {
@@ -170,48 +135,6 @@ export default function HomePage() {
     // 标记已访问过首页
     localStorage.setItem('hasVisitedHome', 'true');
   }, [router]);
-
-  // 获取剧本列表
-  const fetchScripts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await ScriptsService.getScriptsApiScriptsGet();
-      
-      if (response && response.items) {
-        const convertedScripts = response.items.map(convertScriptInfo);
-        setScripts(convertedScripts);
-        
-        // 设置默认选中的剧本
-        const defaultScript = convertedScripts.find(s => s.id === scriptId) || convertedScripts[0];
-        if (defaultScript) {
-          setSelectedScript(defaultScript);
-        }
-      } else {
-        setError('获取剧本列表失败');
-      }
-    } catch (err) {
-      console.error('获取剧本列表失败:', err);
-      setError('获取剧本列表失败，请检查网络连接');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // // 组件挂载时获取剧本列表
-  // useEffect(() => {
-  //   fetchScripts();
-  // }, []);
-
-  // // 当scriptId改变时更新selectedScript
-  // useEffect(() => {
-  //   if (scripts.length > 0) {
-  //     const script = scripts.find(s => s.id === scriptId) || scripts[0];
-  //     setSelectedScript(script);
-  //   }
-  // }, [scriptId, scripts]);
-
-  const gameUrl = `/game?script_id=${scriptId}`;
 
   return (
     <AppLayout showSidebar={false}>

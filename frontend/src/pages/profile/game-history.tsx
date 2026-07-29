@@ -12,18 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { Search, Filter, RefreshCw, Trophy, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Search, Filter, Trophy, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 const GameHistoryPage: React.FC = () => {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const [gameHistory, setGameHistory] = useState<GameHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,7 +97,7 @@ const GameHistoryPage: React.FC = () => {
     if (isAuthenticated) {
       loadGameHistory(1, true);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadGameHistory]);
 
   // 过滤游戏历史
   const filteredHistory = useMemo(() => {
@@ -204,11 +203,6 @@ const GameHistoryPage: React.FC = () => {
     return filteredHistory.length > 0 && selectedSessions.size === filteredHistory.length;
   }, [filteredHistory.length, selectedSessions.size]);
 
-  // 检查是否部分选中
-  const isIndeterminate = useMemo(() => {
-    return selectedSessions.size > 0 && selectedSessions.size < filteredHistory.length;
-  }, [selectedSessions.size, filteredHistory.length]);
-
 
 
   // 获取状态显示（兼容大小写）
@@ -235,10 +229,6 @@ const GameHistoryPage: React.FC = () => {
   const isEndedStatus = (status: string) => {
     const s = (status || '').toUpperCase();
     return ['ENDED','FINISHED'].includes(s);
-  };
-  const isCanceledStatus = (status: string) => {
-    const s = (status || '').toUpperCase();
-    return ['CANCELED','CANCELLED'].includes(s);
   };
 
   // 格式化时间

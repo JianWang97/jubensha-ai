@@ -34,7 +34,7 @@ const GamePage = () => {
   } = useGameState(scriptId);
 
   // WebSocket store for game control
-  const { nextPhase, gameState, isGameRunning, gameInitialized, startGame, fetchHistory, resetGame, sendMessage, sessionId } = useWebSocketStore() as any;
+  const { nextPhase, gameState, isGameRunning, gameInitialized, startGame, fetchHistory, sendMessage, sessionId } = useWebSocketStore() as any;
 
   // 本地进入标记：刷新后即使有运行中的游戏也先展示"继续游戏"
   const [enteredGame, setEnteredGame] = useState(false);

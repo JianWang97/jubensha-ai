@@ -9,6 +9,7 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { UserUpdate } from '@/types/auth';
 import { Camera, Edit3, Mail, Save, Smile, User, X } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -190,10 +191,12 @@ const ProfilePage: React.FC = () => {
                   <div className="flex items-center space-x-4">
                     <div className="relative w-24 h-24 mx-auto cursor-pointer group flex-shrink-0" onClick={() => fileInputRef.current?.click()}>
                       {(avatarPreview || user.avatar_url) ? (
-                        <img
+                        <Image
                           src={avatarPreview || user.avatar_url || ''}
                           alt="头像"
-                          className="w-24 h-24 rounded-full object-cover ring-2 ring-purple-500/50"
+                          fill
+                          unoptimized
+                          className="rounded-full object-cover ring-2 ring-purple-500/50"
                         />
                       ) : (
                         <div className="w-24 h-24 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center ring-2 ring-purple-500/50">

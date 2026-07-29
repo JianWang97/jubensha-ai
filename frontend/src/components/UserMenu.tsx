@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { User, LogOut, Settings, ChevronDown, ArrowRight, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,7 +31,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
       await logout();
       toast.success('已成功登出');
       router.push('/');
-    } catch (error) {
+    } catch {
       toast.error('登出失败');
     } finally {
       setIsLoggingOut(false);
@@ -123,9 +124,12 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
         >
           <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
             {user.avatar_url ? (
-              <img
+              <Image
                 src={user.avatar_url}
                 alt="头像"
+                width={32}
+                height={32}
+                unoptimized
                 className="h-8 w-8 rounded-full object-cover"
               />
             ) : (

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ScriptLocation as Location, LocationPromptRequest, ImageType } from '@/client';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ScriptLocation as Location, ImageType } from '@/client';
 import { 
   Service,
 } from '@/client';
@@ -29,16 +29,8 @@ const LocationManager: React.FC<LocationManagerProps> = ({
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLocationFormFullscreen, setIsLocationFormFullscreen] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
   // 使用 client services
-  const getLocations = async (scriptId: number) => {
-    const response = await Service.getLocationsApiLocationsScriptIdLocationsGet(scriptId);
-    return response.data;
-  };
-  
   const createLocation = async (request: Location) => {
     const response = await Service.createLocationApiLocationsScriptIdLocationsPost(Number(scriptId), request);
     return response.data;
@@ -55,12 +47,6 @@ const LocationManager: React.FC<LocationManagerProps> = ({
   };
   
 
-  
-  const generateLocationPrompt = async (request: LocationPromptRequest) => {
-    const response = await Service.generateLocationPromptApiLocationsLocationsGeneratePromptPost(request);
-    return response;
-  };
-
   const [locationForm, setLocationForm] = useState<Partial<Location>>({
     name: '',
     description: '',
@@ -70,7 +56,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
   });
   
   // 图片生成相关状态
-  const [imageGenParams, setImageGenParams] = useState({
+  const [, setImageGenParams] = useState({
     positive_prompt: '',
     negative_prompt: '',
     width: 512,
@@ -83,24 +69,21 @@ const LocationManager: React.FC<LocationManagerProps> = ({
   // 可搜索物品输入状态
   const [newSearchableItem, setNewSearchableItem] = useState('');
 
-  useEffect(() => {
-    initLocationForm();
-  }, [scriptId]);
-
-  const initLocationForm = async () => {
+  const initLocationForm = useCallback(async () => {
     if(scriptId){
       try {
-        const response = await getLocations(Number(scriptId));
+        const response = await Service.getLocationsApiLocationsScriptIdLocationsGet(Number(scriptId));
         // API返回的是ScriptResponse格式，数据在data.locations中
-        if(response && Array.isArray(response.locations)){
-          console.log('response.locations', response.locations);
-          setLocations(response.locations);
-          onCountChange?.(response.locations.length);
+        const data = response.data;
+        if(data && Array.isArray(data.locations)){
+          console.log('response.locations', data.locations);
+          setLocations(data.locations);
+          onCountChange?.(data.locations.length);
         } else {
           // 如果返回的格式不正确，设置为空数组
           setLocations([]);
           onCountChange?.(0);
-          console.warn('API返回的场景数据格式不正确:', response);
+          console.warn('API返回的场景数据格式不正确:', data);
         }
       } catch (error) {
         console.error('获取场景列表失败:', error);
@@ -110,7 +93,11 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         onCountChange?.(0);
       }
     }
-  };
+  }, [scriptId, onCountChange]);
+
+  useEffect(() => {
+    initLocationForm();
+  }, [initLocationForm]);
 
   // 添加或编辑场景
   const handleSaveLocation = async () => {
@@ -222,58 +209,6 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     }));
   };
 
-  // 生成场景提示词
-  const handleGenerateLocationPrompt = async () => {
-    if (!locationForm.name?.trim() || !locationForm.description?.trim()) {
-      toast('请先填写场景名称和描述');
-      return;
-    }
-
-    setIsGeneratingPrompt(true);
-    try {
-      const request = {
-        location_name: locationForm.name,
-        location_description: locationForm.description,
-        script_theme: '', // 可以从剧本信息中获取
-        style_preference: '', // 可以让用户选择
-        is_crime_scene: locationForm.is_crime_scene || false
-      };
-
-      console.log('发送请求:', request);
-      const result = await generateLocationPrompt(request);
-      console.log('接收到的结果:', result);
-      
-      // 更健壮的数据验证
-      if (result && typeof result === 'object') {
-        // 检查是否有直接的prompt字段
-        if (result.prompt) {
-          setImageGenParams(prev => ({ ...prev, positive_prompt: result.prompt }));
-          toast('场景提示词生成成功！');
-          return;
-        }
-        // 检查是否有data.prompt字段
-        if (result.data && result.data.prompt) {
-          setImageGenParams(prev => ({ ...prev, positive_prompt: result.data.prompt }));
-          toast('场景提示词生成成功！');
-          return;
-        }
-        // 检查是否有success字段但没有prompt
-        if (result.success === false) {
-          throw new Error(result.message || '生成失败');
-        }
-      }
-      
-      console.error('意外的响应格式:', result);
-      throw new Error('生成结果格式不正确');
-    } catch (error) {
-      console.error('场景提示词生成失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '未知错误';
-      toast(`场景提示词生成失败：${errorMessage}`);
-    } finally {
-      setIsGeneratingPrompt(false);
-    }
-  };
-
 
 
   return (
@@ -341,6 +276,8 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                 {location.background_image_url && (
                   <div className="mb-4">
                     <div className="w-full h-36 rounded-xl overflow-hidden border border-blue-500/30 bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
+                      {/* 动态后端图片URL（可能来自未纳入 remotePatterns 的主机），保留原生 img 以保证渲染稳定 */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={location.background_image_url} 
                         alt={location.name}

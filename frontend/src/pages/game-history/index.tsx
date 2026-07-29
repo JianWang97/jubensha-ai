@@ -9,7 +9,7 @@ const StatusBadge: React.FC<{status:string}> = ({ status }) => {
 
 export default function GameHistoryPage(){
   const { list, loadHistory, page, size, total, loading, setFilters, filters } = useGameHistoryStore();
-  useEffect(()=>{ loadHistory(1); }, [filters.status, filters.script_id]);
+  useEffect(()=>{ loadHistory(1); }, [filters.status, filters.script_id, loadHistory]);
   const pages = Math.ceil(total / size) || 1;
   return <div className="p-6 space-y-4">
     <h1 className="text-xl font-semibold">游戏历史</h1>

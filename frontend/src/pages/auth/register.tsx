@@ -94,7 +94,12 @@ const RegisterPage: React.FC = () => {
     if (!validateForm()) return;
 
     try {
-      const { confirmPassword, ...registerData } = formData;
+      const registerData: UserRegister = {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        nickname: formData.nickname,
+      };
       await register(registerData);
       toast.success('注册成功！请登录您的账户');
       router.push('/auth/login');
@@ -137,7 +142,7 @@ const RegisterPage: React.FC = () => {
 
             <blockquote className="max-w-xs border-l-2 border-purple-400/50 pl-4 text-left">
               <p className="text-purple-200/80 text-sm italic leading-relaxed">
-                "每一个谎言的背后，都藏着一段真实的故事。"
+                &quot;每一个谎言的背后，都藏着一段真实的故事。&quot;
               </p>
               <footer className="mt-1 text-purple-400/60 text-xs">— 剧本杀玩家格言</footer>
             </blockquote>

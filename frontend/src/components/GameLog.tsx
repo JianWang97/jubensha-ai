@@ -70,15 +70,6 @@ const GameLog = ({ gameLog = [] }: GameLogProps) => {
     return 'bg-white/10';
   };
 
-  const getCharacterIcon = (character: string) => {
-    if (character === '系统') return '🤖';
-    if (character.includes('侦探')) return '🕵️';
-    if (character.includes('医生')) return '👨‍⚕️';
-    if (character.includes('小姐') || character.includes('女士')) return '👩';
-    if (character.includes('先生')) return '👨';
-    return '👤';
-  };
-
   const formatTimestamp = (timestamp?: string) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);

@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 const ChangePasswordPage: React.FC = () => {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, changePassword } = useAuthStore();
+  const { isAuthenticated, isLoading, changePassword } = useAuthStore();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -70,8 +70,8 @@ const ChangePasswordPage: React.FC = () => {
     }
 
     try {
-      const { confirmPassword, ...passwordData } = formData;
-      await changePassword(passwordData);
+      const { old_password, new_password } = formData;
+      await changePassword({ old_password, new_password });
       toast.success('密码修改成功！');
       router.push('/profile');
     } catch (error) {

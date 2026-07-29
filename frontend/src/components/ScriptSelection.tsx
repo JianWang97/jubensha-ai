@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ScriptInfo } from '@/client';
 import { ScriptsService } from '@/client';
 
@@ -11,22 +11,14 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({ onSelectScript }) => 
   const [retryCount, setRetryCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // 使用 client services 替代 useApiClient
-  const getScripts = async () => {
-    const response = await ScriptsService.getScriptsApiScriptsGet();
-    return response.items || [];
-  };
-  
-  const clearError = () => {
-    setError(null);
-  };
 
-  const fetchScripts = async () => {
+  // 使用 client services 替代 useApiClient
+  const fetchScripts = useCallback(async () => {
     setLoading(true);
     try {
-      clearError();
-      const fetchedScripts = await getScripts();
+      setError(null);
+      const response = await ScriptsService.getScriptsApiScriptsGet();
+      const fetchedScripts = response.items || [];
       setScripts(fetchedScripts);
       setRetryCount(0);
     } catch (e) {
@@ -35,7 +27,7 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({ onSelectScript }) => 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
@@ -79,6 +71,8 @@ const ScriptSelection: React.FC<ScriptSelectionProps> = ({ onSelectScript }) => 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {scripts.map((script) => (
           <div key={script.id} className="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg border border-gray-700 hover:border-purple-500 transition-all duration-300 transform hover:-translate-y-2">
+            {/* 封面图为动态后端URL（主机可能不在 remotePatterns 内），保留原生 img */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             {script.cover_image_url && <img src={script.cover_image_url} alt={script.title} className="w-full h-48 object-cover" />}
             <div className="p-6">
               <h3 className="text-2xl font-bold mb-2 text-purple-400">{script.title}</h3>

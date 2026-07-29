@@ -25,6 +25,14 @@ interface ImageSelectorProps {
   contextInfo?: string;
 }
 
+// 每种图片类型的专用英文反向提示词
+const imageTypeNegativePrompts = {
+  [ImageType.COVER]: 'low quality, blurry, distorted, ugly, bad composition, poor lighting, watermark, text, signature, logo, copyright, cluttered background, unprofessional',
+  [ImageType.CHARACTER]: 'low quality, blurry, distorted, ugly, bad anatomy, extra limbs, missing limbs, deformed, extra fingers, missing fingers, bad hands, bad face, asymmetrical face, multiple people, two people, group, crowd, several people, many people, strange pose, weird gesture, inappropriate action, awkward pose, unnatural position, bizarre posture, odd stance, weird movement, strange behavior, inappropriate gesture, watermark, text, signature, logo, copyright',
+  [ImageType.EVIDENCE]: 'low quality, blurry, distorted, unclear details, poor focus, bad lighting, watermark, text overlay, signature, logo, copyright, artistic style, fantasy elements',
+  [ImageType.SCENE]: 'low quality, blurry, distorted, ugly, bad composition, poor perspective, unrealistic lighting, watermark, text, signature, logo, copyright, cluttered, chaotic'
+};
+
 const ImageSelector: React.FC<ImageSelectorProps> = ({
   url,
   imageType,
@@ -39,13 +47,6 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
   const [images, setImages] = useState<ImageResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  // 每种图片类型的专用英文反向提示词
-  const imageTypeNegativePrompts = {
-    [ImageType.COVER]: 'low quality, blurry, distorted, ugly, bad composition, poor lighting, watermark, text, signature, logo, copyright, cluttered background, unprofessional',
-    [ImageType.CHARACTER]: 'low quality, blurry, distorted, ugly, bad anatomy, extra limbs, missing limbs, deformed, extra fingers, missing fingers, bad hands, bad face, asymmetrical face, multiple people, two people, group, crowd, several people, many people, strange pose, weird gesture, inappropriate action, awkward pose, unnatural position, bizarre posture, odd stance, weird movement, strange behavior, inappropriate gesture, watermark, text, signature, logo, copyright',
-    [ImageType.EVIDENCE]: 'low quality, blurry, distorted, unclear details, poor focus, bad lighting, watermark, text overlay, signature, logo, copyright, artistic style, fantasy elements',
-    [ImageType.SCENE]: 'low quality, blurry, distorted, ugly, bad composition, poor perspective, unrealistic lighting, watermark, text, signature, logo, copyright, cluttered, chaotic'
-  };
   
   const [generationParams, setGenerationParams] = useState({
     positive_prompt: '',

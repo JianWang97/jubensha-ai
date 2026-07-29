@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { Clock, Calendar, BarChart3, Gamepad2, PlayCircle, Eye, X } from 'lucide-react';
+import { Calendar, BarChart3, Gamepad2, PlayCircle, Eye, X } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,15 +48,9 @@ const GameHistoryDrawer: React.FC<GameHistoryDrawerProps> = ({
   const [loading, setLoading] = useState(false);
 
   // 加载游戏详情
-  useEffect(() => {
-    if (isOpen && sessionId) {
-      loadGameDetail();
-    }
-  }, [isOpen, sessionId]);
-
-  const loadGameDetail = async () => {
+  const loadGameDetail = useCallback(async () => {
     if (!sessionId) return;
-    
+
     setLoading(true);
     try {
       const response = await fetchGameDetail(sessionId);
@@ -67,7 +61,13 @@ const GameHistoryDrawer: React.FC<GameHistoryDrawerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (isOpen && sessionId) {
+      loadGameDetail();
+    }
+  }, [isOpen, sessionId, loadGameDetail]);
 
   // 获取状态显示
   const getStatusDisplay = (status: string) => {
@@ -111,8 +111,7 @@ const GameHistoryDrawer: React.FC<GameHistoryDrawerProps> = ({
     if (action === 'continue') {
       // STARTED, PENDING, PAUSED 状态进入游戏页面
       if (['STARTED', 'PENDING', 'PAUSED'].includes(status || '')) {
--        router.push(`/game?session_id=${encodeURIComponent(sessionId)}&script_id=${detail?.session_info.script_id}`);
-+        router.push(`/game?script_id=${detail?.session_info.script_id}`);
+        router.push(`/game?script_id=${detail?.session_info.script_id}`);
       }
     } else if (action === 'replay') {
       // ENDED 状态进入回放页面
