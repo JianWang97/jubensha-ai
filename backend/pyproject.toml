@@ -24,7 +24,6 @@ dependencies = [
     "aiohttp>=3.12.13",
     "alembic>=1.16.4",
     "psycopg2-binary>=2.9.10",
-    "pytest>=8.4.1",
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.5.0",
     "email-validator>=2.2.0",
@@ -35,5 +34,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pyright>=1.1.300",
+    "pytest>=8.4.1",
 ]
 

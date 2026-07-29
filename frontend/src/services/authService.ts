@@ -1,6 +1,5 @@
 // 用户认证API服务
 import {
-  GameHistoryResponse as GameHistory,
   UserLogin as LoginData,
   PasswordChange,
   Token,
@@ -9,6 +8,7 @@ import {
   UserRegister,
   UserUpdate
 } from '@/client';
+import { GameHistory } from '@/types/auth';
 import { config } from '@/stores/configStore';
 import { StoreApi } from 'zustand';
 

@@ -27,7 +27,10 @@ const buildApiBaseUrl = () => {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  
+
+  // 产出自包含的 standalone 目录，用于精简 Docker 镜像
+  output: 'standalone',
+
   // ESLint配置 - 在构建时忽略警告（仅在必要时使用）
   eslint: {
     ignoreDuringBuilds: true, // 允许警告存在时继续构建

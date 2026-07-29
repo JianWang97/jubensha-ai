@@ -270,10 +270,38 @@ class TTSEventService:
             return []
 
 
-# 全局TTS事件服务实例
-tts_event_service = TTSEventService()
+# 模块级缓存，保证容器单例与兼容别名始终是同一实例
+_tts_event_service_instance: Optional[TTSEventService] = None
+
+
+def _get_or_create_tts_event_service() -> TTSEventService:
+    """创建或返回缓存的TTS事件服务实例（作为DI容器的注册工厂）"""
+    global _tts_event_service_instance
+    if _tts_event_service_instance is None:
+        _tts_event_service_instance = TTSEventService()
+    return _tts_event_service_instance
 
 
 def get_tts_event_service() -> TTSEventService:
-    """获取TTS事件服务实例"""
-    return tts_event_service
+    """获取TTS事件服务实例
+
+    优先从DI容器解析（需先调用 configure_services()）；
+    容器未配置时回退到本地创建，保持与旧模块级单例一致的行为。
+    """
+    global _tts_event_service_instance
+    if _tts_event_service_instance is not None:
+        return _tts_event_service_instance
+    try:
+        from ..core.dependency_container import container
+        service = container.resolve(TTSEventService)
+    except Exception:
+        service = _get_or_create_tts_event_service()
+    _tts_event_service_instance = service
+    return service
+
+
+def __getattr__(name: str):
+    # 向后兼容：保留模块级 `tts_event_service` 别名，改为惰性解析
+    if name == "tts_event_service":
+        return get_tts_event_service()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

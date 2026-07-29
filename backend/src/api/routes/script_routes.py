@@ -9,7 +9,7 @@ from ...schemas.script import Script
 from ...schemas.script_info import ScriptInfo, ScriptStatus
 from ...schemas.script_requests import GenerateScriptInfoRequest, CreateScriptRequest, GenerateScriptContentRequest
 from ...schemas.base import APIResponse, PaginatedResponse
-from src.core.auth_dependencies import get_current_active_user
+from src.core.auth_middleware import get_current_active_user_from_request
 from src.db.models.user import User
 from ...core.container_integration import get_script_repo_depends, get_script_editor_svc_depends, get_script_generation_svc_depends
 from ...services.script_generation_service import ScriptGenerationService
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 @router.post("/generate-info", response_model=APIResponse[Dict[str, str]])
 async def generate_script_info(
     request: GenerateScriptInfoRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     svc: ScriptGenerationService = get_script_generation_svc_depends(),
 ) -> APIResponse[Dict[str, str]]:
     """根据主题生成剧本基础信息"""
@@ -36,7 +36,7 @@ async def generate_script_info(
 @router.post("/generate-content", response_model=APIResponse[dict])
 async def generate_script_content(
     request: GenerateScriptContentRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     svc: ScriptGenerationService = get_script_generation_svc_depends(),
     repo: ScriptRepository = get_script_repo_depends(),
 ) -> APIResponse[dict]:
@@ -69,7 +69,7 @@ async def generate_script_content(
 @router.post("/", response_model=APIResponse[ScriptInfo])
 async def create_script(
     request: CreateScriptRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[ScriptInfo]:
     """创建新剧本"""
@@ -122,7 +122,7 @@ async def create_script(
 @router.post("/complete", response_model=APIResponse[Script])
 async def create_complete_script(
     script: Script,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[Script]:
     """创建完整剧本（包含所有关联数据）"""
@@ -144,7 +144,7 @@ async def get_scripts(
     status: Optional[ScriptStatus] = Query(None, description="剧本状态过滤"),
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页数量"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> PaginatedResponse[ScriptInfo]:
     """获取剧本列表（分页）- 仅返回当前用户的剧本"""
@@ -192,7 +192,7 @@ async def search_scripts(
 @router.get("/{script_id}", response_model=APIResponse[Script])
 async def get_script(
     script_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[Script]:
     """获取完整剧本信息"""
@@ -214,7 +214,7 @@ async def get_script(
 @router.get("/{script_id}/info", response_model=APIResponse[ScriptInfo])
 async def get_script_info(
     script_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[ScriptInfo]:
     """获取剧本基本信息"""
@@ -237,7 +237,7 @@ async def get_script_info(
 async def update_script(
     script_id: int,
     script: Script,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[Script]:
     """更新完整剧本"""
@@ -265,7 +265,7 @@ async def update_script_info(
     script_id: int,
     script_data: ScriptInfo,
     request: Request,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[ScriptInfo]:
     """更新剧本基本信息"""
@@ -308,7 +308,7 @@ async def update_script_info(
 async def update_script_status(
     script_id: int,
     status: ScriptStatus,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[str]:
     """更新剧本状态"""
@@ -334,7 +334,7 @@ async def update_script_status(
 @router.delete("/{script_id}", response_model=APIResponse[str])
 async def delete_script(
     script_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     repo: ScriptRepository = get_script_repo_depends()
 ) -> APIResponse[str]:
     """删除剧本"""

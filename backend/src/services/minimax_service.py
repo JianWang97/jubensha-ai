@@ -428,5 +428,38 @@ class MiniMaxImageGenerationService:
             await self._client.close()
             self._client = None
 
-# 全局服务实例
-minimax_image_service = MiniMaxImageGenerationService()
+# 模块级缓存，保证容器单例与兼容别名始终是同一实例
+_minimax_image_service_instance: Optional[MiniMaxImageGenerationService] = None
+
+
+def _get_or_create_minimax_image_service() -> MiniMaxImageGenerationService:
+    """创建或返回缓存的MiniMax图像生成服务实例（作为DI容器的注册工厂）"""
+    global _minimax_image_service_instance
+    if _minimax_image_service_instance is None:
+        _minimax_image_service_instance = MiniMaxImageGenerationService()
+    return _minimax_image_service_instance
+
+
+def get_minimax_image_service() -> MiniMaxImageGenerationService:
+    """获取全局MiniMax图像生成服务实例
+
+    优先从DI容器解析（需先调用 configure_services()）；
+    容器未配置时回退到本地创建，保持与旧模块级单例一致的行为。
+    """
+    global _minimax_image_service_instance
+    if _minimax_image_service_instance is not None:
+        return _minimax_image_service_instance
+    try:
+        from ..core.dependency_container import container
+        service = container.resolve(MiniMaxImageGenerationService)
+    except Exception:
+        service = _get_or_create_minimax_image_service()
+    _minimax_image_service_instance = service
+    return service
+
+
+def __getattr__(name: str):
+    # 向后兼容：保留模块级 `minimax_image_service` 别名，改为惰性解析
+    if name == "minimax_image_service":
+        return get_minimax_image_service()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

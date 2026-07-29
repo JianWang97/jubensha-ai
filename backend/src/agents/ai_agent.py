@@ -6,7 +6,7 @@ import logging
 from ..schemas.script import ScriptCharacter as Character
 from ..schemas.game_phase import GamePhaseEnum as GamePhase
 from ..services import LLMService
-from ..services.llm_service import LLMMessage
+from ..services.llm_service import LLMMessage, get_llm_service
 from ..core.config import config
 
 # 配置日志
@@ -20,10 +20,12 @@ class AIAgent:
         
         # 使用新的LLM服务抽象层
         if api_key:
-            # 兼容旧的API，临时更新配置
+            # 兼容旧的API，临时更新配置并按配置单独创建实例
             os.environ["OPENAI_API_KEY"] = api_key
-        
-        self.llm_service = LLMService.from_config(config.llm_config)
+            self.llm_service = LLMService.from_config(config.llm_config)
+        else:
+            # 默认通过DI容器解析全局共享单例；容器未配置时回退到按配置创建
+            self.llm_service = get_llm_service()
         self.memory: list[dict[str, str]] = []
         
     async def think_and_act(self, game_state: Dict, phase: GamePhase) -> str:

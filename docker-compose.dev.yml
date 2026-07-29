@@ -1,0 +1,60 @@
+name: jubensha-dev
+
+# 开发环境依赖（混合模式）：只起 db / minio，前后端在宿主机跑
+# 启动：docker compose -f docker-compose.dev.yml up -d
+# 停止：docker compose -f docker-compose.dev.yml down
+# 无 restart 策略（默认 "no"），容器不会自动重启，随需随起
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-jubensha}
+    ports:
+      # 暴露到宿主机，供本地运行的 backend（uv run python main.py）连接
+      - "5432:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      # 9000: S3 API（backend 通过 MINIO_ENDPOINT=localhost:9000 访问）
+      # 9001: Web 控制台
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data-dev:/data
+
+  # 一次性任务：确保 bucket 存在，跑完即退出
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000
+        '$${MINIO_ROOT_USER}' '$${MINIO_ROOT_PASSWORD}'; do
+        echo '等待 MinIO 就绪...'; sleep 1;
+      done;
+      mc mb --ignore-existing 'local/$${MINIO_BUCKET_NAME}';
+      echo 'bucket 就绪: $${MINIO_BUCKET_NAME}';
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-jubensha-storage}
+
+volumes:
+  pgdata-dev:
+  minio-data-dev:

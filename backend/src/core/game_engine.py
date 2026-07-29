@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import random
 import time
 from typing import Dict, List, Optional, Any, Union
 
@@ -11,6 +12,7 @@ from ..schemas.script import (
 from ..schemas.game_phase import GamePhaseEnum
 from ..schemas.base import BaseDataModel
 from ..agents import CharacterAgentManager
+from ..agents.character_agent import AgentResponse
 from ..agents.gm_agent import GMAgent, PhaseStep
 from .evidence_manager import EvidenceManager
 from .voting_manager import VotingManager
@@ -53,6 +55,9 @@ class GameEngine:
         self.voting_manager: Optional[VotingManager] = None
         self.conversation_flow_controller: Optional[ConversationFlowController] = None
 
+        # 投票阶段收集的结构化回应 {角色名 → AgentResponse}，供 process_voting 解析真实投票
+        self._vote_responses: Dict[str, AgentResponse] = {}
+
         # 游戏状态快照（供AI与前端使用）
         self.game_state: Dict[str, Any] = {
             "phase": self._current_phase.value,
@@ -61,6 +66,7 @@ class GameEngine:
             "votes": {},
             "evidence": [],
             "discovered_evidence": [],
+            "revealed_evidence": [],        # 已被角色公开的证据（所有 Agent 可见）
             "evidence_search_status": {},   # {location: searcher}
             "all_locations": [],
             "public_chat": self.public_chat,
@@ -444,9 +450,8 @@ class GameEngine:
 
         # 2. 创建 GMAgent 并生成动态游戏计划
         try:
-            from ..services.llm_service import LLMService
-            from ..core.config import config as app_config
-            gm_llm = LLMService.from_config(app_config.llm_config)
+            from ..services.llm_service import get_llm_service
+            gm_llm = get_llm_service()
             self._gm_agent = GMAgent(gm_llm)
             self.game_plan = await self._gm_agent.create_game_plan(self.script_data or {})
             self.current_step_index = 0
@@ -793,9 +798,21 @@ class GameEngine:
                 continue
             
             try:
-                # AI思考并行动
-                action = await self.agents.respond(next_speaker, self.current_phase, self.game_state)
-                
+                # AI思考并行动（结构化回应）
+                response = await self.agents.respond(next_speaker, self.current_phase, self.game_state)
+                if not isinstance(response, AgentResponse):
+                    # 防御性兼容：mock/旧实现返回纯字符串时按发言处理
+                    response = AgentResponse(say=str(response))
+                action = response.say
+
+                # 投票阶段：收集结构化回应，供 process_voting 解析真实投票
+                if self.current_phase == GamePhaseEnum.VOTING:
+                    self._vote_responses[next_speaker] = response
+
+                # 角色选择公开自己掌握的证据（任何阶段都允许）
+                if response.reveal_evidence:
+                    self._handle_evidence_reveal(next_speaker, response.reveal_evidence)
+
                 # 根据阶段确定消息类型
                 message_type = "chat"
                 if self.current_phase == GamePhaseEnum.INVESTIGATION:
@@ -804,7 +821,7 @@ class GameEngine:
                     message_type = "accusation" if "觉得" in action and "是" in action else "discussion"
                 elif self.current_phase == GamePhaseEnum.VOTING:
                     message_type = "vote"
-                
+
                 # 获取角色的完整信息
                 character_voice_id = None
                 character_info = None
@@ -821,51 +838,55 @@ class GameEngine:
                             "voice_id": character.voice_id
                         }
                         break
-                
+
                 # 使用公开聊天系统记录，传递session_id和voice_id用于TTS
                 self.add_public_chat(
-                    character=next_speaker, 
-                    message=action, 
+                    character=next_speaker,
+                    message=action,
                     message_type=message_type,
                     session_id=self.session_id,
                     voice_id=character_voice_id
                 )
-                
+
                 # 更新对话流控制器的发言频率
                 if self.conversation_flow_controller:
                     if next_speaker not in self.conversation_flow_controller.speaking_frequency:
                         self.conversation_flow_controller.speaking_frequency[next_speaker] = 0
                     self.conversation_flow_controller.speaking_frequency[next_speaker] += 1
-                
-                # 搜证阶段：处理证据发现
+
+                # 搜证阶段：处理证据发现（证据私有化，只公开搜查动作）
                 if self.current_phase == GamePhaseEnum.EVIDENCE_COLLECTION and self.evidence_manager:
+                    # 优先使用结构化 action.target，否则从发言文本中解析地点
+                    search_query = action
+                    if response.action and response.action.get("type") == "search" and response.action.get("target"):
+                        search_query = str(response.action["target"])
                     found_list, searched_location = self.evidence_manager.process_evidence_search(
-                        action, next_speaker
+                        search_query, next_speaker
                     )
                     if searched_location:
                         if found_list:
+                            # 公开渠道只广播搜查动作，不泄露证据内容
+                            self.add_public_chat(
+                                character="系统",
+                                message=f"{next_speaker}搜查了「{searched_location}」，发现了线索（内容暂未公开）。",
+                                message_type="evidence",
+                                session_id=self.session_id,
+                            )
+                            self.agents.broadcast_system_message(
+                                f"{next_speaker}搜查了「{searched_location}」。"
+                            )
+                            # 证据内容只写入发现者的私有知识
                             for item in found_list:
-                                ev_name = item['name']
-                                ev_desc = item.get('description', '')
-                                msg = (
-                                    f"{next_speaker}在「{searched_location}」发现了证据："
-                                    f"《{ev_name}》——{ev_desc}"
-                                )
-                                self.add_public_chat(
-                                    character="系统",
-                                    message=msg,
-                                    message_type="evidence",
-                                    session_id=self.session_id,
-                                )
-                                self.agents.notify_evidence_found(
-                                    next_speaker, ev_name, ev_desc
-                                )
+                                self.agents.notify_evidence_found(next_speaker, item)
                         else:
                             self.add_public_chat(
                                 character="系统",
                                 message=f"{next_speaker}搜查了「{searched_location}」，未发现新的线索。",
                                 message_type="system",
                                 session_id=self.session_id,
+                            )
+                            self.agents.broadcast_system_message(
+                                f"{next_speaker}搜查了「{searched_location}」，未发现新的线索。"
                             )
                         # 同步搜证状态到 game_state
                         self.game_state["discovered_evidence"] = self.evidence_manager.get_discovered_evidence()
@@ -966,25 +987,86 @@ class GameEngine:
         
         return False
     
-    async def process_voting(self):
-        """处理投票阶段"""
+    def _handle_evidence_reveal(self, revealer: str, requested: List[str]) -> None:
+        """处理角色通过 reveal_evidence 主动公开证据。
+
+        只允许公开该角色自己掌握的证据（known_evidence），防止凭空编造；
+        公开后追加到 game_state["revealed_evidence"] 并广播给所有角色与前端。
+        """
+        agent = self.agents.get(revealer)
+        if agent is None:
+            return
+        revealed = self.game_state.setdefault("revealed_evidence", [])
+        revealed_keys = {e.get("id", e.get("name")) for e in revealed}
+        for req in requested:
+            match = next(
+                (ev for ev in agent.memory.known_evidence
+                 if ev.get("name") == req or str(ev.get("id", "")) == str(req)),
+                None,
+            )
+            if match is None:
+                logger.warning(f"{revealer} 试图公开未掌握的证据「{req}」，已忽略")
+                continue
+            key = match.get("id", match.get("name"))
+            if key in revealed_keys:
+                continue
+            revealed.append(match)
+            revealed_keys.add(key)
+            msg = f"{revealer}公开了证据：《{match['name']}》——{match.get('description', '')}"
+            self.add_public_chat(
+                character="系统",
+                message=msg,
+                message_type="evidence",
+                session_id=self.session_id,
+            )
+            # 复用系统广播路径，让所有角色将公开证据记入工作记忆
+            self.agents.broadcast_system_message(msg)
+
+    async def process_voting(self, vote_responses: Optional[Dict[str, AgentResponse]] = None):
+        """处理投票阶段
+
+        优先使用各角色结构化回应中的 vote 字段（run_phase 投票阶段收集），
+        其次从发言文本中解析提到的候选人，最后才随机兜底。
+        """
         if self.current_phase != GamePhaseEnum.VOTING:
             return
-            
+
         if self.voting_manager is None:
             logger.error("投票管理器未初始化")
             return
-            
-        # 简单的投票逻辑，实际应该解析AI的投票内容
-        import random
+
+        responses = vote_responses if vote_responses is not None else self._vote_responses
         for agent_name in self.agents.keys():
-            # 这里应该解析AI的投票，暂时随机
-            suspects = [name for name in self.agents.keys() if name != agent_name]
-            if suspects:  # 确保有可投票的对象
-                vote = random.choice(suspects)
+            vote = self._resolve_vote(agent_name, responses.get(agent_name))
+            if vote:
                 self.voting_manager.add_vote(agent_name, vote)
-        
+
         self.game_state["votes"] = self.voting_manager.votes
+        self._vote_responses = {}
+
+    def _resolve_vote(self, voter: str, response: Optional[AgentResponse]) -> Optional[str]:
+        """解析单个角色的投票对象，兜底链：vote 字段 → 发言中提到的名字 → 随机。"""
+        candidates = [name for name in self.agents.keys() if name != voter]
+        if not candidates:
+            return None
+
+        # 1. 结构化 vote 字段（允许"张三"、"投票给张三"等写法）
+        vote_text = response.vote if response else None
+        if vote_text:
+            for candidate in candidates:
+                if candidate in vote_text or vote_text in candidate:
+                    return candidate
+
+        # 2. 发言中提到候选人名字（取最先被提到的）
+        say = response.say if response else ""
+        mentioned = [c for c in candidates if c and c in say]
+        if mentioned:
+            mentioned.sort(key=lambda c: say.index(c))
+            return mentioned[0]
+
+        # 3. 最后兜底：随机（无法解析时的保底策略）
+        logger.warning(f"{voter} 的投票无法解析，随机选择投票对象")
+        return random.choice(candidates)
     
     def get_game_result(self) -> Dict[str, Any]:
         """获取游戏结果"""

@@ -62,7 +62,7 @@ def test_script_loading():
         json.dump(test_data, f, ensure_ascii=False, indent=2)
     
     try:
-        from src.core import GameEngine
+        from src.core.game_engine import GameEngine
         # 创建游戏引擎实例
         engine = GameEngine(1)  # 需要传入script_id参数
         # 直接设置剧本数据而不是从文件加载
@@ -124,7 +124,7 @@ def test_error_handling():
     """测试错误处理"""
     print("\n=== 测试错误处理 ===")
     
-    from src.core import GameEngine
+    from src.core.game_engine import GameEngine
     
     # 测试文件不存在
     try:

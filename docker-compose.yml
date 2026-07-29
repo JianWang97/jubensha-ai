@@ -1,0 +1,64 @@
+name: jubensha
+
+# 一键部署：docker compose up -d --build
+# 配置从根目录 .env 读取（参考 .env.example），此处只覆盖容器内必需的连接信息
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-jubensha}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # 容器网络内数据库地址（覆盖 .env 中的 localhost）
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-jubensha}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # 默认使用本地目录存储，如需 MinIO 请在 .env 中配置并自行扩展 compose
+      FILE_STORAGE: ${FILE_STORAGE:-dir}
+      HOST: 0.0.0.0
+      PORT: "8010"
+    ports:
+      - "8010:8010"
+    volumes:
+      - backend_static:/app/static
+      - backend_data:/app/.data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # 浏览器直接访问后端，构建时注入；部署到服务器时改成 http://<服务器IP或域名>:8010
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8010}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8010}
+    ports:
+      - "8009:8009"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  backend_static:
+  backend_data:

@@ -7,6 +7,7 @@ import logging
 
 from ...core.websocket_server import game_server
 from ...services import TTSService
+from ...services.tts_service import get_tts_service
 from ...core.config import config
 from ...schemas.tts_schemas import TTSRequest
 from ...services.tts_event_service import get_tts_event_service
@@ -24,8 +25,8 @@ logger = logging.getLogger(__name__)
 async def get_available_voices() -> Dict[str, Any]:
     """获取可用的TTS声音列表"""
     try:
-        # 创建TTS服务实例
-        tts_service = TTSService.from_config(config.tts_config)
+        # 从DI容器解析TTS服务（单例，容器未配置时回退到按配置创建）
+        tts_service = get_tts_service()
         
         # 根据不同的TTS提供商返回不同的声音列表
         provider = config.tts_config.provider.lower()

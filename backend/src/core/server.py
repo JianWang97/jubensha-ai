@@ -10,6 +10,7 @@ from src.core.websocket_server import game_server
 from src.services.auth_service import AuthService
 from src.db.session import init_database, db_manager
 from typing import Optional
+from contextlib import asynccontextmanager
 
 # 导入剧本管理相关路由
 from src.api.routes.script_routes import router as script_management_router
@@ -33,7 +34,50 @@ from src.db.session import init_database, get_db_session
 
 load_dotenv()
 
-app = FastAPI(title="AI剧本杀游戏",docs_url="/docs",redoc_url="/redoc")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理：启动时初始化，关闭时清理"""
+    # --- startup ---
+    try:
+        # 最先配置依赖注入容器，保证容器尽早可用
+        from .dependency_container import configure_services
+        configure_services()
+        print("依赖注入容器配置完成")
+
+        # 初始化SQLAlchemy数据库
+        init_database()
+        print("SQLAlchemy数据库初始化完成")
+
+        # 如果启用了匿名访问，确保默认访客账户存在
+        from src.core.config import config
+        if config.allow_anonymous_access:
+            from src.services.auth_service import AuthService
+            db_gen = get_db_session()
+            db = next(db_gen)
+            try:
+                AuthService.get_or_create_guest_user(
+                    db, config.guest_username, config.guest_email
+                )
+                print(f"访客账户已就绪: {config.guest_username}")
+            finally:
+                db.close()
+    except Exception as e:
+        print(f"应用初始化失败: {e}")
+
+    yield
+
+    # --- shutdown ---
+    try:
+        # 关闭数据库连接池
+        from src.db.session import db_manager
+        db_manager.close()
+        print("数据库连接池已关闭")
+    except Exception as e:
+        print(f"数据库关闭失败: {e}")
+
+
+app = FastAPI(title="AI剧本杀游戏",docs_url="/docs",redoc_url="/redoc",lifespan=lifespan)
 
 # 添加全局验证错误处理器
 @app.exception_handler(RequestValidationError)
@@ -110,33 +154,28 @@ app.include_router(auth_router)
 @app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket, script_id: int = 1, token: str = None):
     """WebSocket端点 - 支持token认证，基于用户身份自动管理会话"""
-    from src.services.auth_service import AuthService
     import logging
     
     logger = logging.getLogger(__name__)
     await websocket.accept()
     
-    # 通过token获取当前用户
+    # 通过token获取当前用户（复用 AuthService 统一验证入口）
     current_user = None
     if token:
         try:
-            # 验证令牌
-            token_data = AuthService.verify_token(token)
-            
             # 获取数据库会话
             db_gen = get_db_session()
             db = next(db_gen)
-            
+
             try:
-                # 获取用户
-                if token_data.username:
-                    current_user = AuthService.get_user_by_username(db, token_data.username)
-                    
+                # 验证令牌并获取用户
+                current_user = AuthService.get_user_from_token(db, token)
+
                 if current_user and not getattr(current_user, 'is_active', False):
                     current_user = None
             finally:
                 db.close()
-                
+
         except Exception as e:
             logger.error(f"WebSocket token验证失败: {e}")
             await websocket.close(code=1008, reason="Invalid token")
@@ -157,46 +196,6 @@ async def websocket_endpoint(websocket: WebSocket, script_id: int = 1, token: st
             await game_server.handle_client_message(websocket, data)
     except WebSocketDisconnect:
         await game_server.unregister_client(websocket)
-
-@app.on_event("startup")
-async def startup_event():
-    """应用启动时的初始化"""
-    try:
-        # 初始化SQLAlchemy数据库
-        init_database()
-        print("SQLAlchemy数据库初始化完成")
-        
-        # 配置依赖注入容器
-        from .dependency_container import configure_services
-        configure_services()
-        print("依赖注入容器配置完成")
-
-        # 如果启用了匿名访问，确保默认访客账户存在
-        from src.core.config import config
-        if config.allow_anonymous_access:
-            from src.services.auth_service import AuthService
-            db_gen = get_db_session()
-            db = next(db_gen)
-            try:
-                AuthService.get_or_create_guest_user(
-                    db, config.guest_username, config.guest_email
-                )
-                print(f"访客账户已就绪: {config.guest_username}")
-            finally:
-                db.close()
-    except Exception as e:
-        print(f"应用初始化失败: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭时的清理"""
-    try:
-        # 关闭数据库连接池
-        from src.db.session import db_manager
-        db_manager.close()
-        print("数据库连接池已关闭")
-    except Exception as e:
-        print(f"数据库关闭失败: {e}")
 
 # create_response函数已迁移到各自的路由文件中
 

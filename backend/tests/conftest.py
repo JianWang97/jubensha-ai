@@ -19,23 +19,6 @@ def test_client() -> Generator:
         yield client
 
 
-@pytest.fixture(scope="module")
-def test_db():
-    """创建测试数据库"""
-    # 这里可以设置测试数据库
-    pass
-
-
-@pytest.fixture(scope="function")
-def clean_db():
-    """创建干净的测试数据库"""
-    # 每个测试函数前清理数据库
-    pass
-    yield
-    # 每个测试函数后清理数据库
-    pass
-
-
 @pytest.fixture(autouse=True)
 def mock_db_session():
     """模拟数据库会话"""
@@ -45,6 +28,11 @@ def mock_db_session():
         mock_db_manager.session_scope.return_value.__enter__.return_value = mock_session
         # 模拟initialize方法
         mock_db_manager.initialize.return_value = None
+        # 配置DI容器：生产环境在 app startup 事件里执行 configure_services()，
+        # 但测试环境数据库被 mock，startup 初始化会提前失败导致容器未注册 Session 等服务。
+        # configure_services 内部延迟导入 db_manager，此处调用会注册到上面的 mock。
+        from src.core.dependency_container import configure_services
+        configure_services()
         yield mock_session
 
 
@@ -66,6 +54,6 @@ def mock_current_user():
         email="test@example.com",
         nickname="Test User",
         is_active=True,
-        is_superuser=False
+        is_admin=False
     )
     return user

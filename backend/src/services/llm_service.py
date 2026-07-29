@@ -215,5 +215,38 @@ def _create_llm_service() -> BaseLLMService:
             model="gpt-3.5-turbo"
         )
 
-# 全局LLM服务实例
-llm_service = _create_llm_service()
+# 模块级缓存，保证容器单例与兼容别名始终是同一实例
+_llm_service_instance: Optional[BaseLLMService] = None
+
+
+def _get_or_create_llm_service() -> BaseLLMService:
+    """创建或返回缓存的LLM服务实例（作为DI容器的注册工厂）"""
+    global _llm_service_instance
+    if _llm_service_instance is None:
+        _llm_service_instance = _create_llm_service()
+    return _llm_service_instance
+
+
+def get_llm_service() -> BaseLLMService:
+    """获取全局LLM服务实例
+
+    优先从DI容器解析（需先调用 configure_services()）；
+    容器未配置时回退到本地创建，保持与旧模块级单例一致的行为。
+    """
+    global _llm_service_instance
+    if _llm_service_instance is not None:
+        return _llm_service_instance
+    try:
+        from ..core.dependency_container import container
+        service = container.resolve(LLMService)
+    except Exception:
+        service = _get_or_create_llm_service()
+    _llm_service_instance = service
+    return service
+
+
+def __getattr__(name: str):
+    # 向后兼容：保留模块级 `llm_service` 别名，改为惰性解析
+    if name == "llm_service":
+        return get_llm_service()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

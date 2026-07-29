@@ -1,4 +1,5 @@
-import { GameHistoryResponse as GameHistory, GameSessionDeleteRequest, GameSessionDeleteResponse } from '@/client';
+import { GameSessionDeleteRequest, GameSessionDeleteResponse } from '@/client';
+import { GameHistory } from '@/types/auth';
 import { Service } from '@/client/services/Service';
 import AppLayout from '@/components/AppLayout';
 import GameHistoryDrawer from '@/components/GameHistoryDrawer';

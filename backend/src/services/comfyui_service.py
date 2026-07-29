@@ -327,5 +327,38 @@ class ComfyUIService:
             generation_time=generation_time
         )
 
-# 全局服务实例
-comfyui_service = ComfyUIService()
+# 模块级缓存，保证容器单例与兼容别名始终是同一实例
+_comfyui_service_instance: Optional['ComfyUIService'] = None
+
+
+def _get_or_create_comfyui_service() -> 'ComfyUIService':
+    """创建或返回缓存的ComfyUI服务实例（作为DI容器的注册工厂）"""
+    global _comfyui_service_instance
+    if _comfyui_service_instance is None:
+        _comfyui_service_instance = ComfyUIService()
+    return _comfyui_service_instance
+
+
+def get_comfyui_service() -> 'ComfyUIService':
+    """获取全局ComfyUI服务实例
+
+    优先从DI容器解析（需先调用 configure_services()）；
+    容器未配置时回退到本地创建，保持与旧模块级单例一致的行为。
+    """
+    global _comfyui_service_instance
+    if _comfyui_service_instance is not None:
+        return _comfyui_service_instance
+    try:
+        from ..core.dependency_container import container
+        service = container.resolve(ComfyUIService)
+    except Exception:
+        service = _get_or_create_comfyui_service()
+    _comfyui_service_instance = service
+    return service
+
+
+def __getattr__(name: str):
+    # 向后兼容：保留模块级 `comfyui_service` 别名，改为惰性解析
+    if name == "comfyui_service":
+        return get_comfyui_service()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

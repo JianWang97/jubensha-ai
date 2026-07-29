@@ -40,6 +40,7 @@ class CharacterMemory:
     working_memory  —— 短期，滑动窗口，存放最近公开对话（所有人可见信息）
     personal_log    —— 私有事件日志（搜证发现、自己说了什么、推理笔记）
     suspicion_map   —— {角色名: 怀疑度 0.0-1.0}
+    known_evidence  —— 本角色私下掌握的证据（自己搜到且未公开的）
     """
 
     # 工作记忆窗口大小（条）——覆盖 DISCUSSION/INVESTIGATION 阶段的 N×5 轮对话
@@ -51,6 +52,7 @@ class CharacterMemory:
         self._working: deque[PublicSpeech] = deque(maxlen=self.WORKING_CAPACITY)
         self._personal_log: list[PersonalEvent] = []
         self.suspicion_map: dict[str, float] = {}
+        self.known_evidence: list[dict] = []
 
     # ------------------------------------------------------------------
     # 写入接口（参照 hello-agents _save_conversation_to_memory）
@@ -75,6 +77,17 @@ class CharacterMemory:
         """更新对某角色的怀疑度，值被钳制在 [0.0, 1.0]。"""
         current = self.suspicion_map.get(target, 0.3)  # 初始中性值
         self.suspicion_map[target] = max(0.0, min(1.0, current + delta))
+
+    def add_known_evidence(self, evidence: dict) -> None:
+        """记录一条本角色掌握的证据（按 id/名称去重）。
+
+        证据私有化：只有搜到证据的角色会调用此方法，
+        其他角色在该证据被公开前不会知道其内容。
+        """
+        key = evidence.get("id", evidence.get("name"))
+        if any(e.get("id", e.get("name")) == key for e in self.known_evidence):
+            return
+        self.known_evidence.append(dict(evidence))
 
     # ------------------------------------------------------------------
     # 读取接口（供 PhaseDirector 构建 user message）

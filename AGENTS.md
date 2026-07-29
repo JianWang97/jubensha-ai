@@ -28,6 +28,27 @@ npm run generate-api      # regenerate OpenAPI client from http://localhost:8010
 
 > The frontend dev server is hot-reloading. Don't restart it if a port is already occupied.
 
+### Dev dependencies (hybrid Docker mode)
+
+`docker-compose.dev.yml` runs only PostgreSQL + MinIO for local dev; backend and frontend run on the host. No restart policy — containers stay stopped until started manually.
+
+```bash
+docker compose -f docker-compose.dev.yml up -d   # start db (localhost:5432) + minio (9000/9001)
+docker compose -f docker-compose.dev.yml down    # stop (add -v to wipe data)
+```
+
+`docker-compose.yml` (root) is the production all-in-one deployment; don't use it for daily dev.
+
+### Docker (one-click deploy)
+```bash
+docker compose up -d --build   # frontend :8009, backend :8010, Postgres 16 (internal)
+docker compose down -v         # stop and wipe data volumes
+```
+
+- Root `docker-compose.yml` + `backend/Dockerfile` + `frontend/Dockerfile`. Config comes from the root `.env`; compose overrides `DB_HOST=db` and defaults `FILE_STORAGE=dir`.
+- The frontend image bakes in `NEXT_PUBLIC_API_URL` (browser → backend URL) at build time — rebuild the frontend image if it changes.
+- Data volumes: `pgdata` (Postgres), `backend_static` (/app/static), `backend_data` (/app/.data).
+
 ---
 
 ## Backend Architecture
@@ -62,7 +83,7 @@ See [DEPENDENCY_INJECTION_MIGRATION.md](backend/docs/DEPENDENCY_INJECTION_MIGRAT
 Unified JWT middleware in [`backend/src/core/auth_middleware.py`](backend/src/core/auth_middleware.py):
 - Path-regex policies: `NONE` / `OPTIONAL` / `REQUIRED` / `ADMIN`
 - Injects `request.state.current_user` and `request.state.is_authenticated`
-- Some routes still use `Depends(get_current_active_user)` from [`auth_dependencies.py`](backend/src/core/auth_dependencies.py) — both approaches coexist
+- Routes read the user via helpers from the middleware module (e.g. `Depends(get_current_active_user_from_request)`) — this is the single auth path; token verification itself lives in `AuthService` (`verify_token` / `get_user_from_token`), also reused by the WebSocket endpoint
 
 See [AUTH_MIDDLEWARE_GUIDE.md](backend/docs/AUTH_MIDDLEWARE_GUIDE.md) for usage.
 

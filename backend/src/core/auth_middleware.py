@@ -116,21 +116,16 @@ class UnifiedAuthMiddleware(BaseHTTPMiddleware):
     async def get_user_from_token(self, token: str) -> Optional[User]:
         """从令牌获取用户信息"""
         try:
-            # 验证令牌
-            token_data = AuthService.verify_token(token)
-            
             # 获取数据库会话
             db_gen = get_db_session()
             db = next(db_gen)
-            
+
             try:
-                # 获取用户
-                if token_data.username is not None:
-                    user = AuthService.get_user_by_username(db, token_data.username)
-                    return user
+                # 验证令牌并获取用户（统一入口）
+                return AuthService.get_user_from_token(db, token)
             finally:
                 db.close()
-                
+
         except Exception:
             return None
     

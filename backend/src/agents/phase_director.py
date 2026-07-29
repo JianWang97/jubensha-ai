@@ -47,13 +47,13 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 - 必须明确说出要搜查的地点名称（如"我要搜查书房"、"我检查一下花瓶"）
 - 可以简要说明搜查理由，但不要透露过多策略
 - 一次只能搜查一个地方
-- 搜到的线索将在下一阶段公开展示""",
+- 搜到的线索默认只有你自己知道，之后你可以选择公开或隐瞒""",
 
     GamePhase.INVESTIGATION: """现在是【线索公开与调查】阶段
-你的任务：基于已公开的线索，进行信息交换和初步推理。
+你的任务：基于你已掌握的线索，进行信息交换和初步推理。
 
 发言策略：
-- 如果你刚搜到线索：清晰念出线索内容，进行初步解读
+- 如果你刚搜到线索：可以选择公开线索内容并解读，也可以暂时隐瞒
 - 如果你要提问：向具体角色提出针对性问题（如"张三，你昨晚在哪里？"）
 - 如果你要回答：诚实回答他人问题（凶手可适当隐瞒）
 - 如果你要分析：结合线索进行逻辑推理，但避免过早下定论
@@ -61,6 +61,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 注意事项：
 - 问题要有针对性，能推进案件调查
 - 根据已发现的证据来提问和分析
+- 你可以选择公开你掌握的证据（填入 reveal_evidence），也可以暂时隐瞒
 - 避免重复提问相同问题""",
 
     GamePhase.DISCUSSION: """现在是【圆桌讨论】阶段 - 核心推理环节
@@ -76,6 +77,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 - 可以提出自己的推理和怀疑
 - 可以反驳或支持他人的观点，但要加上自己的理由
 - 要结合已发现的证据来论证
+- 你可以选择公开你掌握的证据（填入 reveal_evidence），也可以暂时隐瞒
 - 避免直接重复他人的话，要有自己的独特观点
 - 保持逻辑清晰，做到有理有据""",
 
@@ -112,6 +114,39 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 
 
 # ---------------------------------------------------------------------------
+# 结构化输出契约（所有阶段统一，解析端见 character_agent.parse_agent_response）
+# ---------------------------------------------------------------------------
+
+_OUTPUT_FORMAT = """**=== 输出格式（严格遵守）===**
+你必须只输出一个 JSON 对象，不要输出任何其他文字、解释或 markdown 代码围栏：
+{
+  "say": "你的公开发言内容（必填，角色口吻）",
+  "action": {"type": "search|question|none", "target": "地点名或角色名，无则为 null"},
+  "reveal_evidence": ["你选择公开的证据名称列表，可空数组"],
+  "vote": "投票对象角色名，仅投票阶段填写，否则为 null",
+  "emotion": "当前情绪一词，如 平静/紧张/愤怒/慌乱"
+}
+**=========================**"""
+
+# 各阶段对输出字段的补充要求（追加在输出契约之后）
+_PHASE_OUTPUT_HINTS: dict[GamePhase, str] = {
+    GamePhase.EVIDENCE_COLLECTION: (
+        "本阶段要搜证时，必须把 action.type 设为 \"search\"，action.target 填要搜查的地点名。"
+    ),
+    GamePhase.INVESTIGATION: (
+        "本阶段如需提问，可把 action.type 设为 \"question\"，action.target 填被提问的角色名；"
+        "要公开证据时在 reveal_evidence 中填入证据名称。"
+    ),
+    GamePhase.DISCUSSION: (
+        "要公开证据时在 reveal_evidence 中填入证据名称，暂不公开则保持空数组。"
+    ),
+    GamePhase.VOTING: (
+        "本阶段必须在 vote 字段填写你的投票对象角色名，并在 say 中说明理由。"
+    ),
+}
+
+
+# ---------------------------------------------------------------------------
 # PhaseDirector
 # ---------------------------------------------------------------------------
 
@@ -134,8 +169,9 @@ class PhaseDirector:
         结构（参照 hello-agents enhanced_message）：
           [记忆上下文]
           [阶段专属内容（可搜证地点 / 投票候选人等）]
-          [已发现的证据]
+          [本角色可见的证据（已公开的 + 自己私藏的）]
           [当前阶段核心任务指令]
+          [结构化输出契约]
           [GM 特殊指令（可选）]
         """
         parts: list[str] = []
@@ -151,8 +187,8 @@ class PhaseDirector:
         if phase_extra:
             parts.append(phase_extra)
 
-        # 3. 已发现的证据
-        evidence_ctx = self._build_evidence_context(game_state)
+        # 3. 证据上下文：只包含本角色可见的证据（公开 + 私藏），不再全量广播
+        evidence_ctx = self._build_evidence_context(memory, game_state)
         if evidence_ctx:
             parts.append(evidence_ctx)
 
@@ -167,16 +203,23 @@ class PhaseDirector:
             )
         # 凶手在投票前不要暴露
         elif identity.is_murderer and phase in (GamePhase.INVESTIGATION, GamePhase.DISCUSSION, GamePhase.VOTING):
-            task += "\n\n【凶手提示】继续隐藏你的身份，自然地将怀疑引向他人。"
+            task += "\n\n【凶手提示】继续隐藏你的身份，自然地将怀疑引向他人；你可以隐瞒或选择性公开自己掌握的证据，在 say 中也可以说谎。"
 
         parts.append(f"【当前阶段：{phase.value}】\n\n**=== 你的核心任务 ===**\n{task}\n**====================**")
 
-        # 5. GM 特殊指令（来自 PhaseStep.gm_instructions）
+        # 5. 结构化输出契约（统一 JSON schema，各阶段仅字段要求不同）
+        output_block = _OUTPUT_FORMAT
+        output_hint = _PHASE_OUTPUT_HINTS.get(phase)
+        if output_hint:
+            output_block += f"\n{output_hint}"
+        parts.append(output_block)
+
+        # 6. GM 特殊指令（来自 PhaseStep.gm_instructions）
         gm_instructions = game_state.get("gm_instructions", "").strip()
         if gm_instructions:
             parts.append(f"【GM 特别提示】{gm_instructions}")
 
-        parts.append("请严格按照你的核心任务进行回应，只说角色会说的话。")
+        parts.append("请严格按照你的核心任务进行回应，只输出符合上述格式的 JSON 对象。")
 
         return "\n\n".join(parts)
 
@@ -272,9 +315,32 @@ class PhaseDirector:
         return result
 
     @staticmethod
-    def _build_evidence_context(game_state: dict[str, Any]) -> str:
-        discovered = game_state.get("discovered_evidence", [])
-        if not discovered:
+    def _build_evidence_context(memory: "CharacterMemory", game_state: dict[str, Any]) -> str:
+        """构建本角色可见的证据上下文。
+
+        证据私有化：
+          - revealed_evidence —— 已被任意角色公开的证据（所有人都知道）
+          - memory.known_evidence —— 本角色自己搜到、尚未公开的私藏证据
+        未公开且非本角色搜到的证据不会出现在 prompt 中。
+        """
+        revealed = game_state.get("revealed_evidence", [])
+        # 已公开的证据从私藏列表中剔除，避免提示词仍声称其"尚未公开"
+        revealed_keys = {ev.get("id", ev.get("name")) for ev in revealed}
+        private = [
+            ev for ev in getattr(memory, "known_evidence", [])
+            if ev.get("id", ev.get("name")) not in revealed_keys
+        ]
+        if not revealed and not private:
             return ""
-        lines = [f"- {ev['name']}：{ev['description']}" for ev in discovered]
-        return "**已发现的全部证据：**\n" + "\n".join(lines)
+
+        parts: list[str] = []
+        if revealed:
+            lines = [f"- {ev['name']}：{ev.get('description', '')}" for ev in revealed]
+            parts.append("**已公开的证据（所有人都知道）：**\n" + "\n".join(lines))
+        if private:
+            lines = [f"- {ev['name']}：{ev.get('description', '')}" for ev in private]
+            parts.append(
+                "**你私下掌握的证据（尚未公开，其他人不知道）：**\n" + "\n".join(lines)
+                + "\n你可以选择公开这些证据（填入 reveal_evidence），也可以继续隐瞒。"
+            )
+        return "\n\n".join(parts)

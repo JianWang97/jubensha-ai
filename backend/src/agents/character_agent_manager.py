@@ -14,9 +14,8 @@ from typing import Any
 
 from ..schemas.script_character import ScriptCharacter
 from ..schemas.game_phase import GamePhaseEnum as GamePhase
-from ..services.llm_service import LLMService
-from ..core.config import config
-from .character_agent import CharacterAgent
+from ..services.llm_service import get_llm_service
+from .character_agent import AgentResponse, CharacterAgent
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,8 @@ class CharacterAgentManager:
     def __init__(self) -> None:
         self._agents: dict[str, CharacterAgent] = {}
         # 所有角色共享同一个 LLMService 实例（避免每个 Agent 持有独立连接池）
-        self._shared_llm = LLMService.from_config(config.llm_config)
+        # 通过DI容器解析全局单例；容器未配置时回退到按配置创建
+        self._shared_llm = get_llm_service()
 
     # ------------------------------------------------------------------
     # 初始化
@@ -59,22 +59,23 @@ class CharacterAgentManager:
 
     async def respond(
         self, name: str, phase: GamePhase, game_state: dict[str, Any]
-    ) -> str:
-        """让指定角色根据阶段和游戏状态发言，并将发言广播给其他角色。
+    ) -> AgentResponse:
+        """让指定角色根据阶段和游戏状态发言，并将公开发言广播给其他角色。
 
         参照 hello-agents NPCAgentManager.chat() 的广播机制。
+        返回结构化 AgentResponse；只有 say 会广播，vote/emotion 等内部字段不外泄。
         """
         agent = self._agents.get(name)
         if agent is None:
             logger.error(f"[CharacterAgentManager] 未找到角色: {name}")
-            return f"{name} 暂时无法发言。"
+            return AgentResponse(say=f"{name} 暂时无法发言。")
 
-        reply = await agent.respond(phase, game_state)
+        response = await agent.respond(phase, game_state)
 
-        # 广播给其他角色，更新其工作记忆
-        self.broadcast_speech(speaker=name, content=reply)
+        # 只广播公开发言给其他角色，更新其工作记忆
+        self.broadcast_speech(speaker=name, content=response.say)
 
-        return reply
+        return response
 
     def broadcast_speech(self, speaker: str, content: str) -> None:
         """将一条发言广播给除发言者以外的所有角色。
@@ -90,19 +91,15 @@ class CharacterAgentManager:
         for agent in self._agents.values():
             agent.memory.observe_public_speech("系统", content)
 
-    def notify_evidence_found(
-        self, finder: str, evidence_name: str, description: str
-    ) -> None:
-        """通知搜证结果：发现者记录到私有日志，其他角色记录到工作记忆。"""
+    def notify_evidence_found(self, finder: str, evidence: dict) -> None:
+        """搜证结果私有化：仅发现者记录到私有知识，其他角色不被告知证据内容。
+
+        公开渠道（前端/其他角色的工作记忆）只会有"XX搜查了某地"的动作信息，
+        由 GameEngine 通过 add_public_chat / broadcast_system_message 另行广播。
+        """
         finder_agent = self._agents.get(finder)
         if finder_agent:
-            finder_agent.record_evidence_found(evidence_name, description)
-
-        # 其他角色从系统广播获知
-        system_msg = f"{finder}发现了证据「{evidence_name}」：{description}"
-        for name, agent in self._agents.items():
-            if name != finder:
-                agent.memory.observe_public_speech("系统", system_msg)
+            finder_agent.record_evidence_found(evidence)
 
     # ------------------------------------------------------------------
     # 兼容性接口（保持 GameEngine 现有调用方式）

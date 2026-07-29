@@ -378,8 +378,10 @@ def configure_services() -> DependencyContainer:
     from ..db.repositories.game_session_repository import GameSessionRepository, GameEventRepository
     from ..services.game_history_service import GameHistoryService, GameResumeService
     from ..services.script_editor_service import ScriptEditorService
-    from ..services.llm_service import LLMService, llm_service
-    
+    from ..services.llm_service import (
+        LLMService, BaseLLMService, _get_or_create_llm_service,
+    )
+
     # 注册Repository（作用域）
     container.register_scoped(ScriptRepository)
     container.register_scoped(CharacterRepository)
@@ -392,14 +394,42 @@ def configure_services() -> DependencyContainer:
     container.register_scoped(GameEventRepository)
     container.register_scoped(GameHistoryService)
     container.register_scoped(GameResumeService)
-    
+
     # 注册服务（作用域）
     container.register_scoped(ScriptEditorService)
 
     from ..services.script_generation_service import ScriptGenerationService
     container.register_scoped(ScriptGenerationService)
 
-    # 注册LLM服务（单例）
-    container.register_instance(LLMService, llm_service)
-    
+    # 注册LLM服务（单例，工厂内部带模块级缓存，保证与兼容别名是同一实例）
+    container.register_singleton(LLMService, factory=_get_or_create_llm_service)
+    container.register_singleton(BaseLLMService, factory=_get_or_create_llm_service)
+
+    # 注册外部服务（单例，工厂注册保持各自构造逻辑/配置来源不变，
+    # 且与各自模块保留的兼容别名共享同一实例）
+    from ..services.comfyui_service import ComfyUIService, _get_or_create_comfyui_service
+    container.register_singleton(ComfyUIService, factory=_get_or_create_comfyui_service)
+
+    from ..services.image_generation_service import (
+        ImageGenerationService, _get_or_create_image_generation_service,
+    )
+    container.register_singleton(ImageGenerationService, factory=_get_or_create_image_generation_service)
+
+    from ..services.minimax_service import (
+        MiniMaxImageGenerationService, _get_or_create_minimax_image_service,
+    )
+    container.register_singleton(MiniMaxImageGenerationService, factory=_get_or_create_minimax_image_service)
+
+    from ..core.storage import StorageManager, _get_or_create_storage_manager
+    container.register_singleton(StorageManager, factory=_get_or_create_storage_manager)
+
+    from ..services.tts_event_service import TTSEventService, _get_or_create_tts_event_service
+    container.register_singleton(TTSEventService, factory=_get_or_create_tts_event_service)
+
+    # TTS合成服务无请求级状态（TTSEventService 本来就跨请求缓存同一实例），注册为单例
+    from ..services.base_tts import BaseTTSService
+    from ..services.tts_service import TTSService, _get_or_create_tts_service
+    container.register_singleton(TTSService, factory=_get_or_create_tts_service)
+    container.register_singleton(BaseTTSService, factory=_get_or_create_tts_service)
+
     return container

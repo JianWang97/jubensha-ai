@@ -69,6 +69,36 @@ jubensha/
 
 ## 🚀 快速开始
 
+### 方式一：Docker 一键部署（推荐）
+
+只需安装 Docker，无需本地配置 Python/Node/PostgreSQL 环境：
+
+1. **配置环境变量**
+
+   ```bash
+   cp .env.example .env
+   # 编辑 .env，至少填入 OPENAI_API_KEY 等 AI 服务密钥
+   ```
+
+2. **构建并启动**
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. **访问**
+
+   - 前端界面：http://localhost:8009
+   - 后端接口：http://localhost:8010/docs
+
+说明：
+- 首次启动会自动创建数据库表，无需手动迁移
+- 文件存储默认使用本地目录模式（`FILE_STORAGE=dir`），数据保存在 Docker volume 中
+- 部署到远程服务器时，把 `.env` 中的 `NEXT_PUBLIC_API_URL` 改为 `http://<服务器IP或域名>:8010` 后重新构建前端镜像
+- 停止服务：`docker compose down`；连数据一起清除：`docker compose down -v`
+
+### 方式二：本地开发
+
 ### 环境准备
 
 #### 后端服务
