@@ -86,42 +86,38 @@ const ChangePasswordPage: React.FC = () => {
   return (
     <ProtectedRoute>
       <AppLayout>
-        <div className="max-w-md mx-auto">
-          {/* 返回按钮 */}
-          <div className="mb-6">
-          </div>
-
+        <div className="max-w-md mx-auto px-4 sm:px-6 py-8 md:py-12">
           {/* 页面标题 */}
           <div className="text-center mb-8">
-            <div className="mx-auto h-12 w-12 bg-gradient-to-r from-orange-600 to-red-600 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto h-12 w-12 bg-gradient-to-br from-[#311b92] to-[#4a148c] rounded-full flex items-center justify-center mb-4">
               <Shield className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">
+            <h1 className="text-2xl font-bold text-white mb-2">
               修改密码
             </h1>
-            <p className="text-gray-300">
+            <p className="text-slate-400 text-sm">
               为了您的账户安全，请定期更换密码
             </p>
           </div>
 
-          <Card className="bg-white/10 backdrop-blur-md border-white/20">
+          <Card className="bg-slate-900/50 backdrop-blur-md border border-slate-700/30 rounded-lg">
             <CardHeader>
               <CardTitle className="text-white text-center">
                 密码修改
               </CardTitle>
-              <CardDescription className="text-gray-300 text-center">
+              <CardDescription className="text-slate-400 text-center">
                 请输入当前密码和新密码
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 {/* 当前密码 */}
-                <div className="space-y-2">
-                  <Label htmlFor="old_password" className="text-white">
+                <div className="space-y-1.5">
+                  <Label htmlFor="old_password" className="text-slate-300">
                     当前密码 *
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                       id="old_password"
                       name="old_password"
@@ -129,13 +125,13 @@ const ChangePasswordPage: React.FC = () => {
                       value={formData.old_password}
                       onChange={handleInputChange}
                       placeholder="请输入当前密码"
-                      className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-orange-500"
+                      className="pl-10 pr-10 bg-slate-800/50 border border-slate-700/50 text-white placeholder:text-slate-400 focus:border-purple-500 focus:ring-purple-500/20"
                       disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                       disabled={isLoading}
                     >
                       {showCurrentPassword ? (
@@ -148,12 +144,12 @@ const ChangePasswordPage: React.FC = () => {
                 </div>
 
                 {/* 新密码 */}
-                <div className="space-y-2">
-                  <Label htmlFor="new_password" className="text-white">
+                <div className="space-y-1.5">
+                  <Label htmlFor="new_password" className="text-slate-300">
                     新密码 *
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                       id="new_password"
                       name="new_password"
@@ -161,13 +157,13 @@ const ChangePasswordPage: React.FC = () => {
                       value={formData.new_password}
                       onChange={handleInputChange}
                       placeholder="请输入新密码（至少6个字符）"
-                      className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-orange-500"
+                      className="pl-10 pr-10 bg-slate-800/50 border border-slate-700/50 text-white placeholder:text-slate-400 focus:border-purple-500 focus:ring-purple-500/20"
                       disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                       disabled={isLoading}
                     >
                       {showNewPassword ? (
@@ -180,12 +176,12 @@ const ChangePasswordPage: React.FC = () => {
                 </div>
 
                 {/* 确认新密码 */}
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-white">
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmPassword" className="text-slate-300">
                     确认新密码 *
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
                       id="confirmPassword"
                       name="confirmPassword"
@@ -193,13 +189,13 @@ const ChangePasswordPage: React.FC = () => {
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
                       placeholder="请再次输入新密码"
-                      className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-orange-500"
+                      className="pl-10 pr-10 bg-slate-800/50 border border-slate-700/50 text-white placeholder:text-slate-400 focus:border-purple-500 focus:ring-purple-500/20"
                       disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                       disabled={isLoading}
                     >
                       {showConfirmPassword ? (
@@ -212,9 +208,9 @@ const ChangePasswordPage: React.FC = () => {
                 </div>
 
                 {/* 密码安全提示 */}
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
-                  <h4 className="text-blue-400 text-sm font-medium mb-2">密码安全建议：</h4>
-                  <ul className="text-blue-300 text-xs space-y-1">
+                <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-md p-3">
+                  <h4 className="text-indigo-400 text-sm font-medium mb-2">密码安全建议：</h4>
+                  <ul className="text-indigo-300 text-xs space-y-1">
                     <li>• 至少包含6个字符</li>
                     <li>• 建议包含大小写字母、数字和特殊字符</li>
                     <li>• 不要使用常见的密码或个人信息</li>
@@ -222,19 +218,19 @@ const ChangePasswordPage: React.FC = () => {
                   </ul>
                 </div>
 
-                <div className="flex space-x-3 pt-4">
+                <div className="flex gap-3 pt-2">
                   <Button
                     type="button"
                     onClick={() => router.push('/profile')}
                     variant="outline"
-                    className="flex-1 border-white/20 text-white hover:bg-white/10"
+                    className="flex-1 border-slate-600/50 text-slate-300 hover:bg-slate-800/50 hover:text-white"
                     disabled={isLoading}
                   >
                     取消
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white"
+                    className="flex-1 bg-gradient-to-r from-[#311b92] to-[#4a148c] hover:from-[#4527a0] hover:to-[#6a1b9a] text-white"
                     disabled={isLoading}
                   >
                     {isLoading ? (

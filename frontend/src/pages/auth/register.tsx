@@ -150,7 +150,7 @@ const RegisterPage: React.FC = () => {
         </div>
 
         {/* 右侧表单面板 */}
-        <div className="flex-1 flex items-center justify-center bg-gray-950 px-6 py-12">
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-950 to-[#1a237e]/20 px-6 py-12">
           <div className="w-full max-w-md space-y-8">
             {/* 移动端 Logo */}
             <div className="flex md:hidden items-center gap-2 justify-center">
@@ -161,18 +161,18 @@ const RegisterPage: React.FC = () => {
             {/* 标题 */}
             <div>
               <h2 className="text-3xl font-bold text-white">创建账户</h2>
-              <p className="mt-1 text-gray-400 text-sm">填写以下信息，开始剧本杀之旅</p>
+              <p className="mt-1.5 text-slate-400 text-sm">填写以下信息，开始剧本杀之旅</p>
             </div>
 
             {/* 表单 */}
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* 用户名 */}
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-gray-300 text-sm">
+                <Label htmlFor="username" className="text-slate-300 text-sm">
                   用户名 <span className="text-red-400">*</span>
                 </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     id="username"
                     name="username"
@@ -182,8 +182,8 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入用户名（至少 3 个字符）"
                     className={cn(
-                      'pl-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-600 focus:border-purple-500 focus:ring-purple-500/20',
-                      fieldErrors.username && 'border-red-500 focus:border-red-500'
+                      'pl-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
+                      fieldErrors.username && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
                     )}
                     disabled={isLoading}
                   />
@@ -195,11 +195,11 @@ const RegisterPage: React.FC = () => {
 
               {/* 邮箱 */}
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-gray-300 text-sm">
-                  邮箱地址 <span className="text-gray-500 text-xs font-normal">（可选）</span>
+                <Label htmlFor="email" className="text-slate-300 text-sm">
+                  邮箱地址 <span className="text-slate-500 text-xs font-normal">（可选）</span>
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     id="email"
                     name="email"
@@ -209,8 +209,8 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入邮箱地址"
                     className={cn(
-                      'pl-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-600 focus:border-purple-500 focus:ring-purple-500/20',
-                      fieldErrors.email && 'border-red-500 focus:border-red-500'
+                      'pl-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
+                      fieldErrors.email && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
                     )}
                     disabled={isLoading}
                   />
@@ -222,11 +222,11 @@ const RegisterPage: React.FC = () => {
 
               {/* 昵称 */}
               <div className="space-y-1.5">
-                <Label htmlFor="nickname" className="text-gray-300 text-sm">
-                  昵称 <span className="text-gray-500 text-xs font-normal">（可选）</span>
+                <Label htmlFor="nickname" className="text-slate-300 text-sm">
+                  昵称 <span className="text-slate-500 text-xs font-normal">（可选）</span>
                 </Label>
                 <div className="relative">
-                  <Smile className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Smile className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     id="nickname"
                     name="nickname"
@@ -234,7 +234,7 @@ const RegisterPage: React.FC = () => {
                     value={formData.nickname}
                     onChange={handleInputChange}
                     placeholder="请输入昵称"
-                    className="pl-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-600 focus:border-purple-500 focus:ring-purple-500/20"
+                    className="pl-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20"
                     disabled={isLoading}
                   />
                 </div>
@@ -242,11 +242,11 @@ const RegisterPage: React.FC = () => {
 
               {/* 密码 */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-gray-300 text-sm">
+                <Label htmlFor="password" className="text-slate-300 text-sm">
                   密码 <span className="text-red-400">*</span>
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     id="password"
                     name="password"
@@ -256,15 +256,15 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入密码（至少 6 个字符）"
                     className={cn(
-                      'pl-10 pr-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-600 focus:border-purple-500 focus:ring-purple-500/20',
-                      fieldErrors.password && 'border-red-500 focus:border-red-500'
+                      'pl-10 pr-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
+                      fieldErrors.password && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
                     )}
                     disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                     disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -277,11 +277,11 @@ const RegisterPage: React.FC = () => {
 
               {/* 确认密码 */}
               <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword" className="text-gray-300 text-sm">
+                <Label htmlFor="confirmPassword" className="text-slate-300 text-sm">
                   确认密码 <span className="text-red-400">*</span>
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
@@ -291,15 +291,15 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请再次输入密码"
                     className={cn(
-                      'pl-10 pr-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-600 focus:border-purple-500 focus:ring-purple-500/20',
-                      fieldErrors.confirmPassword && 'border-red-500 focus:border-red-500'
+                      'pl-10 pr-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
+                      fieldErrors.confirmPassword && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
                     )}
                     disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                     disabled={isLoading}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -320,7 +320,7 @@ const RegisterPage: React.FC = () => {
               {/* 注册按钮 */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-[#311b92] to-[#4a148c] hover:from-[#4527a0] hover:to-[#6a1b9a] text-white font-medium rounded-md transition-all duration-200"
+                className="w-full bg-gradient-to-r from-[#311b92] to-[#4a148c] hover:from-[#4527a0] hover:to-[#6a1b9a] text-white font-semibold rounded-md shadow-lg shadow-purple-900/30 transition-all duration-200"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -337,7 +337,7 @@ const RegisterPage: React.FC = () => {
               </Button>
 
               {/* 登录链接 */}
-              <p className="text-center text-gray-500 text-sm">
+              <p className="text-center text-slate-500 text-sm">
                 已有账户？{' '}
                 <Link
                   href="/auth/login"

@@ -221,23 +221,23 @@ const GamePage = () => {
           {/* 开始或继续覆盖层：未进入游戏视图时显示 */}
           {!enteredGame && !isGameRunning && (
             <div className="fixed inset-0 flex items-center justify-center z-20">
-              <div className="bg-black/60 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+              <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl p-10 border border-slate-700/50 shadow-2xl">
                 <div className="text-center">
                   <div className="text-6xl mb-6">🎭</div>
                   <h2 className="text-3xl font-bold text-white mb-4">
                     {selectedScript?.info.title || '剧本杀'}
                   </h2>
-                  <p className="text-gray-300 mb-4 max-w-md">
+                  <p className="text-slate-300 mb-4 max-w-md">
                     所有角色已就位，准备开始这场精彩的推理之旅
                   </p>
                   {!audioInitialized && (
-                    <p className="text-yellow-300 mb-6 text-sm">
+                    <p className="text-amber-300/90 mb-6 text-sm">
                       💡 提示：点击右上角启用音频以获得更好的游戏体验
                     </p>
                   )}
                   <button
                     onClick={handleStartOrContinueGameWithTTS}
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-2xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     🚀 {gameInitialized ? '继续游戏' : '开始游戏'}
                   </button>
@@ -247,14 +247,14 @@ const GamePage = () => {
           )}
           {!enteredGame && isGameRunning && (
             <div className="fixed inset-0 flex items-center justify-center z-20">
-              <div className="bg-black/60 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+              <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl p-10 border border-slate-700/50 shadow-2xl">
                 <div className="text-center">
                   <div className="text-6xl mb-6">🎮</div>
                   <h2 className="text-3xl font-bold text-white mb-4">继续游戏</h2>
-                  <p className="text-gray-300 mb-4 max-w-md">检测到有正在进行的剧本，点击继续加入当前进度</p>
+                  <p className="text-slate-300 mb-6 max-w-md">检测到有正在进行的剧本，点击继续加入当前进度</p>
                   <button
                     onClick={handleStartOrContinueGameWithTTS}
-                    className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-2xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >➡️ 继续游戏</button>
                 </div>
               </div>
@@ -399,19 +399,19 @@ const GamePage = () => {
               </div>
 
               {/* 底部 ActionBar */}
-              <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-gray-900/90 backdrop-blur-sm border-t border-gray-700/50 flex items-center px-4 gap-3">
+              <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-slate-900/90 backdrop-blur-sm border-t border-slate-700/50 flex items-center px-4 gap-3">
                 <button
                   onClick={handleNextPhase}
-                  className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors whitespace-nowrap"
                 >
                   下一阶段
                 </button>
-                <div className="flex-1 text-center text-sm text-gray-300 truncate">
+                <div className="flex-1 text-center text-sm text-slate-300 truncate">
                   {currentPhaseName || gameState?.phase || '游戏进行中'}
                 </div>
                 <button
                   onClick={() => setDrawerOpen(o => !o)}
-                  className="bg-slate-700/80 hover:bg-slate-600/80 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                  className="bg-slate-700/80 hover:bg-slate-600/80 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors whitespace-nowrap"
                 >
                   控制面板
                 </button>
@@ -425,24 +425,24 @@ const GamePage = () => {
 
       {/* 后台模式确认弹框 */}
       {showBackgroundModeDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">退出游戏</h3>
-            <p className="text-gray-600 mb-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-700/50 rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-4">退出游戏</h3>
+            <p className="text-slate-400 mb-6">
               是否需要启用后台模式？启用后台模式可以让游戏在后台继续运行。
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleDirectExit}
                 disabled={isWaitingBackgroundResponse}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                className="px-4 py-2 text-slate-200 bg-slate-700/80 border border-slate-600/50 rounded-md hover:bg-slate-600/80 disabled:opacity-50 transition-colors"
               >
                 直接退出
               </button>
               <button
                 onClick={handleEnableBackgroundMode}
                 disabled={isWaitingBackgroundResponse}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-md disabled:opacity-50 flex items-center gap-2 transition-colors"
               >
                 {isWaitingBackgroundResponse && (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

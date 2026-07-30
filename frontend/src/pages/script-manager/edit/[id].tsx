@@ -4,12 +4,8 @@ import {
   ScriptsService,
   ScriptStatus
 } from '@/client';
-import CharacterManager from '@/components/CharacterManager';
-import ChatEditor from '@/components/ChatEditor';
-import EvidenceManager from '@/components/EvidenceManager';
-import ImageSelector from '@/components/ImageSelector';
 import Layout from '@/components/Layout';
-import LocationManager from '@/components/LocationManager';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react';
 
@@ -32,6 +28,7 @@ import {
   Drama,
   FileText,
   Globe,
+  Loader2,
   MapPin,
   Newspaper,
   PenTool,
@@ -46,6 +43,36 @@ import {
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+// 动态导入组件的加载占位（深色主题）
+const ComponentLoading = () => (
+  <div className="flex items-center justify-center gap-2 py-12 text-slate-400">
+    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+    <span className="text-sm">加载中...</span>
+  </div>
+);
+
+// 重型管理组件按需加载（纯客户端渲染，无需 SSR）
+const ChatEditor = dynamic(() => import('@/components/ChatEditor'), {
+  ssr: false,
+  loading: ComponentLoading,
+});
+const CharacterManager = dynamic(() => import('@/components/CharacterManager'), {
+  ssr: false,
+  loading: ComponentLoading,
+});
+const EvidenceManager = dynamic(() => import('@/components/EvidenceManager'), {
+  ssr: false,
+  loading: ComponentLoading,
+});
+const LocationManager = dynamic(() => import('@/components/LocationManager'), {
+  ssr: false,
+  loading: ComponentLoading,
+});
+const ImageSelector = dynamic(() => import('@/components/ImageSelector'), {
+  ssr: false,
+  loading: ComponentLoading,
+});
 
 // Tab类型定义
 type TabType = 'basic' | 'evidence' | 'characters' | 'locations' | 'background';
@@ -349,7 +376,7 @@ const ScriptEditPage = () => {
                     <SelectTrigger className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-rose-400/60 focus:ring-2 focus:ring-rose-400/20 text-slate-100 rounded-xl transition-all duration-300 hover:bg-white/8">
                       <SelectValue placeholder="请选择发布状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-slate-800/95 backdrop-blur-xl border-white/20">
                       <SelectItem value="DRAFT"><FileText className="w-4 h-4 inline mr-1" /> 草稿</SelectItem>
                       <SelectItem value="PUBLISHED"><BarChart3 className="w-4 h-4 inline mr-1" /> 已发布</SelectItem>
                       <SelectItem value="ARCHIVED"><Clipboard className="w-4 h-4 inline mr-1" /> 已归档</SelectItem>
@@ -619,9 +646,9 @@ const ScriptEditPage = () => {
   const pageContent = () => {
     if (loading) {
       return (
-        <Card className="bg-gradient-to-br from-slate-800/90 via-purple-900/90 to-slate-800/90 backdrop-blur-md border-purple-500/30">
+        <Card className="bg-slate-900/50 backdrop-blur-md border-slate-700/30">
           <CardContent className="p-8 text-center">
-            <div className="text-purple-200 text-lg flex items-center gap-2"><Drama className="w-5 h-5" /> 加载剧本数据中...</div>
+            <div className="text-slate-300 text-lg flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin text-blue-400" /> 加载剧本数据中...</div>
           </CardContent>
         </Card>
       );
@@ -629,9 +656,9 @@ const ScriptEditPage = () => {
 
     if (error) {
       return (
-        <Card className="bg-gradient-to-br from-slate-800/90 via-red-900/90 to-slate-800/90 backdrop-blur-md border-red-500/30">
+        <Card className="bg-slate-900/50 backdrop-blur-md border-red-500/30">
           <CardContent className="p-8 text-center">
-            <div className="text-red-300 text-lg mb-4 flex items-center gap-2"><X className="w-5 h-5" /> 错误: {error}</div>
+            <div className="text-red-300 text-lg mb-4 flex items-center justify-center gap-2"><X className="w-5 h-5" /> 错误: {error}</div>
             <Button
               onClick={() => router.push('/script-manager')}
               variant="secondary"
@@ -703,12 +730,12 @@ const ScriptEditPage = () => {
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabType)} className="w-full h-full flex flex-col">
                 {/* 现代化Tab导航 */}
                 <div className="relative border-b border-slate-700/50 flex-shrink-0">
-                  <TabsList className="relative grid w-full grid-cols-5 bg-transparent border-0 p-1.5 gap-1">
+                  <TabsList className="relative grid w-full grid-cols-5 bg-transparent border-0 p-2 gap-1.5">
                     {tabs.map((tab) => (
                       <TabsTrigger
                         key={tab.key}
                         value={tab.key}
-                        className="relative data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600/90 data-[state=active]:to-cyan-600/90 data-[state=active]:text-white data-[state=active]:shadow-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all duration-200 rounded-xl py-2 px-2 md:px-3"
+                        className="relative data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600/90 data-[state=active]:to-cyan-600/90 data-[state=active]:text-white data-[state=active]:shadow-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all duration-200 rounded-lg py-2 px-2 md:px-3"
                       >
                         <div className="flex items-center gap-1.5">
                           <tab.icon className="w-4 h-4" />

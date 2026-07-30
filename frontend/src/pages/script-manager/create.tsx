@@ -202,15 +202,15 @@ export default function CreateScript() {
         {inspirationOptions.map((option) => (
           <Card 
             key={option.id}
-            className={`cursor-pointer transition-all duration-300 hover:scale-105 border-2 ${
+            className={`group cursor-pointer transition-all duration-300 border-2 ${
               selectedInspiration === option.id 
-                ? 'border-purple-500 bg-slate-800/80' 
-                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                ? 'border-purple-500 bg-slate-800/80 shadow-lg shadow-purple-500/20 scale-[1.02]' 
+                : 'border-slate-700/60 bg-slate-800/50 hover:border-purple-500/50 hover:bg-slate-800/70 hover:shadow-lg hover:shadow-purple-500/10 hover:scale-[1.02]'
             }`}
             onClick={() => handleInspirationSelect(option.id)}
           >
             <CardHeader className="text-center pb-4">
-              <div className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r ${option.color} rounded-full mx-auto mb-4`}>
+              <div className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r ${option.color} rounded-full mx-auto mb-4 transition-transform duration-300 group-hover:scale-110`}>
                 <div className="text-white">{option.icon}</div>
               </div>
               <CardTitle className="text-white text-xl">{option.title}</CardTitle>
@@ -224,7 +224,7 @@ export default function CreateScript() {
 
       {/* 根据选择的灵感类型显示不同的输入界面 */}
       {selectedInspiration === 'random-theme' && (
-        <Card className="bg-slate-800/80 border-slate-700 mb-6">
+        <Card className="bg-slate-800/80 border-slate-700/60 mb-8">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-400" />
@@ -256,7 +256,7 @@ export default function CreateScript() {
       )}
 
       {selectedInspiration === 'one-sentence' && (
-        <Card className="bg-slate-800/80 border-slate-700 mb-6">
+        <Card className="bg-slate-800/80 border-slate-700/60 mb-8">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <PenTool className="w-5 h-5 text-green-400" />
@@ -279,7 +279,7 @@ export default function CreateScript() {
           <Button 
             onClick={generateScriptInfo}
             disabled={isGeneratingInfo || (!generatedTheme && !inspirationInput)}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8"
           >
             {isGeneratingInfo ? (
               <>
@@ -317,7 +317,7 @@ export default function CreateScript() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mt-4 p-4 bg-slate-900/50 rounded-lg">
+            <div className="p-4 bg-slate-900/50 rounded-lg">
               <p className="text-slate-300 text-sm leading-relaxed">{generatedInfo.background}</p>
             </div>
           </CardContent>
@@ -343,7 +343,7 @@ export default function CreateScript() {
                 <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
                   <SelectValue placeholder="选择剧本类型" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-slate-800/95 border-slate-600 text-slate-100">
                   {scriptTypes.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
@@ -359,7 +359,7 @@ export default function CreateScript() {
                 <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
                   <SelectValue placeholder="选择人数" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-slate-800/95 border-slate-600 text-slate-100">
                   {playerCounts.map((count) => (
                     <SelectItem key={count.value} value={count.value}>
                       {count.label}
@@ -407,7 +407,7 @@ export default function CreateScript() {
   return (
     <AuthGuard>
       <AppLayout >
-        <div className="min-h-screen bg-slate-900 py-8 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 py-8 px-4">
           {!selectedInspiration || !generatedInfo ? renderInspirationStep() : renderDetailsStep()}
         </div>
       </AppLayout>

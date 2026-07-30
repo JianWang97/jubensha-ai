@@ -125,7 +125,7 @@ const LoginPage: React.FC = () => {
         </div>
 
         {/* 右侧表单面板 */}
-        <div className="flex-1 flex items-center justify-center bg-gray-950 px-6 py-12">
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-950 to-[#1a237e]/20 px-6 py-12">
           <div className="w-full max-w-md space-y-8">
             {/* 移动端 Logo */}
             <div className="flex md:hidden items-center gap-2 justify-center">
@@ -136,18 +136,18 @@ const LoginPage: React.FC = () => {
             {/* 标题 */}
             <div>
               <h2 className="text-3xl font-bold text-white">欢迎回来</h2>
-              <p className="mt-1 text-gray-400 text-sm">登录您的账户继续游戏</p>
+              <p className="mt-1.5 text-slate-400 text-sm">登录您的账户继续游戏</p>
             </div>
 
             {/* 表单 */}
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* 用户名 */}
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-gray-300 text-sm">
+                <Label htmlFor="username" className="text-slate-300 text-sm">
                   用户名或邮箱
                 </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     id="username"
                     name="username"
@@ -157,24 +157,24 @@ const LoginPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入用户名或邮箱"
                     className={cn(
-                      'pl-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-600 focus:border-purple-500 focus:ring-purple-500/20',
-                      fieldErrors.username && 'border-red-500 focus:border-red-500'
+                      'pl-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
+                      fieldErrors.username && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
                     )}
                     disabled={isLoading}
                   />
                 </div>
                 {fieldErrors.username && (
-                  <p className="text-red-400 text-xs mt-1">{fieldErrors.username}</p>
+                  <p className="text-red-400 text-xs">{fieldErrors.username}</p>
                 )}
               </div>
 
               {/* 密码 */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-gray-300 text-sm">
+                <Label htmlFor="password" className="text-slate-300 text-sm">
                   密码
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     id="password"
                     name="password"
@@ -184,22 +184,22 @@ const LoginPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入密码"
                     className={cn(
-                      'pl-10 pr-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-600 focus:border-purple-500 focus:ring-purple-500/20',
-                      fieldErrors.password && 'border-red-500 focus:border-red-500'
+                      'pl-10 pr-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
+                      fieldErrors.password && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
                     )}
                     disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
                     disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {fieldErrors.password && (
-                  <p className="text-red-400 text-xs mt-1">{fieldErrors.password}</p>
+                  <p className="text-red-400 text-xs">{fieldErrors.password}</p>
                 )}
               </div>
 
@@ -210,11 +210,11 @@ const LoginPage: React.FC = () => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={e => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-purple-500 focus:ring-purple-500/20"
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-purple-500 focus:ring-purple-500/30"
                   />
-                  <span className="text-gray-400 text-sm">记住我</span>
+                  <span className="text-slate-400 text-sm">记住我</span>
                 </label>
-                <span className="text-gray-600 text-sm cursor-not-allowed select-none">
+                <span className="text-slate-600 text-sm cursor-not-allowed select-none">
                   忘记密码？
                 </span>
               </div>
@@ -229,7 +229,7 @@ const LoginPage: React.FC = () => {
               {/* 登录按钮 */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-[#311b92] to-[#4a148c] hover:from-[#4527a0] hover:to-[#6a1b9a] text-white font-medium rounded-md transition-all duration-200"
+                className="w-full bg-gradient-to-r from-[#311b92] to-[#4a148c] hover:from-[#4527a0] hover:to-[#6a1b9a] text-white font-semibold rounded-md shadow-lg shadow-purple-900/30 transition-all duration-200"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -248,10 +248,10 @@ const LoginPage: React.FC = () => {
               {/* 分隔线 */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-gray-800" />
+                  <span className="w-full border-t border-slate-800" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-gray-950 px-3 text-gray-600">或</span>
+                  <span className="bg-slate-950 px-3 text-slate-600">或</span>
                 </div>
               </div>
 
@@ -259,7 +259,7 @@ const LoginPage: React.FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200"
+                className="w-full border-slate-700/60 bg-transparent text-slate-300 hover:bg-slate-800/60 hover:border-slate-600 hover:text-white transition-all duration-200"
                 onClick={handleGuestExperience}
                 disabled={isLoading}
               >
@@ -268,7 +268,7 @@ const LoginPage: React.FC = () => {
               </Button>
 
               {/* 注册链接 */}
-              <p className="text-center text-gray-500 text-sm">
+              <p className="text-center text-slate-500 text-sm">
                 还没有账户？{' '}
                 <Link
                   href="/auth/register"

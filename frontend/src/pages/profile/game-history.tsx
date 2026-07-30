@@ -219,7 +219,7 @@ const GameHistoryPage: React.FC = () => {
       FINISHED: { label: '已结束', className: 'bg-green-500/20 text-green-400' },
       CANCELLED: { label: '已取消', className: 'bg-red-500/20 text-red-400' },
     };
-    return statusMap[s] || { label: status, className: 'bg-gray-500/20 text-gray-400' };
+    return statusMap[s] || { label: status, className: 'bg-slate-500/20 text-slate-400' };
   };
 
   const isActiveStatus = (status: string) => {
@@ -254,7 +254,7 @@ const GameHistoryPage: React.FC = () => {
   return (
     <ProtectedRoute>
       <AppLayout>
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           {/* 页面头部 */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -265,7 +265,7 @@ const GameHistoryPage: React.FC = () => {
             {/* 批量操作按钮 */}
             {filteredHistory.length > 0 && (
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-gray-300">
+                <div className="flex items-center gap-2 text-sm text-slate-300">
                   <Checkbox
                     checked={isAllSelected}
                     onCheckedChange={toggleSelectAll}
@@ -293,16 +293,16 @@ const GameHistoryPage: React.FC = () => {
           {/* 搜索和过滤 */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="搜索剧本名称或房间ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white/10 border-white/20 text-white placeholder-gray-400"
+                className="pl-10 bg-slate-800/50 border border-slate-700/50 text-white placeholder:text-slate-400 focus:border-indigo-400"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-40 bg-white/10 border-white/20 text-white">
+              <SelectTrigger className="w-full sm:w-40 bg-slate-800/50 border border-slate-700/50 text-white">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="状态筛选" />
               </SelectTrigger>
@@ -319,17 +319,19 @@ const GameHistoryPage: React.FC = () => {
 
           {/* 游戏历史列表 */}
           {isLoading && gameHistory.length === 0 ? (
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-slate-900/50 backdrop-blur-md border border-slate-700/30 rounded-lg">
               <CardContent className="text-center py-12">
-                <div className="text-white/70">加载中...</div>
+                <div className="text-slate-300">加载中...</div>
               </CardContent>
             </Card>
           ) : filteredHistory.length === 0 ? (
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-slate-900/50 backdrop-blur-md border border-slate-700/30 rounded-lg">
               <CardContent className="text-center py-12">
-                <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <div className="w-16 h-16 mx-auto mb-6 bg-slate-800/50 rounded-full flex items-center justify-center">
+                  <Trophy className="h-8 w-8 text-slate-400" />
+                </div>
                 <h3 className="text-lg font-medium text-white mb-2">暂无游戏记录</h3>
-                <p className="text-gray-400 mb-4">
+                <p className="text-slate-400 mb-6">
                   {searchTerm || statusFilter !== 'all' 
                     ? '没有找到符合条件的游戏记录，请尝试调整搜索条件' 
                     : '您还没有参与过任何游戏，开始您的第一场剧本杀吧！'}
@@ -342,14 +344,14 @@ const GameHistoryPage: React.FC = () => {
                         setStatusFilter('all');
                       }}
                       variant="outline"
-                      className="border-white/20 text-white hover:bg-white/10"
+                      className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 hover:text-white"
                     >
                       清除筛选
                     </Button>
                   )}
                   <Button
                     onClick={() => router.push('/script-center')}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
                   >
                     开始游戏
                   </Button>
@@ -367,9 +369,9 @@ const GameHistoryPage: React.FC = () => {
                   setDrawerOpen(true);
                 };
                 return (
-                  <Card key={game.id} className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
+                  <Card key={game.id} className="bg-slate-900/50 backdrop-blur-md border border-slate-700/30 rounded-lg hover:border-indigo-500/40 transition-colors">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-start gap-4">
                         {/* 选择框 */}
                         <div className="pt-1">
                           <Checkbox
@@ -382,7 +384,7 @@ const GameHistoryPage: React.FC = () => {
                         {/* 游戏信息 */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-base font-medium text-white truncate">
+                            <h3 className="text-base font-semibold text-white truncate">
                               {(game as any).script_title || '未知剧本'}
                             </h3>
                             <Badge className={statusDisplay.className}>
@@ -390,11 +392,11 @@ const GameHistoryPage: React.FC = () => {
                             </Badge>
                           </div>
                           
-                          <div className="text-sm text-white/70 mb-1">
+                          <div className="text-sm text-slate-400 mb-1">
                             会话ID: {game.session_id}
                           </div>
                           
-                          <div className="text-sm text-white/60">
+                          <div className="text-sm text-slate-400">
                             创建时间: {formatDate((game as any).created_at || new Date().toISOString())}
                           </div>
                         </div>
@@ -415,7 +417,7 @@ const GameHistoryPage: React.FC = () => {
                               <Button
                                 onClick={() => router.push(`/game-history/${encodeURIComponent(game.session_id)}/replay`)}
                                 size="sm"
-                                className="bg-blue-600 hover:bg-blue-700"
+                                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
                               >
                                 回放
                               </Button>
@@ -424,7 +426,7 @@ const GameHistoryPage: React.FC = () => {
                               onClick={openDrawer}
                               variant="outline"
                               size="sm"
-                              className="border-white/30 text-white hover:bg-white/10"
+                              className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 hover:text-white"
                             >
                               详情
                             </Button>
@@ -446,7 +448,7 @@ const GameHistoryPage: React.FC = () => {
               })}
               {hasMore && (
                 <div className="flex justify-center pt-2">
-                  <Button onClick={loadMore} variant="outline" className="border-white/20 text-white hover:bg-white/10">加载更多</Button>
+                  <Button onClick={loadMore} variant="outline" className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 hover:text-white">加载更多</Button>
                 </div>
               )}
             </div>
@@ -456,13 +458,13 @@ const GameHistoryPage: React.FC = () => {
         {/* 删除确认对话框 */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-black/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl max-w-md mx-4">
+            <div className="bg-slate-900/90 backdrop-blur-xl rounded-lg p-6 border border-slate-700/30 shadow-2xl max-w-md mx-4">
               <div className="text-center">
                 <div className="text-4xl mb-4">⚠️</div>
                 <h3 className="text-white font-bold text-xl mb-2">
                   {deleteTarget.type === 'single' ? '确认删除游戏记录' : '确认批量删除'}
                 </h3>
-                <p className="text-gray-300 mb-6">
+                <p className="text-slate-300 mb-6">
                   {deleteTarget.type === 'single' 
                     ? '删除后将无法恢复该游戏记录，确定要删除吗？'
                     : `确定要删除选中的 ${deleteTarget.sessionIds.length} 个游戏记录吗？删除后将无法恢复。`
@@ -473,7 +475,7 @@ const GameHistoryPage: React.FC = () => {
                     onClick={cancelDelete}
                     disabled={isDeleting}
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10"
+                    className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 hover:text-white"
                   >
                     取消
                   </Button>
