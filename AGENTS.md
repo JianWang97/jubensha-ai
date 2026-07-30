@@ -101,6 +101,15 @@ See [AUTH_MIDDLEWARE_GUIDE.md](backend/docs/AUTH_MIDDLEWARE_GUIDE.md) for usage.
 - Message routing by `type` field to handler registry
 - Sessions map: `session_id → GameSession`, `websocket → session_id`
 
+### Script Generation (ReAct Agent)
+
+AI 剧本生成走 WebSocket 上的分步 Agent 流程（非黑盒 HTTP）：
+
+- Agent: [`backend/src/agents/script_generation_agent.py`](backend/src/agents/script_generation_agent.py) — ReAct 循环（thought → tool call → observation），工具即生成步骤：`save_script_info / save_background_story / save_characters / save_locations / save_evidence / save_game_phases / finish`。每步独立事务落库；校验失败作为 observation 回喂 LLM 自我修正；`finish` 时缺少 game_phases 会补默认六阶段。
+- WS 消息：客户端发 `start_script_generation`（script_id/theme/player_count/script_type）、`cancel_script_generation`、`get_script_generation_state`（断线回放）；服务端推 `script_generation_event`（step_start/thought/action/observation/step_end/done/error/cancelled）与完成后的 `script_data_update`。
+- 思考透出：`llm_service.py` 的 `LLMResponse.reasoning_content`、`chat_completion_stream_chunks` 与 `split_think_tags` 负责分离 reasoning 与正式内容。
+- 前端：`scriptGenerationStore.ts` + `ScriptGenerationPanel.tsx`（步骤时间线 + 事件流），入口 `pages/script-manager/create.tsx`；`websocketStore.connect(scriptId, { autoEdit: false })` 可避免连接时自动进入编辑模式。
+
 ---
 
 ## Frontend Architecture

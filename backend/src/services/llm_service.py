@@ -1,6 +1,7 @@
 """LLM服务抽象层"""
 import json
 import logging
+import re
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, AsyncGenerator, Optional
 from dataclasses import dataclass
@@ -26,6 +27,40 @@ class LLMResponse:
     usage: Optional[Dict[str, int]] = None
     model: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
+    reasoning_content: Optional[str] = None  # 推理模型的思考过程（DeepSeek/Kimi 等 reasoning_content 字段）
+
+@dataclass
+class StreamChunk:
+    """流式输出片段，区分思考过程与正式内容"""
+    type: str  # "reasoning" | "content"
+    text: str
+
+
+_THINK_TAG_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+
+
+def split_think_tags(text: str) -> List[StreamChunk]:
+    """把包含 <think>...</think> 标签的文本拆分为 reasoning/content 片段。
+
+    模型把思考过程内联在 content 里时（无 reasoning_content 字段），
+    用此函数拆出思考部分以便前端区分展示。无标签时整体视为 content。
+    """
+    if not text or "<think>" not in text:
+        return [StreamChunk(type="content", text=text)] if text else []
+    chunks: List[StreamChunk] = []
+    pos = 0
+    for match in _THINK_TAG_RE.finditer(text):
+        before = text[pos:match.start()].strip()
+        if before:
+            chunks.append(StreamChunk(type="content", text=before))
+        thinking = match.group(1).strip()
+        if thinking:
+            chunks.append(StreamChunk(type="reasoning", text=thinking))
+        pos = match.end()
+    rest = text[pos:].strip()
+    if rest:
+        chunks.append(StreamChunk(type="content", text=rest))
+    return chunks
 
 def _parse_openai_tool_calls(message) -> Optional[List[ToolCall]]:
     """把 OpenAI 响应 message.tool_calls 解析为 ToolCall 列表。
@@ -60,6 +95,12 @@ class BaseLLMService(ABC):
     async def chat_completion_stream(self, messages: List[LLMMessage], **kwargs) -> AsyncGenerator[str, None]:
         """流式聊天补全"""
         pass
+
+    async def chat_completion_stream_chunks(self, messages: List[LLMMessage], **kwargs) -> AsyncGenerator[StreamChunk, None]:
+        """流式聊天补全（区分思考/内容）。默认实现把全部输出视为 content。"""
+        async for text in self.chat_completion_stream(messages, **kwargs):
+            if text:
+                yield StreamChunk(type="content", text=text)
 
 class OpenAILLMService(BaseLLMService):
     """OpenAI LLM服务"""
@@ -110,6 +151,7 @@ class OpenAILLMService(BaseLLMService):
             usage=response.usage.model_dump() if response.usage else None,
             model=response.model,
             tool_calls=_parse_openai_tool_calls(message),
+            reasoning_content=getattr(message, "reasoning_content", None) or None,
         )
     
     async def chat_completion_stream(self, messages: List[LLMMessage], **kwargs) -> AsyncGenerator[str, None]:
@@ -136,6 +178,73 @@ class OpenAILLMService(BaseLLMService):
         async for chunk in stream:
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+
+    async def chat_completion_stream_chunks(self, messages: List[LLMMessage], **kwargs) -> AsyncGenerator[StreamChunk, None]:
+        """流式聊天补全，区分 reasoning_content（思考过程）与正式内容。
+
+        - delta.reasoning_content（DeepSeek/Kimi 等 OpenAI 兼容推理字段）→ reasoning chunk
+        - delta.content 中内联的 <think>...</think> 标签 → 切分为 reasoning chunk
+        """
+        client = self._get_client()
+
+        openai_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+
+        params = {
+            "model": self.model,
+            "messages": openai_messages,
+            "stream": True,
+            **self.extra_params,
+            **kwargs
+        }
+
+        stream = await client.chat.completions.create(**params)
+
+        in_think_tag = False  # 跟踪 content 内联 <think> 标签状态
+        tag_buffer = ""       # 缓存可能跨 chunk 的标签片段
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+            reasoning = getattr(delta, "reasoning_content", None)
+            if reasoning:
+                yield StreamChunk(type="reasoning", text=reasoning)
+            content = delta.content
+            if not content:
+                continue
+            # 处理内联 <think> 标签（可能跨 chunk 到达）
+            tag_buffer += content
+            while tag_buffer:
+                if in_think_tag:
+                    end_idx = tag_buffer.find("</think>")
+                    if end_idx == -1:
+                        # 未闭合，保留末尾可能是标签前缀的部分
+                        keep = max(len(tag_buffer) - 8, 0)
+                        if keep:
+                            yield StreamChunk(type="reasoning", text=tag_buffer[:keep])
+                        tag_buffer = tag_buffer[keep:]
+                        break
+                    thinking = tag_buffer[:end_idx]
+                    if thinking:
+                        yield StreamChunk(type="reasoning", text=thinking)
+                    tag_buffer = tag_buffer[end_idx + len("</think>"):]
+                    in_think_tag = False
+                else:
+                    start_idx = tag_buffer.find("<think>")
+                    if start_idx == -1:
+                        keep = max(len(tag_buffer) - 7, 0)
+                        if keep:
+                            yield StreamChunk(type="content", text=tag_buffer[:keep])
+                        tag_buffer = tag_buffer[keep:]
+                        break
+                    before = tag_buffer[:start_idx]
+                    if before:
+                        yield StreamChunk(type="content", text=before)
+                    tag_buffer = tag_buffer[start_idx + len("<think>"):]
+                    in_think_tag = True
+        # 冲刷残余缓冲
+        if tag_buffer:
+            yield StreamChunk(type="reasoning" if in_think_tag else "content", text=tag_buffer)
 
 class LangChainLLMService(BaseLLMService):
     """LangChain LLM服务（兼容现有代码）"""

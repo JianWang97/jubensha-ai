@@ -81,6 +81,13 @@ class GameSession:
         # 后台执行模式
         self.background_mode: bool = False  # 是否处于后台执行模式
         
+        # 剧本生成 Agent 相关
+        self.generation_task: asyncio.Task | None = None  # 生成循环任务
+        self.generation_agent: Any = None  # ScriptGenerationAgent 实例（用于取消）
+        self.generation_events: list[dict[str, Any]] = []  # 生成事件日志（有界，用于重连回放）
+        self.generation_status: str = "idle"  # idle/running/done/error/cancelled
+        self.generation_script_id: int | None = None  # 正在生成的剧本ID
+        
         # TTS管理器
         self.tts_manager: GameTTSManager|None = None
         self._initialize_tts_manager()
@@ -357,6 +364,166 @@ class SetBackgroundModeHandler(MessageHandler):
             "session_id": session_id,
             "background_mode": background_mode,
             "message": f"后台模式已{'启用' if background_mode else '禁用'}"
+        })
+
+# 剧本生成处理器
+class ScriptGenerationModeHandler:
+    """处理剧本生成 Agent 相关业务逻辑"""
+
+    MAX_EVENT_LOG = 500  # 会话内保留的生成事件上限（用于断线重连回放）
+
+    @staticmethod
+    async def start_generation(server: 'GameWebSocketServer', session_id: str, data: dict):
+        """启动剧本生成 Agent（后台任务，事件实时广播）"""
+        from src.agents.script_generation_agent import ScriptGenerationAgent
+
+        session = server.sessions.get(session_id)
+        if not session:
+            logger.error(f"[GEN] 启动生成失败: 会话不存在 {session_id}")
+            return
+
+        if session.generation_status == "running" and session.generation_task \
+                and not session.generation_task.done():
+            logger.warning(f"[GEN] 生成任务已在运行: 会话={session_id}")
+            await server.broadcast({
+                "type": "error",
+                "message": "生成任务已在进行中",
+                "session_id": session_id
+            }, session_id)
+            return
+
+        script_id = data.get("script_id") or session.script_id
+        if isinstance(script_id, str):
+            script_id = int(script_id)
+        theme = (data.get("theme") or "").strip()
+        player_count = int(data.get("player_count") or 4)
+        script_type = (data.get("script_type") or "推理").strip()
+
+        if not theme:
+            await server.broadcast({
+                "type": "error",
+                "message": "缺少创作主题 theme",
+                "session_id": session_id
+            }, session_id)
+            return
+
+        # 校验剧本存在
+        try:
+            with db_manager.session_scope() as db:
+                script_repository = ScriptRepository(db)
+                script_info = script_repository.get_script_info_by_id(script_id)
+            if not script_info:
+                raise ValueError(f"剧本不存在: ID={script_id}")
+        except Exception as e:
+            logger.error(f"[GEN] 剧本校验失败: 剧本ID={script_id}, 错误={e}")
+            await server.broadcast({
+                "type": "error",
+                "message": f"无法开始生成: {e}",
+                "session_id": session_id
+            }, session_id)
+            return
+
+        # 重置生成状态
+        session.generation_events = []
+        session.generation_status = "running"
+        session.generation_script_id = script_id
+
+        async def event_callback(event: dict):
+            """Agent 事件 → 会话事件日志 + 实时广播"""
+            session.generation_events.append(event)
+            if len(session.generation_events) > ScriptGenerationModeHandler.MAX_EVENT_LOG:
+                session.generation_events = session.generation_events[-ScriptGenerationModeHandler.MAX_EVENT_LOG:]
+            event_type = event.get("type")
+            if event_type == "done":
+                session.generation_status = "done"
+            elif event_type == "error":
+                session.generation_status = "error"
+            elif event_type == "cancelled":
+                session.generation_status = "cancelled"
+            await server.broadcast({
+                "type": "script_generation_event",
+                "data": event,
+                "session_id": session_id
+            }, session_id)
+
+        agent = ScriptGenerationAgent(
+            script_id=script_id,
+            theme=theme,
+            player_count=player_count,
+            script_type=script_type,
+            event_callback=event_callback,
+        )
+        session.generation_agent = agent
+
+        async def run_and_finalize():
+            try:
+                result = await agent.run()
+                logger.info(f"[GEN] 生成任务结束: 会话={session_id}, 结果={result.get('status')}")
+                if result.get("status") == "done":
+                    # 推送完整剧本数据，前端/编辑页可直接刷新
+                    try:
+                        with db_manager.session_scope() as db:
+                            full_script = ScriptRepository(db).get_script_by_id(script_id)
+                        if full_script:
+                            await server.broadcast({
+                                "type": "script_data_update",
+                                "data": {"updated_script": serialize_script_data(full_script)},
+                                "session_id": session_id
+                            }, session_id)
+                    except Exception as e:
+                        logger.error(f"[GEN] 推送生成结果失败: 会话={session_id}, 错误={e}")
+            except Exception as e:
+                session.generation_status = "error"
+                logger.error(f"[GEN] 生成任务异常: 会话={session_id}, 错误={e}", exc_info=True)
+
+        session.generation_task = asyncio.create_task(run_and_finalize())
+        logger.info(f"[GEN] 生成任务已启动: 会话={session_id}, 剧本ID={script_id}, 主题='{theme[:50]}'")
+
+    @staticmethod
+    async def cancel_generation(server: 'GameWebSocketServer', session_id: str):
+        """取消正在进行的生成任务"""
+        session = server.sessions.get(session_id)
+        if not session:
+            return
+        if session.generation_agent and session.generation_status == "running":
+            session.generation_agent.cancel()
+            logger.info(f"[GEN] 已请求取消生成: 会话={session_id}")
+        else:
+            logger.warning(f"[GEN] 无进行中的生成任务可取消: 会话={session_id}")
+
+class StartScriptGenerationHandler(MessageHandler):
+    """处理启动剧本生成消息"""
+
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        logger.info(f"[GEN] 启动剧本生成请求: 会话={session_id}, 剧本ID={data.get('script_id')}")
+        await ScriptGenerationModeHandler.start_generation(server, session_id, data)
+
+class CancelScriptGenerationHandler(MessageHandler):
+    """处理取消剧本生成消息"""
+
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        logger.info(f"[GEN] 取消剧本生成请求: 会话={session_id}")
+        await ScriptGenerationModeHandler.cancel_generation(server, session_id)
+
+class GetScriptGenerationStateHandler(MessageHandler):
+    """处理获取剧本生成状态消息（断线重连/页面刷新后回放）"""
+
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        session = server.sessions.get(session_id)
+        if not session:
+            await server.send_to_client(websocket, {"type": "error", "message": "会话不存在", "session_id": session_id})
+            return
+        await server.send_to_client(websocket, {
+            "type": "script_generation_state",
+            "data": {
+                "status": session.generation_status,
+                "script_id": session.generation_script_id,
+                "events": session.generation_events,
+            },
+            "session_id": session_id
         })
 
 # 游戏模式处理器
@@ -1083,6 +1250,9 @@ class GameWebSocketServer:
             "get_tts_history": GetTTSHistoryHandler(),
             "fetch_history": FetchHistoryHandler(),
             "set_background_mode": SetBackgroundModeHandler(),
+            "start_script_generation": StartScriptGenerationHandler(),
+            "cancel_script_generation": CancelScriptGenerationHandler(),
+            "get_script_generation_state": GetScriptGenerationStateHandler(),
         }
         # 不再需要会话保留和后台清理相关属性
 
@@ -1369,9 +1539,15 @@ class GameWebSocketServer:
                 if 'db_session' in locals():
                     db_session.close()
             
+            # 取消未完成的剧本生成任务
+            if session.generation_task and not session.generation_task.done():
+                if session.generation_agent:
+                    session.generation_agent.cancel()
+                session.generation_task.cancel()
+                logger.info(f"[SESSION] 已取消未完成的生成任务: {session_id}")
+
             session.cleanup()
             del self.sessions[session_id]
-            self.session_last_active.pop(session_id, None)
             logger.info(f"[SESSION] 清理会话: {session_id}")
         except Exception as e:
             logger.error(f"[SESSION] 清理会话失败 {session_id}: {e}")
