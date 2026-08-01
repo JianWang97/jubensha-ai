@@ -134,7 +134,7 @@ class ConfigManager:
     @property
     def allow_anonymous_access(self) -> bool:
         """是否允许匿名访问（使用默认访客账户）"""
-        return os.getenv("ALLOW_ANONYMOUS_ACCESS", "false").lower() == "true"
+        return os.getenv("ALLOW_ANONYMOUS_ACCESS", "true").lower() == "true"
     
     @property
     def guest_username(self) -> str:

@@ -89,8 +89,8 @@ const ScriptCard: React.FC<ScriptCardProps> = ({ script, onDetailClick, onFavori
         </Button>
       </div>
 
-      {/* 顶部浮动元素 */}
-      <div className="relative z-10">
+      {/* 顶部浮动元素（高于 hover 覆盖层，保证可点击） */}
+      <div className="relative z-30">
         {/* 收藏按钮 */}
         {!isMyScript && (
           <Button
@@ -114,8 +114,8 @@ const ScriptCard: React.FC<ScriptCardProps> = ({ script, onDetailClick, onFavori
         </div>
       </div>
 
-      {/* 内容区域 - 毛玻璃背景 */}
-      <div className="absolute bottom-0 left-0 right-0 z-10">
+      {/* 内容区域 - 毛玻璃背景（高于 hover 覆盖层，保证操作按钮可点击） */}
+      <div className="absolute bottom-0 left-0 right-0 z-30">
         <div className="bg-slate-900/40 backdrop-blur-md border-t border-slate-700/30 p-4 space-y-2.5">
           {/* 标题 */}
           <h3 className="font-bold text-white text-lg leading-snug line-clamp-1 group-hover:text-indigo-300 transition-colors">

@@ -168,7 +168,7 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
     <>
       <div className={className}>
         <div 
-          className={`${imageHeight} rounded-xl border-2 border-dashed border-gray-600/40 flex items-center justify-center bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm cursor-pointer hover:border-gray-500/60 transition-colors`}
+          className={`${imageHeight} rounded-sm border border-dashed border-line flex items-center justify-center bg-ink/40 cursor-pointer hover:border-brass/50 transition-colors`}
         onClick={handleOpenDrawer}
         >
           {imageUrl ? (
@@ -177,15 +177,15 @@ const ImageSelector: React.FC<ImageSelectorProps> = ({
               alt="预览图片"
               width={128}
               height={128}
-              className="w-full h-full object-cover rounded-xl"
+              className="w-full h-full object-cover rounded-sm"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik00MCA0MEw4OCA4OE00MCA4OEw4OCA0MCIgc3Ryb2tlPSIjNjM2NjcwIiBzdHJva2Utd2lkdGg9IjIiLz4KPC9zdmc+';
               }}
             />
           ) : (
             <div className="text-center">
-              <Camera className="w-12 h-12 mb-2 opacity-60 text-gray-400" />
-              <div className="text-sm text-gray-400 opacity-70">点击选择或生成图片</div>
+              <Camera className="w-12 h-12 mb-2 opacity-60 text-faint" />
+              <div className="text-sm text-faint">点击选择或生成图片</div>
             </div>
           )}
         </div>

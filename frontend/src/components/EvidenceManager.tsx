@@ -174,67 +174,67 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
 
 
   return (
-    <Card className="border-blue-500/30 shadow-2xl shadow-blue-500/10 modern-card">
-      <CardHeader className="relative overflow-hidden">
+    <Card className="border-transparent shadow-none">
+      <CardHeader className="px-0 pt-0">
         <div className="relative flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 rounded-lg border border-blue-500/30">
-              <Search className="w-6 h-6 text-blue-200" />
+            <div className="flex h-9 w-9 items-center justify-center border border-brass/30 bg-brass/10 rounded-sm">
+              <Search className="w-5 h-5 text-brass" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold text-blue-200 flex items-center gap-2">
+              <CardTitle className="text-xl font-bold text-paper flex items-center gap-2">
                 证据管理
               </CardTitle>
-              <p className="text-sm text-blue-300/70 mt-1">管理剧本中的所有证据信息</p>
+              <p className="text-sm text-mist mt-0.5">管理剧本中的所有证据信息</p>
             </div>
           </div>
           <Button 
             onClick={() => setShowEvidenceForm(true)}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg hover:shadow-blue-500/25 transition-all duration-300 modern-button"
+            className="h-8 rounded-sm border border-brass/40 bg-brass/10 px-3 font-data text-xs tracking-widest text-brass hover:bg-brass/20"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             添加证据
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         {/* 证据卡片网格 */}
         <div className="mb-6">
           {evidences.length === 0 ? (
-            <div className="text-blue-300 text-center py-16 bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl border-2 border-dashed border-blue-500/30 backdrop-blur-sm modern-empty-state">
-              <div className="text-6xl mb-6 opacity-60"><Search className="w-16 h-16 mx-auto" /></div>
-              <div className="text-xl font-semibold mb-2">暂无证据</div>
-              <div className="text-sm opacity-70 mb-6">点击上方按钮添加第一个证据</div>
+            <div className="text-mist text-center py-14 bg-panel/60 rounded-sm border border-dashed border-line">
+              <div className="text-4xl mb-4 opacity-60"><Search className="w-12 h-12 mx-auto text-faint" /></div>
+              <div className="text-lg font-medium mb-1 text-paper">暂无证据</div>
+              <div className="text-sm opacity-70 mb-5">点击上方按钮添加第一个证据</div>
               <div className="flex justify-center">
                 <Button 
                   onClick={() => setShowEvidenceForm(true)}
-                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+                  className="h-8 rounded-sm border border-brass/40 bg-brass/10 px-3 font-data text-xs tracking-widest text-brass hover:bg-brass/20"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4 mr-1.5" />
                   立即添加
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {evidences.map((ev) => (
-                <div key={ev.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl p-6 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/20 hover:scale-[1.02] group modern-card evidence-card">
+                <div key={ev.id} className="rounded-sm border border-line bg-raised p-5 transition-colors hover:border-brass/30 group evidence-card">
                   {/* 卡片头部 */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-200 mb-3 group-hover:text-blue-100 transition-colors flex items-center gap-2">
-                        <Search className="w-5 h-5" />
+                      <h4 className="text-lg font-bold text-paper mb-3 transition-colors flex items-center gap-2">
+                        <Search className="w-4 h-4 text-brass/70" />
                         {ev.name}
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         <Badge variant={ev.importance === '关键证据' ? 'destructive' : ev.importance === '重要证据' ? 'default' : 'secondary'}>
                           {ev.importance}
                         </Badge>
-                        <Badge variant="outline" className="bg-blue-600/20 text-blue-300 border-blue-500/30">
+                        <Badge variant="outline" className="border-line text-mist">
                           {ev.evidence_type}
                         </Badge>
                         {ev.is_hidden && (
-                          <Badge variant="outline" className="bg-orange-600/20 text-orange-300 border-orange-500/30">
+                          <Badge variant="outline" className="border-thread/30 text-thread">
                             <Lock className="w-3 h-3 mr-1" /> 隐藏
                           </Badge>
                         )}
@@ -243,72 +243,72 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   </div>
 
                   {/* 图片区域 */}
-                  <div className="mb-6">
+                  <div className="mb-5">
                     {ev.image_url ? (
-                      <div className="w-full h-48 rounded-xl overflow-hidden border border-purple-500/30 bg-slate-800 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-300">
+                      <div className="w-full h-44 rounded-sm overflow-hidden border border-line bg-ink/50">
                         <Image 
                           src={ev.image_url || ''} 
                           alt={ev.name || ''}
                           width={400}
                           height={300}
-                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                          className="w-full h-full object-cover transition-transform duration-500"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ci8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
                           }}
                         />
                       </div>
                     ) : (
-                      <div className="w-full h-48 rounded-xl border-2 border-dashed border-purple-500/30 flex items-center justify-center bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-sm">
+                      <div className="w-full h-44 rounded-sm border border-dashed border-line flex items-center justify-center bg-ink/30">
                         <div className="text-center">
-                          <div className="text-5xl mb-3 opacity-60">🖼️</div>
-                          <div className="text-sm text-purple-300 opacity-70">暂无图片</div>
+                          <div className="text-4xl mb-2 opacity-50">🗂️</div>
+                          <div className="text-sm text-faint">暂无图片</div>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* 证据信息 */}
-                  <div className="space-y-3 mb-4">
+                  <div className="space-y-2.5 mb-4">
                     <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="w-4 h-4 text-blue-400" />
-                      <span className="text-blue-200 font-medium">位置:</span>
-                      <span className="text-blue-100 flex-1">{ev.location}</span>
+                      <MapPin className="w-3.5 h-3.5 text-brass/70" />
+                      <span className="text-mist font-medium">位置:</span>
+                      <span className="text-paper/85 flex-1">{ev.location}</span>
                     </div>
                     
                     {ev.related_to && (
                       <div className="flex items-center gap-2 text-sm">
-                        <User className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-200 font-medium">关联:</span>
-                        <span className="text-blue-100 flex-1">{ev.related_to}</span>
+                        <User className="w-3.5 h-3.5 text-brass/70" />
+                        <span className="text-mist font-medium">关联:</span>
+                        <span className="text-paper/85 flex-1">{ev.related_to}</span>
                       </div>
                     )}
                     
                     <div className="text-sm">
                       <div className="flex items-center gap-2 mb-1">
-                        <FileText className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-200 font-medium">描述:</span>
+                        <FileText className="w-3.5 h-3.5 text-brass/70" />
+                        <span className="text-mist font-medium">描述:</span>
                       </div>
-                      <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-3">{ev.description}</p>
+                      <p className="text-paper/75 text-xs leading-relaxed pl-6 line-clamp-3">{ev.description}</p>
                     </div>
                     
                     {ev.significance && (
                       <div className="text-sm">
                         <div className="flex items-center gap-2 mb-1">
-                          <Lightbulb className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-200 font-medium">重要性:</span>
+                          <Lightbulb className="w-3.5 h-3.5 text-brass/70" />
+                          <span className="text-mist font-medium">重要性:</span>
                         </div>
-                        <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{ev.significance}</p>
+                        <p className="text-paper/75 text-xs leading-relaxed pl-6 line-clamp-2">{ev.significance}</p>
                       </div>
                     )}
                   </div>
                   
                   {/* 操作按钮 */}
-                  <div className="flex gap-3 pt-6 border-t border-blue-500/20">
+                  <div className="flex gap-2.5 pt-4 border-t border-hairline">
                     <Button
                       onClick={() => handleEditEvidence(ev)}
                       variant="outline"
                       size="sm"
-                      className="flex-1 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 border-blue-500/30 hover:from-blue-600/40 hover:to-cyan-600/40 hover:border-blue-400/50 transition-all duration-300 modern-button"
+                      className="flex-1 h-8 rounded-sm border-line text-mist hover:border-brass/40 hover:text-brass"
                     >
                       <Edit className="w-4 h-4 mr-1" />
                       <span>编辑</span>
@@ -317,7 +317,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                       onClick={() => handleDeleteEvidence(ev.id!)}
                       variant="outline"
                       size="sm"
-                      className="flex-1 bg-gradient-to-r from-red-600/20 to-pink-600/20 text-red-300 border-red-500/30 hover:from-red-600/40 hover:to-pink-600/40 hover:border-red-400/50 transition-all duration-300 modern-button"
+                      className="flex-1 h-8 rounded-sm border-line text-mist hover:border-thread/50 hover:text-thread"
                     >
                       <Trash2 className="w-4 h-4 mr-1" />
                       <span>删除</span>
@@ -332,18 +332,18 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
         {/* 证据表单弹窗 */}
         <Dialog open={showEvidenceForm} onOpenChange={setShowEvidenceForm}>
           <DialogContent 
-            className="bg-gradient-to-br from-slate-900/98 via-indigo-950/98 to-slate-900/98 backdrop-blur-xl border-indigo-500/40 !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden custom-scrollbar"
+            className="bg-panel border-line !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden custom-scrollbar"
             showCloseButton={false}
           >
-            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-6 border-b border-indigo-500/20">
-              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-200 to-indigo-200 bg-clip-text text-transparent flex items-center gap-3">
-                {editingEvidence ? <><Edit className="w-6 h-6 text-blue-400" /> 编辑证据</> : <><Plus className="w-6 h-6 text-blue-400" /> 添加证据</>}
+            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-5 border-b border-hairline">
+              <DialogTitle className="text-xl font-semibold text-paper flex items-center gap-3">
+                {editingEvidence ? <><Edit className="w-5 h-5 text-brass" /> 编辑证据</> : <><Plus className="w-5 h-5 text-brass" /> 添加证据</>}
               </DialogTitle>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={resetForm}
-                className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 h-auto p-3 rounded-lg transition-all duration-200"
+                className="text-mist hover:text-paper hover:bg-raised h-auto p-2 rounded-sm"
               >
                 <X className="w-5 h-5" />
               </Button>
@@ -356,40 +356,40 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   <div className="flex-1 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-blue-200 mb-2">证据名称</label>
+                        <label className="block text-sm font-medium text-mist mb-1.5">证据名称</label>
                         <Input
                           type="text"
                           name="name"
                           value={evidenceForm.name}
                           onChange={handleEvidenceFormChange}
-                          className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
+                          className="bg-panel border-line focus:ring-brass/30 text-paper"
                           required
                         />
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-blue-200 mb-2">发现位置</label>
+                        <label className="block text-sm font-medium text-mist mb-1.5">发现位置</label>
                         <Input
                           type="text"
                           name="location"
                           value={evidenceForm.location}
                           onChange={handleEvidenceFormChange}
-                          className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
+                          className="bg-panel border-line focus:ring-brass/30 text-paper"
                           required
                         />
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-purple-200 mb-2">证据类型</label>
+                        <label className="block text-sm font-medium text-mist mb-1.5">证据类型</label>
                         <Select
                           name="evidence_type"
                           value={evidenceForm.evidence_type}
                           onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'evidence_type', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
                         >
-                          <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
+                          <SelectTrigger className="bg-panel border-line text-paper">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-panel border-line text-paper">
                             <SelectItem value="physical">物理证据</SelectItem>
                             <SelectItem value="document">文件证据</SelectItem>
                             <SelectItem value="video">视频证据</SelectItem>
@@ -400,16 +400,16 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-purple-200 mb-2">重要程度</label>
+                        <label className="block text-sm font-medium text-mist mb-1.5">重要程度</label>
                         <Select
                           name="importance"
                           value={evidenceForm.importance}
                           onValueChange={(value) => handleEvidenceFormChange({ target: { name: 'importance', value } } as unknown as React.ChangeEvent<HTMLInputElement>)}
                         >
-                          <SelectTrigger className="bg-slate-700 border-purple-500/30 text-purple-100">
+                          <SelectTrigger className="bg-panel border-line text-paper">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-panel border-line text-paper">
                             <SelectItem value="一般证据">一般证据</SelectItem>
                             <SelectItem value="重要证据">重要证据</SelectItem>
                             <SelectItem value="关键证据">关键证据</SelectItem>
@@ -421,7 +421,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                   
                   {/* 右侧：图片选择器 */}
                   <div className="flex-shrink-0">
-                    <label className="block text-sm font-medium text-purple-200 mb-2">证据图片</label>
+                    <label className="block text-sm font-medium text-mist mb-1.5">证据图片</label>
                     <ImageSelector
                       url={evidenceForm.image_url || ''}
                       imageType={ImageType.EVIDENCE}
@@ -444,37 +444,37 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                 <div className="grid grid-cols-1 gap-4">
                   
                   <div>
-                    <label className="block text-sm font-medium text-blue-200 mb-2">关联角色</label>
+                    <label className="block text-sm font-medium text-mist mb-1.5">关联角色</label>
                     <Input
                       type="text"
                       name="related_to"
                       value={evidenceForm.related_to || ''}
                       onChange={handleEvidenceFormChange}
-                      className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
+                      className="bg-panel border-line focus:ring-brass/30 text-paper"
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-blue-200 mb-2">证据描述</label>
+                  <label className="block text-sm font-medium text-mist mb-1.5">证据描述</label>
                   <Textarea
                     name="description"
                     value={evidenceForm.description}
                     onChange={handleEvidenceFormChange}
                     rows={3}
-                    className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
+                    className="bg-panel border-line focus:ring-brass/30 text-paper"
                     required
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-blue-200 mb-2">重要性说明</label>
+                  <label className="block text-sm font-medium text-mist mb-1.5">重要性说明</label>
                   <Textarea
                     name="significance"
                     value={evidenceForm.significance || ''}
                     onChange={handleEvidenceFormChange}
                     rows={2}
-                    className="bg-slate-700 border-blue-500/30 focus:ring-blue-400 text-blue-100"
+                    className="bg-panel border-line focus:ring-brass/30 text-paper"
                   />
                 </div>
                 
@@ -484,18 +484,18 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
                     name="is_hidden"
                     checked={evidenceForm.is_hidden}
                     onChange={handleEvidenceFormChange}
-                    className="w-4 h-4 text-purple-600 bg-slate-700 border-purple-500/30 rounded focus:ring-purple-400"
+                    className="w-4 h-4 accent-brass bg-panel border-line rounded focus:ring-brass"
                   />
-                  <label className="text-sm text-blue-200">隐藏证据（玩家初始不可见）</label>
+                  <label className="text-sm text-mist">隐藏证据（玩家初始不可见）</label>
                 </div>
                 
 
               </div>
             </div>
-            <DialogFooter className="flex justify-center mt-8 pt-6 border-t border-indigo-500/20">
+            <DialogFooter className="flex justify-center mt-6 pt-5 border-t border-hairline">
               <Button
                 onClick={handleSaveEvidence}
-                className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                className="h-9 rounded-sm border border-brass/40 bg-brass/10 px-6 font-data text-sm tracking-widest text-brass hover:bg-brass/20"
               >
                 {editingEvidence ? '保存修改' : '添加证据'}
               </Button>

@@ -23,7 +23,7 @@ const FEATURES = [
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
-  const { login, isLoading, error, isAuthenticated, clearError } = useAuthStore();
+  const { login, anonymousLogin, isLoading, error, isAuthenticated, clearError } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState<UserLogin>({ username: '', password: '' });
@@ -75,8 +75,14 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleGuestExperience = () => {
-    router.push('/script-center');
+  const handleGuestExperience = async () => {
+    try {
+      await anonymousLogin();
+      toast.success('已进入游客模式，可直接体验游戏');
+      router.push('/script-center');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '游客登录失败');
+    }
   };
 
   return (

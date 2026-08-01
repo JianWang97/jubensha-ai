@@ -132,9 +132,9 @@ export default function App({ Component, pageProps }: AppProps) {
         theme="dark"
         toastOptions={{
           style: {
-            background: '#1e293b',
-            color: '#e2e8f0',
-            border: '1px solid #7c3aed',
+            background: '#151A24',
+            color: '#E8E4DA',
+            border: '1px solid #C9A15F',
           },
         }}
       />

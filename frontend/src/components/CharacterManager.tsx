@@ -193,49 +193,49 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
   // 生成提示词
 
   return (
-    <Card className="border-blue-500/30 shadow-2xl shadow-blue-500/10 modern-card">
-      <CardHeader className="relative overflow-hidden">  
+    <Card className="border-transparent shadow-none">
+      <CardHeader className="px-0 pt-0">  
         <div className="relative flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 rounded-lg border border-blue-500/30">
-              <Users className="w-6 h-6 text-blue-200" />
+            <div className="flex h-9 w-9 items-center justify-center border border-brass/30 bg-brass/10 rounded-sm">
+              <Users className="w-5 h-5 text-brass" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold text-blue-200 flex items-center gap-2">
+              <CardTitle className="text-xl font-bold text-paper flex items-center gap-2">
                 角色管理
               </CardTitle>
-              <p className="text-sm text-blue-300/70 mt-1">管理剧本中的所有角色信息</p>
+              <p className="text-sm text-mist mt-0.5">管理剧本中的所有角色信息</p>
             </div>
           </div>
           <Button 
             onClick={() => setShowCharacterForm(true)}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg hover:shadow-blue-500/25 transition-all duration-300 modern-button"
+            className="h-8 rounded-sm border border-brass/40 bg-brass/10 px-3 font-data text-xs tracking-widest text-brass hover:bg-brass/20"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             添加角色
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         {/* 角色卡片网格 */}
         <div className="mb-6">
           {characters.length === 0 ? (
-            <div className="text-blue-300 text-center py-16 bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl border-2 border-dashed border-blue-500/30 backdrop-blur-sm modern-empty-state">
-              <div className="text-6xl mb-6 opacity-60"><Users className="w-16 h-16 mx-auto" /></div>
-              <div className="text-xl font-semibold mb-2">暂无角色</div>
-              <div className="text-sm opacity-70 mb-6">点击上方按钮添加第一个角色</div>
+            <div className="text-mist text-center py-14 bg-panel/60 rounded-sm border border-dashed border-line">
+              <div className="text-4xl mb-4 opacity-60"><Users className="w-12 h-12 mx-auto text-faint" /></div>
+              <div className="text-lg font-medium mb-1 text-paper">暂无角色</div>
+              <div className="text-sm opacity-70 mb-5">点击上方按钮添加第一个角色</div>
               <div className="flex justify-center">
                 <Button 
                   onClick={() => setShowCharacterForm(true)}
-                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+                  className="h-8 rounded-sm border border-brass/40 bg-brass/10 px-3 font-data text-xs tracking-widest text-brass hover:bg-brass/20"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4 mr-1.5" />
                   立即添加
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {characters.map((character) => {
                 const isExpanded = expandedIds.has(character.id!);
                 const toggleExpand = () => {
@@ -247,49 +247,49 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   });
                 };
                 return (
-                <div key={character.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl border border-blue-500/20 hover:border-blue-400/40 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/20 group modern-card character-card overflow-hidden">
+                <div key={character.id} className="rounded-sm border border-line bg-raised transition-colors hover:border-brass/30 group character-card overflow-hidden">
                   {/* 卡片头部 - 始终显示 */}
                   <div
-                    className="flex items-start justify-between p-6 cursor-pointer"
+                    className="flex items-start justify-between p-5 cursor-pointer"
                     onClick={toggleExpand}
                   >
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-200 mb-3 group-hover:text-blue-100 transition-colors flex items-center gap-2">
-                        <User className="w-5 h-5" />
+                      <h4 className="text-lg font-bold text-paper mb-3 transition-colors flex items-center gap-2">
+                        <User className="w-4 h-4 text-brass/70" />
                         {character.name}
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {character.is_victim && (
-                          <Badge variant="destructive" className="bg-red-600/20 text-red-300 border-red-500/30">
+                          <Badge variant="destructive" className="bg-thread-dim/30 text-thread border-thread/30">
                             <VolumeX className="w-3 h-3 mr-1" /> 受害者
                           </Badge>
                         )}
                         {character.is_murderer && (
-                          <Badge variant="destructive" className="bg-orange-600/20 text-orange-300 border-orange-500/30">
+                          <Badge variant="destructive" className="bg-thread-dim/30 text-thread border-thread/30">
                             <Target className="w-3 h-3 mr-1" /> 凶手
                           </Badge>
                         )}
                         {character.gender && (
-                          <Badge variant="outline" className="bg-blue-600/20 text-blue-300 border-blue-500/30">
+                          <Badge variant="outline" className="bg-brass/10 text-mist border-line">
                             <User className="w-3 h-3 mr-1" /> {character.gender}
                           </Badge>
                         )}
                         {character.age && (
-                          <Badge variant="outline" className="bg-green-600/20 text-green-300 border-green-500/30">
+                          <Badge variant="outline" className="bg-brass/10 text-mist border-line">
                             <Calendar className="w-3 h-3 mr-1" /> {character.age}岁
                           </Badge>
                         )}
                       </div>
                       {!isExpanded && character.profession && (
-                        <p className="text-sm text-blue-300/70 mt-2 flex items-center gap-1">
+                        <p className="text-sm text-mist/70 mt-2 flex items-center gap-1">
                           <Briefcase className="w-3 h-3" /> {character.profession}
                         </p>
                       )}
                       {!isExpanded && character.background && (
-                        <p className="text-xs text-blue-100/60 mt-1 line-clamp-1">{character.background}</p>
+                        <p className="text-xs text-paper/85/60 mt-1 line-clamp-1">{character.background}</p>
                       )}
                     </div>
-                    <div className="flex-shrink-0 ml-2 text-blue-400">
+                    <div className="flex-shrink-0 ml-2 text-brass/70">
                       {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                     </div>
                   </div>
@@ -300,7 +300,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                       {/* 头像区域 */}
                       <div className="mb-6">
                         {character.avatar_url ? (
-                          <div className="w-full h-48 rounded-xl overflow-hidden border border-blue-500/30 bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
+                          <div className="w-full h-48 rounded-xl overflow-hidden border border-line bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
                             <Image 
                               src={character.avatar_url || ''} 
                               alt={character.name || ''}
@@ -314,10 +314,10 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                             />
                           </div>
                         ) : (
-                          <div className="w-full h-48 rounded-xl border-2 border-dashed border-blue-500/30 flex items-center justify-center bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-sm">
+                          <div className="w-full h-48 rounded-sm border border-dashed border-line flex items-center justify-center bg-ink/30">
                             <div className="text-center">
                               <div className="text-5xl mb-3 opacity-60"><User className="w-12 h-12 mx-auto" /></div>
-                              <div className="text-sm text-blue-300 opacity-70">暂无头像</div>
+                              <div className="text-sm text-mist opacity-70">暂无头像</div>
                             </div>
                           </div>
                         )}
@@ -327,51 +327,51 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                       <div className="space-y-3 mb-4">
                         {character.profession && (
                           <div className="flex items-center gap-2 text-sm">
-                            <Briefcase className="w-4 h-4 text-blue-400" />
-                            <span className="text-blue-200 font-medium">职业:</span>
-                            <span className="text-blue-100 flex-1">{character.profession}</span>
+                            <Briefcase className="w-4 h-4 text-brass/70" />
+                            <span className="text-mist font-medium">职业:</span>
+                            <span className="text-paper/85 flex-1">{character.profession}</span>
                           </div>
                         )}
                         
                         {character.background && (
                           <div className="text-sm">
                             <div className="flex items-center gap-2 mb-1">
-                              <Book className="w-4 h-4 text-blue-400" />
-                              <span className="text-blue-200 font-medium">背景:</span>
+                              <Book className="w-4 h-4 text-brass/70" />
+                              <span className="text-mist font-medium">背景:</span>
                             </div>
-                            <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-3">{character.background}</p>
+                            <p className="text-paper/85 text-xs leading-relaxed pl-6 line-clamp-3">{character.background}</p>
                           </div>
                         )}
                         
                         {character.secret && (
                           <div className="text-sm">
                             <div className="flex items-center gap-2 mb-1">
-                              <EyeOff className="w-4 h-4 text-blue-400" />
-                              <span className="text-blue-200 font-medium">秘密:</span>
+                              <EyeOff className="w-4 h-4 text-brass/70" />
+                              <span className="text-mist font-medium">秘密:</span>
                             </div>
-                            <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{character.secret}</p>
+                            <p className="text-paper/85 text-xs leading-relaxed pl-6 line-clamp-2">{character.secret}</p>
                           </div>
                         )}
                         
                         {character.objective && (
                           <div className="text-sm">
                             <div className="flex items-center gap-2 mb-1">
-                              <Target className="w-4 h-4 text-blue-400" />
-                              <span className="text-blue-200 font-medium">目标:</span>
+                              <Target className="w-4 h-4 text-brass/70" />
+                              <span className="text-mist font-medium">目标:</span>
                             </div>
-                            <p className="text-blue-100 text-xs leading-relaxed pl-6 line-clamp-2">{character.objective}</p>
+                            <p className="text-paper/85 text-xs leading-relaxed pl-6 line-clamp-2">{character.objective}</p>
                           </div>
                         )}
                         
                         {character.personality_traits && character.personality_traits.length > 0 && (
                           <div className="text-sm">
                             <div className="flex items-center gap-2 mb-1">
-                              <User className="w-4 h-4 text-blue-400" />
-                              <span className="text-blue-200 font-medium">性格:</span>
+                              <User className="w-4 h-4 text-brass/70" />
+                              <span className="text-mist font-medium">性格:</span>
                             </div>
                             <div className="flex flex-wrap gap-1 pl-6">
                               {character.personality_traits.map((trait, index) => (
-                                <Badge key={index} variant="outline" className="text-xs bg-blue-600/20 text-blue-300 border-blue-500/30">
+                                <Badge key={index} variant="outline" className="text-xs bg-brass/10 text-mist border-line">
                                   {trait}
                                 </Badge>
                               ))}
@@ -382,11 +382,11 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                         {character.voice_id && (
                           <div className="text-sm">
                             <div className="flex items-center gap-2 mb-1">
-                              <Mic className="w-4 h-4 text-blue-400" />
-                              <span className="text-blue-200 font-medium">语音:</span>
+                              <Mic className="w-4 h-4 text-brass/70" />
+                              <span className="text-mist font-medium">语音:</span>
                             </div>
                             <div className="pl-6">
-                              <Badge variant="outline" className="text-xs bg-green-600/20 text-green-300 border-green-500/30">
+                              <Badge variant="outline" className="text-xs bg-brass/10 text-mist border-line">
                                 {voiceOptions.find(v => v.voice_id === character.voice_id)?.voice_name || character.voice_id}
                               </Badge>
                             </div>
@@ -395,12 +395,12 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                       </div>
                       
                       {/* 操作按钮 */}
-                      <div className="flex gap-3 pt-6 border-t border-blue-500/20">
+                      <div className="flex gap-3 pt-6 border-t border-hairline">
                         <Button
                           onClick={(e) => { e.stopPropagation(); handleEditCharacter(character); }}
                           variant="outline"
                           size="sm"
-                          className="flex-1 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 text-blue-300 border-blue-500/30 hover:from-blue-600/40 hover:to-cyan-600/40 hover:border-blue-400/50 transition-all duration-300 modern-button"
+                          className="flex-1 h-8 rounded-sm border-line text-mist hover:border-brass/40 hover:text-brass"
                         >
                           <Edit className="w-3 h-3 mr-1" />
                           <span>编辑</span>
@@ -409,7 +409,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                           onClick={(e) => { e.stopPropagation(); handleDeleteCharacter(character.id!); }}
                           variant="outline"
                           size="sm"
-                          className="flex-1 bg-gradient-to-r from-red-600/20 to-pink-600/20 text-red-300 border-red-500/30 hover:from-red-600/40 hover:to-pink-600/40 hover:border-red-400/50 transition-all duration-300 modern-button"
+                          className="flex-1 h-8 rounded-sm border-line text-mist hover:border-thread/50 hover:text-thread"
                         >
                           <Trash2 className="w-3 h-3 mr-1" />
                           <span>删除</span>
@@ -427,11 +427,11 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
 
       {/* 角色编辑对话框 */}
       <Dialog open={showCharacterForm} onOpenChange={setShowCharacterForm}>
-        <DialogContent showCloseButton={false} className="max-w-5xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800/95 to-slate-900/95 border-blue-500/30 shadow-2xl shadow-blue-500/20 backdrop-blur-lg">
+        <DialogContent showCloseButton={false} className="max-w-5xl max-h-[90vh] overflow-y-auto bg-panel border-line">
           <DialogHeader>
             <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold text-blue-200 flex items-center gap-2">
-                <Users className="w-5 h-5" />
+              <DialogTitle className="text-xl font-semibold text-paper flex items-center gap-2">
+                <Users className="w-5 h-5 text-brass" />
                 {editingCharacter ? '编辑角色' : '添加角色'}
               </DialogTitle>
               <Button
@@ -442,7 +442,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   setEditingCharacter(null);
                   initCharacterForm();
                 }}
-                className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 h-auto p-3 rounded-lg transition-all duration-200"
+                className="text-mist hover:text-paper hover:bg-raised h-auto p-3 rounded-sm"
               >
                 <X className="w-5 h-5" />
               </Button>
@@ -453,33 +453,33 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
             {/* 左侧：基本信息 */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-blue-200 font-medium">角色名称 *</Label>
+                <Label htmlFor="name" className="text-mist font-medium">角色名称 *</Label>
                 <Input
                   id="name"
                   value={characterForm.name || ''}
                   onChange={(e) => setCharacterForm({ ...characterForm, name: e.target.value })}
-                  className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50"
+                  className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40"
                   placeholder="输入角色名称"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="age" className="text-blue-200 font-medium">年龄</Label>
+                  <Label htmlFor="age" className="text-mist font-medium">年龄</Label>
                   <Input
                     id="age"
                     type="number"
                     value={characterForm.age || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, age: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50"
+                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40"
                     placeholder="年龄"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-blue-200 font-medium">性别</Label>
+                  <Label className="text-mist font-medium">性别</Label>
                   <Select value={characterForm.gender || ''} onValueChange={(value) => setCharacterForm({ ...characterForm, gender: value || undefined })}>
-                    <SelectTrigger className="bg-slate-700/50 border-blue-500/30 text-blue-100">
+                    <SelectTrigger className="bg-slate-700/50 border-line text-paper/85">
                       <SelectValue placeholder="选择性别" />
                     </SelectTrigger>
                     <SelectContent>
@@ -492,18 +492,18 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="profession" className="text-blue-200 font-medium">职业</Label>
+                <Label htmlFor="profession" className="text-mist font-medium">职业</Label>
                 <Input
                   id="profession"
                   value={characterForm.profession || ''}
                   onChange={(e) => setCharacterForm({ ...characterForm, profession: e.target.value || undefined })}
-                  className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50"
+                  className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40"
                   placeholder="输入职业"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-blue-200 font-medium">性格特征</Label>
+                <Label className="text-mist font-medium">性格特征</Label>
                 <MultiSelect
                   options={[
                     { value: '冷静', label: '冷静' },
@@ -526,13 +526,13 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-blue-200 font-medium">语音</Label>
+                <Label className="text-mist font-medium">语音</Label>
                 <Select 
                   value={characterForm.voice_id || 'none'} 
                   onValueChange={(value) => setCharacterForm({ ...characterForm, voice_id: value === 'none' ? undefined : value })}
                   searchable={true}
                 >
-                  <SelectTrigger className="bg-slate-700/50 border-blue-500/30 text-blue-100">
+                  <SelectTrigger className="bg-slate-700/50 border-line text-paper/85">
                     <SelectValue placeholder="选择语音" />
                   </SelectTrigger>
                   <SelectContent>
@@ -553,7 +553,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                     checked={characterForm.is_victim || false}
                     onCheckedChange={(checked) => setCharacterForm({ ...characterForm, is_victim: !!checked })}
                   />
-                  <Label htmlFor="is_victim" className="text-blue-200 font-medium">受害者</Label>
+                  <Label htmlFor="is_victim" className="text-mist font-medium">受害者</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -562,7 +562,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                     checked={characterForm.is_murderer || false}
                     onCheckedChange={(checked) => setCharacterForm({ ...characterForm, is_murderer: !!checked })}
                   />
-                  <Label htmlFor="is_murderer" className="text-blue-200 font-medium">凶手</Label>
+                  <Label htmlFor="is_murderer" className="text-mist font-medium">凶手</Label>
                 </div>
               </div>
             </div>
@@ -571,7 +571,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
             <div className="space-y-4">
               {/* 头像选择器 */}
               <div className="space-y-2">
-                <Label className="text-blue-200 font-medium">角色头像</Label>
+                <Label className="text-mist font-medium">角色头像</Label>
                 <ImageSelector
                   imageType={ImageType.CHARACTER}
                   scriptId={scriptId}
@@ -593,34 +593,34 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
               {/* 详细信息 */}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="background" className="text-blue-200 font-medium">背景故事 *</Label>
+                  <Label htmlFor="background" className="text-mist font-medium">背景故事 *</Label>
                   <Textarea
                     id="background"
                     value={characterForm.background || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, background: e.target.value || undefined })}
-                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50 min-h-[100px]"
+                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40 min-h-[100px]"
                     placeholder="描述角色的背景故事..."
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="secret" className="text-blue-200 font-medium">秘密</Label>
+                  <Label htmlFor="secret" className="text-mist font-medium">秘密</Label>
                   <Textarea
                     id="secret"
                     value={characterForm.secret || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, secret: e.target.value || undefined })}
-                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50 min-h-[80px]"
+                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40 min-h-[80px]"
                     placeholder="角色隐藏的秘密..."
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="objective" className="text-blue-200 font-medium">目标</Label>
+                  <Label htmlFor="objective" className="text-mist font-medium">目标</Label>
                   <Textarea
                     id="objective"
                     value={characterForm.objective || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, objective: e.target.value || undefined })}
-                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 focus:border-blue-400/50 min-h-[80px]"
+                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40 min-h-[80px]"
                     placeholder="角色的目标和动机..."
                   />
                 </div>
@@ -636,14 +636,14 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                 setEditingCharacter(null);
                 initCharacterForm();
               }}
-              className="bg-slate-700/50 text-blue-300 border-blue-500/30 hover:bg-slate-600/50"
+              className="bg-slate-700/50 text-mist border-line hover:bg-slate-600/50"
             >
               取消
             </Button>
             <Button
               onClick={handleSaveCharacter}
               disabled={!characterForm.name || !characterForm.background}
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
+              className="h-9 rounded-sm border border-brass/40 bg-brass/10 px-6 font-data text-sm tracking-widest text-brass hover:bg-brass/20"
             >
               {editingCharacter ? '更新角色' : '创建角色'}
             </Button>
