@@ -104,55 +104,55 @@ const GameHistoryDetailContent: React.FC<GameHistoryDetailContentProps> = ({
   return (
     <div className="space-y-6">
       {/* 基本信息 */}
-      <Card className="bg-gray-800/50 border-gray-700/50">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-blue-400" />
+          <CardTitle className="font-dossier text-lg text-paper flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-brass" />
             基本信息
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="text-sm text-gray-400">会话ID</div>
-              <div className="text-gray-200 font-mono">{detail.session_info.session_id}</div>
+              <div className="text-sm text-mist">会话ID</div>
+              <div className="text-paper font-data">{detail.session_info.session_id}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-400">剧本名称</div>
-              <div className="text-gray-200">{scriptTitle || `剧本 #${detail.session_info.script_id}`}</div>
+              <div className="text-sm text-mist">剧本名称</div>
+              <div className="text-paper">{scriptTitle || `剧本 #${detail.session_info.script_id}`}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-400">游戏状态</div>
+              <div className="text-sm text-mist">游戏状态</div>
               <Badge className={`${statusDisplay.color} text-white`}>
                 {statusDisplay.label}
               </Badge>
             </div>
             <div>
-              <div className="text-sm text-gray-400">游戏模式</div>
-              <div className="text-gray-200">AI 自主演绎</div>
+              <div className="text-sm text-mist">游戏模式</div>
+              <div className="text-paper">AI 自主演绎</div>
             </div>
           </div>
 
-          <Separator className="bg-gray-700/50" />
+          <Separator className="bg-hairline" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="text-sm text-gray-400">创建时间</div>
-              <div className="text-gray-200">{formatDateTime(detail.session_info.created_at)}</div>
+              <div className="text-sm text-mist">创建时间</div>
+              <div className="text-paper">{formatDateTime(detail.session_info.created_at)}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-400">开始时间</div>
-              <div className="text-gray-200">{formatDateTime(detail.session_info.started_at)}</div>
+              <div className="text-sm text-mist">开始时间</div>
+              <div className="text-paper">{formatDateTime(detail.session_info.started_at)}</div>
             </div>
             {detail.session_info.finished_at && (
               <div>
-                <div className="text-sm text-gray-400">结束时间</div>
-                <div className="text-gray-200">{formatDateTime(detail.session_info.finished_at)}</div>
+                <div className="text-sm text-mist">结束时间</div>
+                <div className="text-paper">{formatDateTime(detail.session_info.finished_at)}</div>
               </div>
             )}
             <div>
-              <div className="text-sm text-gray-400">游戏时长</div>
-              <div className="text-gray-200">
+              <div className="text-sm text-mist">游戏时长</div>
+              <div className="text-paper">
                 {detail.statistics.duration_minutes > 0
                   ? formatDuration(detail.statistics.duration_minutes)
                   : '未开始'
@@ -164,43 +164,43 @@ const GameHistoryDetailContent: React.FC<GameHistoryDetailContentProps> = ({
       </Card>
 
       {/* 游戏统计 */}
-      <Card className="bg-gray-800/50 border-gray-700/50">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-lg text-gray-100 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-green-400" />
+          <CardTitle className="font-dossier text-lg text-paper flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-brass" />
             游戏统计
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-3 bg-gray-700/50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-400">{detail.statistics.total_events}</div>
-              <div className="text-sm text-gray-400">总事件数</div>
+            <div className="text-center p-3 bg-raised border border-hairline rounded-sm">
+              <div className="font-data text-2xl font-bold text-brass">{detail.statistics.total_events}</div>
+              <div className="text-sm text-mist">总事件数</div>
             </div>
-            <div className="text-center p-3 bg-gray-700/50 rounded-lg">
-              <div className="text-2xl font-bold text-green-400">{detail.statistics.chat_messages}</div>
-              <div className="text-sm text-gray-400">聊天消息</div>
+            <div className="text-center p-3 bg-raised border border-hairline rounded-sm">
+              <div className="font-data text-2xl font-bold text-brass">{detail.statistics.chat_messages}</div>
+              <div className="text-sm text-mist">聊天消息</div>
             </div>
-            <div className="text-center p-3 bg-gray-700/50 rounded-lg">
-              <div className="text-2xl font-bold text-purple-400">{detail.statistics.system_events}</div>
-              <div className="text-sm text-gray-400">系统事件</div>
+            <div className="text-center p-3 bg-raised border border-hairline rounded-sm">
+              <div className="font-data text-2xl font-bold text-brass">{detail.statistics.system_events}</div>
+              <div className="text-sm text-mist">系统事件</div>
             </div>
-            <div className="text-center p-3 bg-gray-700/50 rounded-lg">
-              <div className="text-2xl font-bold text-orange-400">{detail.statistics.tts_generated}</div>
-              <div className="text-sm text-gray-400">语音生成</div>
+            <div className="text-center p-3 bg-raised border border-hairline rounded-sm">
+              <div className="font-data text-2xl font-bold text-brass">{detail.statistics.tts_generated}</div>
+              <div className="text-sm text-mist">语音生成</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* AI演绎说明 */}
-      <Card className="bg-gray-800/50 border-gray-700/50">
+      <Card>
         <CardContent className="pt-6">
           <div className="text-center space-y-2">
-            <div className="text-gray-300">
+            <div className="text-mist">
               本游戏为 AI 自主演绎模式，所有角色均由智能体驱动完成
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-faint">
               无需人类玩家参与，AI 将自动推进剧情发展
             </div>
           </div>
@@ -222,7 +222,7 @@ const GameHistoryDetailContent: React.FC<GameHistoryDetailContentProps> = ({
         {canReplay && (
           <Button
             onClick={() => handleAction('replay')}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            className="flex-1 bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20"
           >
             <Eye className="h-4 w-4 mr-2" />
             观看回放
@@ -230,7 +230,7 @@ const GameHistoryDetailContent: React.FC<GameHistoryDetailContentProps> = ({
         )}
 
         {isCanceled && (
-          <div className="flex-1 text-center py-3 text-gray-500">
+          <div className="flex-1 text-center py-3 text-faint">
             已取消的游戏无法操作
           </div>
         )}

@@ -300,7 +300,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                       {/* 头像区域 */}
                       <div className="mb-6">
                         {character.avatar_url ? (
-                          <div className="w-full h-48 rounded-xl overflow-hidden border border-line bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
+                          <div className="w-full h-48 rounded-xl overflow-hidden border border-line bg-panel shadow-lg group-hover:shadow-black/40 transition-all duration-300">
                             <Image 
                               src={character.avatar_url || ''} 
                               alt={character.name || ''}
@@ -458,7 +458,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   id="name"
                   value={characterForm.name || ''}
                   onChange={(e) => setCharacterForm({ ...characterForm, name: e.target.value })}
-                  className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40"
+                  className="bg-raised border-line text-paper/85 focus:border-brass/40"
                   placeholder="输入角色名称"
                 />
               </div>
@@ -471,7 +471,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                     type="number"
                     value={characterForm.age || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, age: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40"
+                    className="bg-raised border-line text-paper/85 focus:border-brass/40"
                     placeholder="年龄"
                   />
                 </div>
@@ -479,7 +479,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                 <div className="space-y-2">
                   <Label className="text-mist font-medium">性别</Label>
                   <Select value={characterForm.gender || ''} onValueChange={(value) => setCharacterForm({ ...characterForm, gender: value || undefined })}>
-                    <SelectTrigger className="bg-slate-700/50 border-line text-paper/85">
+                    <SelectTrigger className="bg-raised border-line text-paper/85">
                       <SelectValue placeholder="选择性别" />
                     </SelectTrigger>
                     <SelectContent>
@@ -497,7 +497,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   id="profession"
                   value={characterForm.profession || ''}
                   onChange={(e) => setCharacterForm({ ...characterForm, profession: e.target.value || undefined })}
-                  className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40"
+                  className="bg-raised border-line text-paper/85 focus:border-brass/40"
                   placeholder="输入职业"
                 />
               </div>
@@ -532,7 +532,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                   onValueChange={(value) => setCharacterForm({ ...characterForm, voice_id: value === 'none' ? undefined : value })}
                   searchable={true}
                 >
-                  <SelectTrigger className="bg-slate-700/50 border-line text-paper/85">
+                  <SelectTrigger className="bg-raised border-line text-paper/85">
                     <SelectValue placeholder="选择语音" />
                   </SelectTrigger>
                   <SelectContent>
@@ -598,7 +598,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                     id="background"
                     value={characterForm.background || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, background: e.target.value || undefined })}
-                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40 min-h-[100px]"
+                    className="bg-raised border-line text-paper/85 focus:border-brass/40 min-h-[100px]"
                     placeholder="描述角色的背景故事..."
                   />
                 </div>
@@ -609,7 +609,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                     id="secret"
                     value={characterForm.secret || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, secret: e.target.value || undefined })}
-                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40 min-h-[80px]"
+                    className="bg-raised border-line text-paper/85 focus:border-brass/40 min-h-[80px]"
                     placeholder="角色隐藏的秘密..."
                   />
                 </div>
@@ -620,7 +620,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                     id="objective"
                     value={characterForm.objective || ''}
                     onChange={(e) => setCharacterForm({ ...characterForm, objective: e.target.value || undefined })}
-                    className="bg-slate-700/50 border-line text-paper/85 focus:border-brass/40 min-h-[80px]"
+                    className="bg-raised border-line text-paper/85 focus:border-brass/40 min-h-[80px]"
                     placeholder="角色的目标和动机..."
                   />
                 </div>
@@ -636,7 +636,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                 setEditingCharacter(null);
                 initCharacterForm();
               }}
-              className="bg-slate-700/50 text-mist border-line hover:bg-slate-600/50"
+              className="bg-raised text-mist border-line hover:bg-brass/15"
             >
               取消
             </Button>

@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
+import { Gamepad2, Lightbulb, Play, Theater, UserRound } from 'lucide-react';
 
 const GamePage = () => {
   // 从URL参数获取script_id
@@ -221,25 +222,27 @@ const GamePage = () => {
           {/* 开始或继续覆盖层：未进入游戏视图时显示 */}
           {!enteredGame && !isGameRunning && (
             <div className="fixed inset-0 flex items-center justify-center z-20">
-              <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl p-10 border border-slate-700/50 shadow-2xl">
+              <div className="bg-panel border border-line rounded-sm p-10">
                 <div className="text-center">
-                  <div className="text-6xl mb-6">🎭</div>
-                  <h2 className="text-3xl font-bold text-white mb-4">
+                  <Theater className="text-5xl text-brass mx-auto mb-6" />
+                  <h2 className="font-dossier text-3xl font-bold text-paper mb-4">
                     {selectedScript?.info.title || '剧本杀'}
                   </h2>
-                  <p className="text-slate-300 mb-4 max-w-md">
+                  <p className="text-mist mb-4 max-w-md">
                     所有角色已就位，准备开始这场精彩的推理之旅
                   </p>
                   {!audioInitialized && (
-                    <p className="text-amber-300/90 mb-6 text-sm">
-                      💡 提示：点击右上角启用音频以获得更好的游戏体验
+                    <p className="text-amber-300/90 mb-6 text-sm flex items-center justify-center gap-1.5">
+                      <Lightbulb className="h-4 w-4" />
+                      提示：点击右上角启用音频以获得更好的游戏体验
                     </p>
                   )}
                   <button
                     onClick={handleStartOrContinueGameWithTTS}
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 px-8 rounded-xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 font-medium py-3 px-8 rounded-sm text-lg transition-colors"
                   >
-                    🚀 {gameInitialized ? '继续游戏' : '开始游戏'}
+                    <Play className="h-5 w-5 mr-2 inline-block -mt-0.5" />
+                    {gameInitialized ? '继续游戏' : '开始游戏'}
                   </button>
                 </div>
               </div>
@@ -247,15 +250,18 @@ const GamePage = () => {
           )}
           {!enteredGame && isGameRunning && (
             <div className="fixed inset-0 flex items-center justify-center z-20">
-              <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl p-10 border border-slate-700/50 shadow-2xl">
+              <div className="bg-panel border border-line rounded-sm p-10">
                 <div className="text-center">
-                  <div className="text-6xl mb-6">🎮</div>
-                  <h2 className="text-3xl font-bold text-white mb-4">继续游戏</h2>
-                  <p className="text-slate-300 mb-6 max-w-md">检测到有正在进行的剧本，点击继续加入当前进度</p>
+                  <Gamepad2 className="text-5xl text-brass mx-auto mb-6" />
+                  <h2 className="font-dossier text-3xl font-bold text-paper mb-4">继续游戏</h2>
+                  <p className="text-mist mb-6 max-w-md">检测到有正在进行的剧本，点击继续加入当前进度</p>
                   <button
                     onClick={handleStartOrContinueGameWithTTS}
-                    className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl text-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-                  >➡️ 继续游戏</button>
+                    className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 font-medium py-3 px-8 rounded-sm text-lg transition-colors"
+                  >
+                    <Play className="h-5 w-5 mr-2 inline-block -mt-0.5" />
+                    继续游戏
+                  </button>
                 </div>
               </div>
             </div>
@@ -298,25 +304,25 @@ const GamePage = () => {
                 {/* 角色头像显示在页面中央 */}
                 <div className="flex flex-col items-center space-y-8">
                   {/* 阶段进度条 */}
-                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-black/20 backdrop-blur-sm rounded-2xl">
+                  <div className="flex items-center justify-center gap-2 py-2 px-4 bg-ink/60 border border-hairline rounded-sm">
                     {PHASES.map((phase, idx) => (
                       <React.Fragment key={phase}>
                         <div className={cn(
                           'px-3 py-1 rounded-full text-xs font-medium transition-all',
                           idx === currentPhaseIdx
-                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                            ? 'bg-brass text-ink'
                             : idx < currentPhaseIdx
-                              ? 'bg-purple-900/50 text-purple-300'
-                              : 'bg-slate-700/50 text-gray-400'
+                              ? 'bg-raised text-mist'
+                              : 'bg-ink/40 text-faint'
                         )}>
                           {phase}
                         </div>
-                        {idx < PHASES.length - 1 && <div className="w-6 h-px bg-slate-600" />}
+                        {idx < PHASES.length - 1 && <div className="w-6 h-px bg-line" />}
                       </React.Fragment>
                     ))}
                   </div>
 
-                  <h2 className="text-2xl font-bold text-white mb-4">游戏角色</h2>
+                  <h2 className="font-dossier text-2xl font-bold text-paper mb-4">游戏角色</h2>
                   <CharacterAvatars
                     characters={characters.map((c: any) => ({ ...c, avatar_url: c.avatar_url === null ? undefined : c.avatar_url }))}
                   />
@@ -324,7 +330,7 @@ const GamePage = () => {
               </div>
 
               {/* 底部字幕区域 - 在 ActionBar 上方 */}
-              <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10 fixed bottom-16 left-0 right-0">
+              <div className="flex-shrink-0 bg-ink/70 border-t border-hairline fixed bottom-16 left-0 right-0">
                 {/* 字幕显示区域 */}
                 <div className="px-6 py-6 min-h-[140px] flex items-center justify-center">
                   <div className="w-full max-w-5xl flex items-start gap-6">
@@ -335,34 +341,25 @@ const GamePage = () => {
                           const speakingChar = characters.find(c => c.name === currentSpeakingCharacter);
                           if (speakingChar) {
                             return (
-                              <div className="relative w-20 h-16 rounded-xl border-4 border-yellow-400 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 backdrop-blur-sm flex items-center justify-center shadow-xl overflow-hidden">
-                                {/* 背景装饰 */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 to-orange-400/10 animate-pulse"></div>
-                                
-                                <div className="relative w-full h-full flex items-center justify-center text-2xl z-10">
+                              <div className="relative w-20 h-16 rounded-sm border-4 border-yellow-400 bg-brass/15 flex items-center justify-center overflow-hidden">
+                                <div className="relative w-full h-full flex items-center justify-center z-10">
                                   {speakingChar.avatar_url ? (
                                      <Image 
                                        src={speakingChar.avatar_url} 
                                        alt={speakingChar.name || ''}
                                        width={80}
                                        height={64}
-                                       className="w-full h-full object-cover rounded-lg"
+                                       className="w-full h-full object-cover rounded-sm"
                                      />
                                    ) : (
-                                    <span className="text-3xl">
-                                      {speakingChar.gender === '女' ? '👩' :
-                                       speakingChar.gender === '男' ? '👨' : '🕵️'}
-                                    </span>
+                                    <UserRound className="h-10 w-10 text-paper" />
                                   )}
                                 </div>
                                 
-                                {/* 发言指示器 - 改为更现代的设计 */}
-                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg border-2 border-white shadow-lg">
-                                  <div className="w-full h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-lg animate-ping opacity-75"></div>
+                                {/* 发言指示器 */}
+                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-sm border-2 border-ink shadow-lg">
+                                  <div className="w-full h-full bg-green-500 rounded-sm animate-ping opacity-75"></div>
                                 </div>
-                                
-                                {/* 边框光效 */}
-                                <div className="absolute inset-0 rounded-xl border-2 border-yellow-400/50 animate-pulse"></div>
                               </div>
                             );
                           }
@@ -375,20 +372,16 @@ const GamePage = () => {
                     <div className="flex-1">
                       {currentSpeakingCharacter ? (
                         <div className="space-y-3">
-                          <div className="text-xl font-bold text-white bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                          <div className="text-xl font-bold text-transparent bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text">
                             {currentSpeakingCharacter}
                           </div>
-                          <div className="text-lg text-gray-100 bg-gradient-to-r from-black/60 to-black/40 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/10 shadow-2xl">
-                            <div className="relative">
-                              {currentSpeechText || '正在发言中...'}
-                              {/* 文字装饰效果 */}
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse rounded-xl"></div>
-                            </div>
+                          <div className="text-lg text-mist bg-panel border border-line rounded-sm px-6 py-4">
+                            {currentSpeechText || '正在发言中...'}
                           </div>
                         </div>
                       ) : (
-                        <div className="text-center text-gray-400 text-lg">
-                          <div className="bg-black/30 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/10">
+                        <div className="text-center text-faint text-lg">
+                          <div className="bg-ink/40 border border-hairline rounded-sm px-6 py-4">
                             等待角色发言...
                           </div>
                         </div>
@@ -399,19 +392,19 @@ const GamePage = () => {
               </div>
 
               {/* 底部 ActionBar */}
-              <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-slate-900/90 backdrop-blur-sm border-t border-slate-700/50 flex items-center px-4 gap-3">
+              <div className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-ink/90 border-t border-line flex items-center px-4 gap-3">
                 <button
                   onClick={handleNextPhase}
-                  className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors whitespace-nowrap"
+                  className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 text-sm font-medium px-4 py-2 rounded-sm transition-colors whitespace-nowrap"
                 >
                   下一阶段
                 </button>
-                <div className="flex-1 text-center text-sm text-slate-300 truncate">
+                <div className="flex-1 text-center text-sm text-mist truncate">
                   {currentPhaseName || gameState?.phase || '游戏进行中'}
                 </div>
                 <button
                   onClick={() => setDrawerOpen(o => !o)}
-                  className="bg-slate-700/80 hover:bg-slate-600/80 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors whitespace-nowrap"
+                  className="bg-raised text-paper hover:bg-panel border border-line text-sm font-medium px-4 py-2 rounded-sm transition-colors whitespace-nowrap"
                 >
                   控制面板
                 </button>
@@ -426,26 +419,26 @@ const GamePage = () => {
       {/* 后台模式确认弹框 */}
       {showBackgroundModeDialog && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-slate-900 border border-slate-700/50 rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-white mb-4">退出游戏</h3>
-            <p className="text-slate-400 mb-6">
+          <div className="bg-panel border border-line rounded-sm p-6 max-w-md w-full mx-4">
+            <h3 className="font-dossier text-lg font-semibold text-paper mb-4">退出游戏</h3>
+            <p className="text-mist mb-6">
               是否需要启用后台模式？启用后台模式可以让游戏在后台继续运行。
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleDirectExit}
                 disabled={isWaitingBackgroundResponse}
-                className="px-4 py-2 text-slate-200 bg-slate-700/80 border border-slate-600/50 rounded-md hover:bg-slate-600/80 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-mist bg-raised border border-line rounded-sm hover:bg-panel disabled:opacity-50 transition-colors"
               >
                 直接退出
               </button>
               <button
                 onClick={handleEnableBackgroundMode}
                 disabled={isWaitingBackgroundResponse}
-                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-md disabled:opacity-50 flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 rounded-sm disabled:opacity-50 flex items-center gap-2 transition-colors"
               >
                 {isWaitingBackgroundResponse && (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-brass border-t-transparent rounded-full animate-spin"></div>
                 )}
                 启用后台模式
               </button>

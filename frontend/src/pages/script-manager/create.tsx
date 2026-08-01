@@ -132,20 +132,20 @@ export default function CreateScript() {
   const renderForm = () => (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-4">
-          <Lightbulb className="w-8 h-8 text-white" />
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-brass/15 border border-brass/40 rounded-full mb-4">
+          <Lightbulb className="w-8 h-8 text-brass" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">开始你的创作之旅</h1>
-        <p className="text-slate-400 text-lg">输入一句话主题，AI 创作 Agent 将为你逐步生成完整剧本</p>
+        <h1 className="text-3xl font-dossier text-paper mb-2">开始你的创作之旅</h1>
+        <p className="text-mist text-lg">输入一句话主题，AI 创作 Agent 将为你逐步生成完整剧本</p>
       </div>
 
-      <Card className="bg-slate-800/80 border-slate-700/60">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <PenTool className="w-5 h-5 text-green-400" />
+          <CardTitle className="text-paper flex items-center gap-2">
+            <PenTool className="w-5 h-5 text-brass" />
             一句话开始
           </CardTitle>
-          <CardDescription className="text-slate-400">
+          <CardDescription className="text-mist">
             描述你想要的剧本故事，AI 将实时展示创作过程
           </CardDescription>
         </CardHeader>
@@ -154,20 +154,20 @@ export default function CreateScript() {
             placeholder="例如：一个雨夜，图书馆里发生了奇怪的事情..."
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            className="bg-slate-900/50 border-slate-600 text-white min-h-[120px]"
+            className="min-h-[120px] font-dossier"
           />
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="flex items-center gap-1.5 text-white font-medium mb-2">
-                <BookOpen className="w-4 h-4 text-purple-400" />
+              <label className="flex items-center gap-1.5 text-paper font-medium mb-2">
+                <BookOpen className="w-4 h-4 text-brass" />
                 剧本类型
               </label>
               <Select value={scriptType} onValueChange={setScriptType}>
-                <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
+                <SelectTrigger>
                   <SelectValue placeholder="选择剧本类型" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800/95 border-slate-600 text-slate-100">
+                <SelectContent>
                   {scriptTypes.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
@@ -178,15 +178,15 @@ export default function CreateScript() {
             </div>
 
             <div>
-              <label className="flex items-center gap-1.5 text-white font-medium mb-2">
-                <Users className="w-4 h-4 text-blue-400" />
+              <label className="flex items-center gap-1.5 text-paper font-medium mb-2">
+                <Users className="w-4 h-4 text-brass" />
                 玩家人数
               </label>
               <Select value={playerCount} onValueChange={setPlayerCount}>
-                <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
+                <SelectTrigger>
                   <SelectValue placeholder="选择人数" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800/95 border-slate-600 text-slate-100">
+                <SelectContent>
                   {playerCounts.map((count) => (
                     <SelectItem key={count} value={count}>
                       {count}人
@@ -203,11 +203,11 @@ export default function CreateScript() {
         <Button
           onClick={handleStartCreation}
           disabled={!theme.trim() || isCreating}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8"
+          className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 px-8"
         >
           {isCreating ? (
             <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              <Loader2 className="w-5 h-5 mr-2 animate-spin border-brass" />
               正在创建剧本...
             </>
           ) : (
@@ -224,8 +224,8 @@ export default function CreateScript() {
   const renderGenerating = () => (
     <div>
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-white mb-1">AI 正在创作你的剧本</h1>
-        <p className="text-slate-400">你可以实时看到 Agent 的每一步思考与操作</p>
+        <h1 className="text-2xl font-dossier text-paper mb-1">AI 正在创作你的剧本</h1>
+        <p className="text-mist">你可以实时看到 Agent 的每一步思考与操作</p>
       </div>
       <ScriptGenerationPanel onReset={handleBackToForm} />
     </div>
@@ -234,7 +234,7 @@ export default function CreateScript() {
   return (
     <AuthGuard>
       <AppLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 py-8 px-4">
+        <div className="min-h-screen bg-gradient-to-b from-ink to-[#10141C] py-8 px-4">
           {phase === 'form' ? renderForm() : renderGenerating()}
         </div>
       </AppLayout>

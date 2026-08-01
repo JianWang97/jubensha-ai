@@ -43,7 +43,7 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
     <div
       className={cn(
         "fixed left-0 top-0 z-50 h-screen flex flex-col overflow-hidden",
-        "bg-gray-900/95 backdrop-blur-sm border-r border-gray-800",
+        "bg-panel/95 backdrop-blur-sm border-r border-line",
         "transition-all duration-300",
         expanded ? "w-[220px]" : "w-20",
         className
@@ -52,13 +52,13 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
       onMouseLeave={() => setExpanded(false)}
     >
       {/* Logo 区域 */}
-      <div className="flex h-20 items-center border-b border-gray-800 px-4 shrink-0">
+      <div className="flex h-20 items-center border-b border-line px-4 shrink-0">
         <Link href="/" className="flex items-center gap-3">
-          <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center hover:from-purple-400 hover:to-purple-600 transition-all duration-200">
-            <span className="text-white font-bold text-lg">AI</span>
+          <div className="w-12 h-12 shrink-0 bg-brass/15 border border-brass/40 rounded-sm flex items-center justify-center hover:bg-brass/25 transition-all duration-200">
+            <span className="font-dossier text-paper font-bold text-lg">AI</span>
           </div>
           <span className={cn(
-            "text-white font-bold text-base whitespace-nowrap transition-opacity duration-300",
+            "font-dossier text-paper font-bold text-base whitespace-nowrap transition-opacity duration-300",
             expanded ? "opacity-100" : "opacity-0"
           )}>
             AI 剧本杀
@@ -77,11 +77,11 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex h-12 items-center rounded-xl transition-all duration-300",
+                "relative flex h-12 items-center rounded-sm transition-all duration-300",
                 expanded ? "w-full px-3 gap-3" : "w-12 mx-auto justify-center",
                 active
-                  ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
-                  : "text-gray-400 hover:text-white hover:bg-white/10"
+                  ? "bg-brass/15 text-brass border border-brass/30"
+                  : "text-mist hover:text-paper hover:bg-raised/60"
               )}
             >
               <Icon className="h-6 w-6 shrink-0" />
@@ -94,7 +94,7 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
 
               {/* 活跃状态指示器 */}
               {active && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-purple-400 rounded-full" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-brass rounded-full" />
               )}
             </Link>
           );
@@ -102,9 +102,9 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
       </div>
 
       {/* 底部用户菜单 */}
-      <div className="flex flex-col pb-6 border-t border-gray-800 pt-4 px-2">
+      <div className="flex flex-col pb-6 border-t border-line pt-4 px-2">
         <div className={cn(
-          "flex items-center gap-3 rounded-xl transition-all duration-300",
+          "flex items-center gap-3 rounded-sm transition-all duration-300",
           expanded ? "w-full px-3" : "w-12 mx-auto justify-center"
         )}>
           <div className="shrink-0">
@@ -112,7 +112,7 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
           </div>
           {user && (
             <span className={cn(
-              "text-sm font-medium text-white whitespace-nowrap transition-opacity duration-300 truncate",
+              "text-sm font-medium text-paper whitespace-nowrap transition-opacity duration-300 truncate",
               expanded ? "opacity-100" : "opacity-0"
             )}>
               {user.nickname || user.username}

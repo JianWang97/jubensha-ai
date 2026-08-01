@@ -62,8 +62,8 @@ export function Combobox({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            "w-full justify-between bg-slate-800/50 border-purple-500/30 text-purple-100 hover:bg-slate-700/50 focus:border-purple-400",
-            !value && "text-purple-400/50",
+            "w-full justify-between bg-panel border-line text-mist hover:bg-raised focus:border-brass/40",
+            !value && "text-faint",
             className
           )}
           disabled={disabled}
@@ -72,19 +72,19 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0 bg-slate-800 border-purple-500/30">
+      <PopoverContent className="w-full p-0 bg-raised border-line">
         <div className="p-2">
           <Input
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-slate-700/50 border-purple-500/30 text-purple-100 placeholder-purple-400/50 focus:border-purple-400"
+            className="bg-panel border-line text-mist placeholder:text-faint focus:border-brass/40"
           />
         </div>
         <ScrollArea>
           <div className="p-1 h-[200px] overflow-y-auto">
             {filteredOptions.length === 0 ? (
-              <div className="py-6 text-center text-sm text-purple-400/70">
+              <div className="py-6 text-center text-sm text-faint">
                 {emptyText}
               </div>
             ) : (
@@ -92,8 +92,8 @@ export function Combobox({
                 <div
                   key={option.value}
                   className={cn(
-                    "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-purple-600/20 focus:bg-purple-600/20 text-purple-100",
-                    value === option.value && "bg-purple-600/30"
+                    "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-brass/10 focus:bg-brass/10 text-mist",
+                    value === option.value && "bg-brass/15"
                   )}
                   onClick={() => {
                     onValueChange?.(option.value === value ? "" : option.value)
@@ -110,7 +110,7 @@ export function Combobox({
                   <div className="flex flex-col">
                     <span>{option.label}</span>
                     {option.description && (
-                      <span className="text-xs text-purple-400/70">
+                      <span className="text-xs text-faint">
                         {option.description}
                       </span>
                     )}

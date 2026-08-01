@@ -168,52 +168,52 @@ export default function ScriptCenter() {
   return (
     <AuthGuard>
       <AppLayout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950/30 to-slate-900">
+        <div className="min-h-screen bg-gradient-to-b from-ink to-[#10141C]">
           {/* 现代化头部 */}
-          <div className="sticky top-0 z-10 bg-slate-950/80 backdrop-blur-xl border-b border-indigo-500/20">
-            <div className="max-w-7xl mx-auto px-6 py-4">
-              <div className="flex items-center justify-between">
+          <div className="sticky top-0 z-10 bg-ink/90 backdrop-blur-xl border-b border-hairline">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                 {/* 左侧标题和搜索 */}
-                <div className="flex items-center gap-6 flex-1 max-w-3xl">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-6 h-6 text-purple-400" />
-                    <h1 className="text-2xl font-bold text-white">剧本中心</h1>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 lg:flex-1 lg:max-w-3xl lg:gap-6">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <BookOpen className="w-6 h-6 text-brass" />
+                    <h1 className="text-2xl font-dossier text-paper">剧本中心</h1>
                   </div>
 
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <div className="relative flex-1 lg:max-w-md">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-faint" />
                     <Input
                       placeholder="搜索剧本..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-12 pr-12 h-12 bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-400 focus:border-indigo-400 focus:bg-slate-800/70 transition-all rounded-xl"
+                      className="pl-12 pr-12 h-12"
                     />
                     {isDebouncing && (
-                      <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
+                      <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-brass animate-spin" />
                     )}
                   </div>
                 </div>
 
                 {/* 右侧控制 */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between lg:justify-end gap-3 shrink-0">
                   {/* 创建按钮 */}
                   <Button
                     onClick={() => router.push('/script-manager/create')}
-                    className="h-12 px-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium rounded-md shadow-lg"
+                    className="h-12 px-6 bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 font-medium rounded-sm"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     创建剧本
                   </Button>
 
                   {/* 视图切换 */}
-                  <div className="flex bg-slate-800/50 border border-slate-700/50 rounded-xl p-1">
+                  <div className="flex bg-panel border border-line rounded-sm p-1">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setViewMode('grid')}
-                      className={`h-10 px-4 rounded-md transition-all ${viewMode === 'grid'
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                      className={`h-10 px-4 rounded-sm transition-all ${viewMode === 'grid'
+                          ? 'bg-brass/15 text-brass'
+                          : 'text-mist hover:text-paper'
                         }`}
                     >
                       <Grid className="h-4 w-4" />
@@ -222,9 +222,9 @@ export default function ScriptCenter() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setViewMode('list')}
-                      className={`h-10 px-4 rounded-md transition-all ${viewMode === 'list'
-                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                      className={`h-10 px-4 rounded-sm transition-all ${viewMode === 'list'
+                          ? 'bg-brass/15 text-brass'
+                          : 'text-mist hover:text-paper'
                         }`}
                     >
                       <List className="h-4 w-4" />
@@ -238,12 +238,12 @@ export default function ScriptCenter() {
           {/* 标签页与筛选工具栏 */}
           <div className="max-w-7xl mx-auto px-6 pt-5">
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-              <div className="flex bg-slate-900/60 backdrop-blur-sm border border-slate-700/40 rounded-lg p-1">
+              <div className="flex bg-panel border border-line rounded-sm p-1">
                 <button
                   onClick={() => setActiveTab('my-scripts')}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'my-scripts'
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  className={`flex items-center gap-2 px-5 py-2 rounded-sm text-sm font-medium transition-all ${activeTab === 'my-scripts'
+                      ? 'bg-brass/15 text-brass'
+                      : 'text-mist hover:text-paper'
                     }`}
                 >
                   <User className="w-4 h-4" />
@@ -251,9 +251,9 @@ export default function ScriptCenter() {
                 </button>
                 <button
                   onClick={() => setActiveTab('script-library')}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'script-library'
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  className={`flex items-center gap-2 px-5 py-2 rounded-sm text-sm font-medium transition-all ${activeTab === 'script-library'
+                      ? 'bg-brass/15 text-brass'
+                      : 'text-mist hover:text-paper'
                     }`}
                 >
                   <Library className="w-4 h-4" />
@@ -276,7 +276,7 @@ export default function ScriptCenter() {
               {/* 主内容区域 */}
               <div className="flex-1 min-w-0">
                 {!loading && !error && filteredScripts.length > 0 && (
-                  <p className="text-sm text-slate-500 mb-4">共 {filteredScripts.length} 个剧本</p>
+                  <p className="text-sm text-faint mb-4">共 {filteredScripts.length} 个剧本</p>
                 )}
                 {loading ? (
                   <div className={`grid gap-6 ${viewMode === 'grid'
@@ -290,10 +290,10 @@ export default function ScriptCenter() {
                 ) : error ? (
                   <div className="flex items-center justify-center min-h-[420px]">
                     <div className="text-center space-y-4">
-                      <div className="text-red-400 text-lg mb-4">{error}</div>
+                      <div className="text-thread text-lg mb-4">{error}</div>
                       <Button
                         onClick={() => fetchScripts()}
-                        className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-8 py-3 rounded-md"
+                        className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 px-8 py-3 rounded-sm"
                       >
                         重新加载
                       </Button>
@@ -301,13 +301,13 @@ export default function ScriptCenter() {
                   </div>
                 ) : filteredScripts.length === 0 ? (
                   (searchTerm || selectedDifficulty || selectedDuration) ? (
-                    <div className="bg-slate-900/50 border border-slate-700/30 rounded-lg p-12 text-center min-h-[420px] flex flex-col items-center justify-center">
-                      <div className="w-20 h-20 mx-auto mb-6 bg-slate-800/60 border border-slate-700/40 rounded-full flex items-center justify-center">
-                        <Search className="w-9 h-9 text-slate-400" />
+                    <div className="bg-panel border border-line rounded-sm p-12 text-center min-h-[420px] flex flex-col items-center justify-center">
+                      <div className="w-20 h-20 mx-auto mb-6 bg-raised border border-hairline rounded-full flex items-center justify-center">
+                        <Search className="w-9 h-9 text-brass" />
                       </div>
                       <div className="space-y-3 mb-6">
-                        <h3 className="text-xl font-semibold text-white">没有找到匹配的剧本</h3>
-                        <p className="text-slate-400">尝试调整搜索条件或筛选项</p>
+                        <h3 className="text-xl font-semibold text-paper">没有找到匹配的剧本</h3>
+                        <p className="text-mist">尝试调整搜索条件或筛选项</p>
                       </div>
                       <Button
                         onClick={() => {
@@ -317,26 +317,26 @@ export default function ScriptCenter() {
                           setSelectedDuration(null);
                         }}
                         variant="outline"
-                        className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 px-6 py-3 rounded-md font-medium"
+                        className="border-line text-mist hover:border-brass/40 hover:text-paper px-6 py-3 rounded-sm font-medium"
                       >
                         清除筛选
                       </Button>
                     </div>
                   ) : (
-                    <div className="bg-slate-900/50 border border-slate-700/30 rounded-lg p-12 text-center min-h-[420px] flex flex-col items-center justify-center">
-                      <div className="w-20 h-20 mx-auto mb-6 bg-indigo-500/15 border border-indigo-500/25 rounded-full flex items-center justify-center">
+                    <div className="bg-panel border border-line rounded-sm p-12 text-center min-h-[420px] flex flex-col items-center justify-center">
+                      <div className="w-20 h-20 mx-auto mb-6 bg-brass/15 border border-brass/40 rounded-full flex items-center justify-center">
                         {isMyScripts ? (
-                          <User className="w-9 h-9 text-indigo-400" />
+                          <User className="w-9 h-9 text-brass" />
                         ) : (
-                          <Library className="w-9 h-9 text-indigo-400" />
+                          <Library className="w-9 h-9 text-brass" />
                         )}
                       </div>
 
                       <div className="space-y-3 mb-6">
-                        <h3 className="text-xl font-semibold text-white">
+                        <h3 className="text-xl font-semibold text-paper">
                           {isMyScripts ? '暂无我的剧本' : '剧本库为空'}
                         </h3>
-                        <p className="text-slate-400">
+                        <p className="text-mist">
                           {isMyScripts ? '开始创建您的第一个剧本' : '暂时没有公开的剧本'}
                         </p>
                       </div>
@@ -345,7 +345,7 @@ export default function ScriptCenter() {
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                           <Button
                             onClick={() => router.push('/script-manager/create')}
-                            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-md font-medium"
+                            className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 px-6 py-3 rounded-sm font-medium"
                           >
                             <Plus className="w-4 h-4 mr-2" />
                             创建新剧本
@@ -353,7 +353,7 @@ export default function ScriptCenter() {
                           <Button
                             onClick={() => setActiveTab('script-library')}
                             variant="outline"
-                            className="border-slate-600/50 text-slate-300 hover:bg-slate-800/50 px-6 py-3 rounded-md font-medium"
+                            className="border-line text-mist hover:border-brass/40 hover:text-paper px-6 py-3 rounded-sm font-medium"
                           >
                             <Library className="w-4 h-4 mr-2" />
                             浏览剧本库

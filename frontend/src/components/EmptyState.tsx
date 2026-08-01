@@ -22,18 +22,18 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       className
     )}>
       {icon && (
-        <div className="mb-4 text-5xl text-gray-400">
+        <div className="mb-4 text-5xl text-brass">
           {icon}
         </div>
       )}
-      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+      <h3 className="font-dossier text-lg font-semibold text-paper mb-2">{title}</h3>
       {description && (
-        <p className="text-sm text-gray-400 max-w-sm mb-6">{description}</p>
+        <p className="text-sm text-mist max-w-sm mb-6">{description}</p>
       )}
       {action && (
         <button
           onClick={action.onClick}
-          className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-sm font-medium rounded-lg transition-all duration-200"
+          className="px-6 py-2.5 bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 text-sm font-medium rounded-sm transition-colors"
         >
           {action.label}
         </button>

@@ -1,9 +1,9 @@
 import React from 'react';
 
 const StatCard = ({ label, value }: { label: string, value: string | number }) => (
-  <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 text-center shadow-lg transform hover:-translate-y-2 transition-all duration-300">
-    <p className="text-5xl font-bold text-purple-600 mb-2">{value}</p>
-    <p className="text-gray-500 font-semibold">{label}</p>
+  <div className="bg-raised border border-hairline rounded-sm p-6 text-center transition-all duration-300">
+    <p className="font-data text-5xl font-bold text-brass mb-2">{value}</p>
+    <p className="text-mist font-medium">{label}</p>
   </div>
 );
 

@@ -42,13 +42,13 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="min-h-screen bg-ink flex items-center justify-center">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">出现了一些问题</h2>
-            <p className="text-gray-400 mb-6">页面遇到了错误，请刷新页面重试</p>
+            <h2 className="font-dossier text-2xl font-semibold text-paper mb-4">出现了一些问题</h2>
+            <p className="text-mist mb-6">页面遇到了错误，请刷新页面重试</p>
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              className="px-6 py-3 bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 rounded-sm transition-colors"
             >
               刷新页面
             </button>
@@ -114,10 +114,10 @@ export default function App({ Component, pageProps }: AppProps) {
   // 显示加载状态
   if (!isClient || !isInitialized || authLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-ink flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-500 mx-auto mb-4" />
-          <p className="text-gray-400">正在初始化应用...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-brass mx-auto mb-4" />
+          <p className="text-mist">正在初始化应用...</p>
         </div>
       </div>
     );

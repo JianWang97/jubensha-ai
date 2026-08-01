@@ -68,7 +68,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-ink text-paper">
       {/* 背景层 */}
       <div className="fixed inset-0">
         {backgroundImage ? (
@@ -77,9 +77,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             style={{ backgroundImage: `url(${backgroundImage})` }}
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1a237e] via-[#311b92] to-[#4a148c]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0C0F14] via-ink to-[#11151D]" />
         )}
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-ink/40" />
       </div>
 
       {/* DockBar - 桌面端显示 */}
@@ -88,7 +88,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
       )}
 
       {/* 移动端顶部栏 */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-40 bg-ink/95 backdrop-blur-sm border-b border-line md:hidden">
         <div className="relative flex items-center h-14 px-4">
           {/* 左侧区域 */}
           <div className="flex-1 flex items-center space-x-4">
@@ -98,7 +98,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="text-white hover:bg-white/10"
+                className="text-mist hover:bg-raised/60 hover:text-paper"
               >
                 {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
@@ -106,7 +106,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             
             {/* Logo */}
             {!isGamePage && (
-              <Link href="/" className="text-xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
+              <Link href="/" className="font-dossier text-lg font-bold text-brass hover:text-paper transition-colors">
                 AI 剧本杀
               </Link>
             )}
@@ -117,7 +117,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push('/')}
-                className="text-white hover:bg-white/10"
+                className="text-mist hover:bg-raised/60 hover:text-paper"
               >
                 ← 返回首页
               </Button>
@@ -128,7 +128,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           {!isGamePage && (() => {
             const title = getPageTitle(router.pathname);
             return title ? (
-              <span className="absolute left-1/2 -translate-x-1/2 text-sm text-gray-300 pointer-events-none">
+              <span className="absolute left-1/2 -translate-x-1/2 font-data text-xs tracking-wider text-mist pointer-events-none">
                 {title}
               </span>
             ) : null;
@@ -146,18 +146,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         {/* 遮罩层 */}
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 z-[55] bg-black/50 md:hidden"
+            className="fixed inset-0 z-[55] bg-ink/60 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
         
         {/* 移动端侧边栏 */}
         <div className={cn(
-          "fixed top-14 left-0 z-[60] h-[calc(100vh-3.5rem)] w-64 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 transform transition-transform duration-300 md:hidden",
+          "fixed top-14 left-0 z-[60] h-[calc(100vh-3.5rem)] w-64 bg-panel backdrop-blur-sm border-r border-line transform transition-transform duration-300 md:hidden",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}>
-            <div className="flex h-16 shrink-0 items-center px-6">
-              <Link href="/" className="text-xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
+            <div className="flex h-16 shrink-0 items-center px-6 border-b border-hairline">
+              <Link href="/" className="font-dossier text-lg font-bold text-brass hover:text-paper transition-colors">
                 AI 剧本杀
               </Link>
             </div>
@@ -174,10 +174,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                       href={item.href}
                       onClick={() => setSidebarOpen(false)}
                       className={cn(
-                        "flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 w-full",
+                        "flex items-center space-x-3 px-4 py-3 rounded-sm text-sm font-medium transition-all duration-200 w-full",
                         isActive 
-                          ? "bg-purple-600/20 text-purple-300 border border-purple-500/30" 
-                          : "text-gray-300 hover:text-white hover:bg-white/10"
+                          ? "bg-brass/15 text-brass border border-brass/30" 
+                          : "text-mist hover:text-paper hover:bg-raised/60"
                       )}
                     >
                       <Icon className="h-5 w-5" />
@@ -187,7 +187,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 })}
               </div>
               {/* 移动端用户菜单 */}
-              <div className="p-4 border-t border-gray-700">
+              <div className="p-4 border-t border-line">
                 <UserMenu />
               </div>
             </div>

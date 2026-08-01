@@ -55,28 +55,28 @@ export default function ReplayControlDrawer({
   return (
     <>
       {/* 顶部导航栏 - 固定在顶部 */}
-      <div className="fixed top-0 left-0 right-0 z-30 bg-black/40 backdrop-blur-sm border-b border-white/10">
+      <div className="fixed top-0 left-0 right-0 z-30 bg-ink/70 border-b border-hairline">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
             <button
               onClick={onBack}
-              className="text-gray-300 hover:text-white transition-colors"
+              className="text-mist hover:text-paper transition-colors"
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <h1 className="text-xl font-bold text-white">游戏回放</h1>
+            <h1 className="font-dossier text-xl font-bold text-paper">游戏回放</h1>
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="text-sm text-gray-300">
+            <div className="font-data text-sm text-mist">
               Session: {sessionId}
             </div>
-            <div className="text-sm text-gray-300">
+            <div className="font-data text-sm text-mist">
               {formatTime(totalDurationMs)} | {events.length} 段语音
             </div>
             <button
               onClick={onToggle}
-              className="text-gray-300 hover:text-white transition-colors"
+              className="text-mist hover:text-paper transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -85,23 +85,23 @@ export default function ReplayControlDrawer({
       </div>
 
       {/* 侧边抽屉 */}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-black/90 backdrop-blur-xl border-l border-white/10 transform transition-transform duration-300 z-40 ${
+      <div className={`fixed top-0 right-0 h-full w-80 bg-panel border-l border-line transform transition-transform duration-300 z-40 ${
         open ? 'translate-x-0' : 'translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
           {/* 抽屉头部 */}
-          <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <h2 className="text-lg font-semibold text-white">回放控制</h2>
+          <div className="flex items-center justify-between p-4 border-b border-line">
+            <h2 className="font-dossier text-lg font-semibold text-paper">回放控制</h2>
             <button
               onClick={onToggle}
-              className="text-gray-300 hover:text-white transition-colors"
+              className="text-faint hover:text-paper transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* 标签页导航 */}
-          <div className="flex border-b border-white/10">
+          <div className="flex border-b border-line">
             {[
               { key: 'control', label: '控制' },
               { key: 'timeline', label: '时间线' },
@@ -112,8 +112,8 @@ export default function ReplayControlDrawer({
                 onClick={() => onSectionChange(tab.key as any)}
                 className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
                   activeSection === tab.key
-                    ? 'text-purple-300 border-b-2 border-purple-400'
-                    : 'text-gray-400 hover:text-gray-200'
+                    ? 'text-brass border-b-2 border-brass'
+                    : 'text-faint hover:text-mist'
                 }`}
               >
                 {tab.label}
@@ -127,17 +127,17 @@ export default function ReplayControlDrawer({
               <div className="space-y-6">
                 {/* 播放控制 */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-purple-300 uppercase tracking-wide">播放控制</h3>
+                  <h3 className="font-dossier text-sm font-semibold text-brass tracking-wide">播放控制</h3>
                   
                   <div className="flex items-center justify-center">
                     <button
                       onClick={onTogglePlay}
                       disabled={isLoading || events.length === 0}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
+                      className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 disabled:bg-raised disabled:border-line disabled:text-faint disabled:cursor-not-allowed font-medium py-3 px-6 rounded-sm transition-colors flex items-center gap-2"
                     >
                       {isLoading ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-brass border-t-transparent rounded-full animate-spin"></div>
                           加载中
                         </>
                       ) : isPlaying ? (
@@ -157,10 +157,10 @@ export default function ReplayControlDrawer({
                   {/* 音量控制 */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-300">音量</span>
+                      <span className="text-sm text-mist">音量</span>
                       <button
                         onClick={onMuteToggle}
-                        className="text-gray-300 hover:text-white transition-colors"
+                        className="text-mist hover:text-paper transition-colors"
                       >
                         {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                       </button>
@@ -172,26 +172,26 @@ export default function ReplayControlDrawer({
                       step="0.1"
                       value={volume}
                       onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-                      className="w-full accent-purple-500"
+                      className="w-full accent-brass"
                     />
-                    <div className="text-xs text-gray-400 text-center">
+                    <div className="font-data text-xs text-faint text-center">
                       {Math.round(volume * 100)}%
                     </div>
                   </div>
 
                   {/* 进度信息 */}
-                  <div className="bg-white/5 rounded-lg p-3 space-y-2">
+                  <div className="bg-raised border border-line rounded-sm p-3 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-300">当前时间</span>
-                      <span className="text-white">{formatTime(currentTimeMs)}</span>
+                      <span className="text-mist">当前时间</span>
+                      <span className="font-data text-paper">{formatTime(currentTimeMs)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-300">总时长</span>
-                      <span className="text-white">{formatTime(totalDurationMs)}</span>
+                      <span className="text-mist">总时长</span>
+                      <span className="font-data text-paper">{formatTime(totalDurationMs)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-300">当前事件</span>
-                      <span className="text-white">{currentEventIndex + 1} / {events.length}</span>
+                      <span className="text-mist">当前事件</span>
+                      <span className="font-data text-paper">{currentEventIndex + 1} / {events.length}</span>
                     </div>
                   </div>
                 </div>
@@ -201,33 +201,33 @@ export default function ReplayControlDrawer({
             {activeSection === 'timeline' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-purple-300 uppercase tracking-wide">事件时间线</h3>
-                  <span className="text-xs text-gray-400">{events.length} 个事件</span>
+                  <h3 className="font-dossier text-sm font-semibold text-brass tracking-wide">事件时间线</h3>
+                  <span className="font-data text-xs text-faint">{events.length} 个事件</span>
                 </div>
                 
                 <div className="space-y-2">
                   {events.map((event, index) => (
                     <div
                       key={event.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                      className={`p-3 rounded-sm cursor-pointer transition-colors ${
                         index === currentEventIndex
-                          ? 'bg-purple-500/20 border border-purple-400/30 shadow-lg'
-                          : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                          ? 'bg-brass/15 border border-brass/40'
+                          : 'bg-raised hover:bg-panel border border-line'
                       }`}
                       onClick={() => onEventSelect(event)}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <div className={`w-2 h-2 rounded-full ${
-                          index === currentEventIndex ? 'bg-purple-400' : 'bg-gray-400'
+                          index === currentEventIndex ? 'bg-brass' : 'bg-faint'
                         }`}></div>
-                        <span className="text-sm font-medium text-purple-300 truncate">
+                        <span className="text-sm font-medium text-brass truncate">
                           {event.character_name || '系统'}
                         </span>
-                        <span className="text-xs text-gray-500 ml-auto">
+                        <span className="font-data text-xs text-faint ml-auto">
                           {formatTime(event.startTimeMs)}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-300 line-clamp-2 pl-4">
+                      <p className="text-xs text-mist line-clamp-2 pl-4">
                         {event.content}
                       </p>
                     </div>
@@ -238,43 +238,43 @@ export default function ReplayControlDrawer({
 
             {activeSection === 'info' && (
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-purple-300 uppercase tracking-wide">回放信息</h3>
+                <h3 className="font-dossier text-sm font-semibold text-brass tracking-wide">回放信息</h3>
                 
                 <div className="space-y-3">
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <div className="text-sm text-gray-300 mb-1">会话ID</div>
-                    <div className="text-white font-mono text-xs break-all">{sessionId}</div>
+                  <div className="bg-raised border border-line rounded-sm p-3">
+                    <div className="font-data text-sm text-mist mb-1">会话ID</div>
+                    <div className="text-paper font-data text-xs break-all">{sessionId}</div>
                   </div>
                   
                   {detail && (
                     <>
-                      <div className="bg-white/5 rounded-lg p-3">
-                        <div className="text-sm text-gray-300 mb-1">剧本名称</div>
-                        <div className="text-white">{detail.script_info?.title || '未知剧本'}</div>
+                      <div className="bg-raised border border-line rounded-sm p-3">
+                        <div className="font-data text-sm text-mist mb-1">剧本名称</div>
+                        <div className="text-paper">{detail.script_info?.title || '未知剧本'}</div>
                       </div>
                       
-                      <div className="bg-white/5 rounded-lg p-3">
-                        <div className="text-sm text-gray-300 mb-1">游戏时间</div>
-                        <div className="text-white">
+                      <div className="bg-raised border border-line rounded-sm p-3">
+                        <div className="font-data text-sm text-mist mb-1">游戏时间</div>
+                        <div className="text-paper">
                           {detail.session_info?.created_at ? new Date(detail.session_info.created_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '未知'}
                         </div>
                       </div>
                       
-                      <div className="bg-white/5 rounded-lg p-3">
-                        <div className="text-sm text-gray-300 mb-1">游戏状态</div>
-                        <div className="text-white">{detail.status}</div>
+                      <div className="bg-raised border border-line rounded-sm p-3">
+                        <div className="font-data text-sm text-mist mb-1">游戏状态</div>
+                        <div className="text-paper">{detail.status}</div>
                       </div>
                     </>
                   )}
                   
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <div className="text-sm text-gray-300 mb-1">语音段数</div>
-                    <div className="text-white">{events.length} 段</div>
+                  <div className="bg-raised border border-line rounded-sm p-3">
+                    <div className="font-data text-sm text-mist mb-1">语音段数</div>
+                    <div className="text-paper">{events.length} 段</div>
                   </div>
                   
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <div className="text-sm text-gray-300 mb-1">总时长</div>
-                    <div className="text-white">{formatTime(totalDurationMs)}</div>
+                  <div className="bg-raised border border-line rounded-sm p-3">
+                    <div className="font-data text-sm text-mist mb-1">总时长</div>
+                    <div className="text-paper">{formatTime(totalDurationMs)}</div>
                   </div>
                 </div>
               </div>

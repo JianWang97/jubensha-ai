@@ -23,10 +23,10 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, redirectTo = '/auth/log
   // 如果正在加载，显示加载状态
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
+      <div className="min-h-screen flex items-center justify-center bg-ink">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
-          <p className="text-gray-600">正在验证身份...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-brass" />
+          <p className="text-mist">正在验证身份...</p>
         </div>
       </div>
     );

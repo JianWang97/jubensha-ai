@@ -12,10 +12,10 @@ export default function ScriptManagerRedirect() {
 
   // 显示加载状态
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="min-h-screen bg-ink flex items-center justify-center">
       <div className="text-center">
-        <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-slate-400">正在跳转到剧本中心...</p>
+        <div className="w-12 h-12 border-4 border-brass/30 border-t-brass rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-mist">正在跳转到剧本中心...</p>
       </div>
     </div>
   );

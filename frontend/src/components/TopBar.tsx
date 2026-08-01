@@ -25,7 +25,7 @@ const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <div className={cn(
-      "fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800",
+      "fixed top-0 left-0 right-0 z-50 bg-ink/95 backdrop-blur-sm border-b border-line",
       className
     )}>
       <div className="flex justify-between items-center h-14 px-4">
@@ -37,7 +37,7 @@ const TopBar: React.FC<TopBarProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-white hover:bg-white/10 md:hidden"
+              className="text-mist hover:bg-raised/60 hover:text-paper md:hidden"
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -45,7 +45,7 @@ const TopBar: React.FC<TopBarProps> = ({
           
           {/* Logo - 游戏页面隐藏 */}
           {!isGamePage && (
-            <Link href="/" className="text-xl font-bold text-purple-400 hover:text-purple-300 transition-colors">
+            <Link href="/" className="font-dossier text-lg font-bold text-brass hover:text-paper transition-colors">
               AI 剧本杀
             </Link>
           )}
@@ -56,7 +56,7 @@ const TopBar: React.FC<TopBarProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => router.push('/')}
-              className="text-white hover:bg-white/10"
+              className="text-mist hover:bg-raised/60 hover:text-paper"
             >
               ← 返回首页
             </Button>
@@ -72,7 +72,7 @@ const TopBar: React.FC<TopBarProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-white hover:bg-white/10 p-2"
+                className="text-mist hover:bg-raised/60 hover:text-paper p-2"
                 title="通知"
               >
                 <Bell className="h-4 w-4" />
@@ -83,7 +83,7 @@ const TopBar: React.FC<TopBarProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => router.push('/profile')}
-                className="text-white hover:bg-white/10 p-2"
+                className="text-mist hover:bg-raised/60 hover:text-paper p-2"
                 title="设置"
               >
                 <Settings className="h-4 w-4" />

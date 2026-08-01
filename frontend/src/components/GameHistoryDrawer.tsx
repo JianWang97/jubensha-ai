@@ -48,12 +48,12 @@ const GameHistoryDrawer: React.FC<GameHistoryDrawerProps> = ({
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[90vh] bg-gradient-to-br from-gray-900/98 via-gray-800/98 to-gray-900/98 backdrop-blur-xl border-gray-700/50">
-        <DrawerHeader className="border-b border-gray-700/50 pb-4">
+      <DrawerContent className="max-h-[90vh] bg-panel border-line">
+        <DrawerHeader className="border-b border-line pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Gamepad2 className="h-6 w-6 text-purple-400" />
-              <DrawerTitle className="text-xl font-bold text-gray-100">
+              <Gamepad2 className="h-6 w-6 text-brass" />
+              <DrawerTitle className="font-dossier text-xl font-bold text-paper">
                 游戏记录详情
               </DrawerTitle>
             </div>
@@ -61,7 +61,7 @@ const GameHistoryDrawer: React.FC<GameHistoryDrawerProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+                className="text-faint hover:text-paper hover:bg-raised/60"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -72,7 +72,7 @@ const GameHistoryDrawer: React.FC<GameHistoryDrawerProps> = ({
         <div className="p-6 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brass"></div>
             </div>
           ) : detail ? (
             <GameHistoryDetailContent
@@ -82,7 +82,7 @@ const GameHistoryDrawer: React.FC<GameHistoryDrawerProps> = ({
               onAction={onClose}
             />
           ) : (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-mist">
               无法加载游戏详情
             </div>
           )}

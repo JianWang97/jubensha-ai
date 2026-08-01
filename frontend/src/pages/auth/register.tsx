@@ -112,19 +112,19 @@ const RegisterPage: React.FC = () => {
     <ProtectedRoute requireAuth={false}>
       <div className="min-h-screen flex">
         {/* 左侧品牌面板 */}
-        <div className="hidden md:flex w-[45%] relative flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#1a237e] via-[#311b92] to-[#4a148c]">
+        <div className="hidden md:flex w-[45%] relative flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-ink to-[#151A24] border-r border-hairline">
           <StarField />
-          <div className="absolute inset-0 bg-black/20" />
 
           <div className="relative z-10 flex flex-col items-center text-center px-12 gap-8">
             <div className="flex flex-col items-center gap-3">
-              <div className="h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-                <Swords className="h-8 w-8 text-white" />
+              <div className="h-16 w-16 rounded-sm bg-brass/10 border border-brass/40 flex items-center justify-center">
+                <Swords className="h-8 w-8 text-brass" />
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-200 via-white to-purple-300 bg-clip-text text-transparent leading-tight">
+              <h1 className="text-4xl font-dossier font-semibold text-paper leading-tight">
                 AI 剧本杀
               </h1>
-              <p className="text-purple-200 text-lg font-light tracking-wide">
+              <div className="w-24 border-t border-thread/40" />
+              <p className="text-mist text-lg font-light tracking-wide">
                 沉浸式 AI 角色扮演推理游戏
               </p>
             </div>
@@ -132,47 +132,47 @@ const RegisterPage: React.FC = () => {
             <div className="flex flex-col gap-4 w-full max-w-xs">
               {FEATURES.map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-center gap-3 text-left">
-                  <div className="shrink-0 h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center">
-                    <Icon className="h-4 w-4 text-purple-200" />
+                  <div className="shrink-0 h-8 w-8 rounded-sm bg-raised border border-line flex items-center justify-center">
+                    <Icon className="h-4 w-4 text-brass" />
                   </div>
-                  <span className="text-purple-100 text-sm">{text}</span>
+                  <span className="text-mist text-sm">{text}</span>
                 </div>
               ))}
             </div>
 
-            <blockquote className="max-w-xs border-l-2 border-purple-400/50 pl-4 text-left">
-              <p className="text-purple-200/80 text-sm italic leading-relaxed">
+            <blockquote className="max-w-xs border-l-2 border-brass/40 pl-4 text-left">
+              <p className="text-mist text-sm italic leading-relaxed">
                 &quot;每一个谎言的背后，都藏着一段真实的故事。&quot;
               </p>
-              <footer className="mt-1 text-purple-400/60 text-xs">— 剧本杀玩家格言</footer>
+              <footer className="mt-1 text-faint text-xs">— 剧本杀玩家格言</footer>
             </blockquote>
           </div>
         </div>
 
         {/* 右侧表单面板 */}
-        <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-950 to-[#1a237e]/20 px-6 py-12">
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-ink via-ink to-panel px-6 py-12">
           <div className="w-full max-w-md space-y-8">
             {/* 移动端 Logo */}
             <div className="flex md:hidden items-center gap-2 justify-center">
-              <Swords className="h-6 w-6 text-purple-400" />
-              <span className="text-white font-semibold text-lg">AI 剧本杀</span>
+              <Swords className="h-6 w-6 text-brass" />
+              <span className="text-paper font-dossier font-semibold text-lg">AI 剧本杀</span>
             </div>
 
             {/* 标题 */}
             <div>
-              <h2 className="text-3xl font-bold text-white">创建账户</h2>
-              <p className="mt-1.5 text-slate-400 text-sm">填写以下信息，开始剧本杀之旅</p>
+              <h2 className="text-3xl font-dossier font-semibold text-paper">创建账户</h2>
+              <p className="mt-1.5 text-mist text-sm">填写以下信息，开始剧本杀之旅</p>
             </div>
 
             {/* 表单 */}
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* 用户名 */}
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-slate-300 text-sm">
-                  用户名 <span className="text-red-400">*</span>
+                <Label htmlFor="username" className="text-mist text-sm">
+                  用户名 <span className="text-thread">*</span>
                 </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
                   <Input
                     id="username"
                     name="username"
@@ -182,24 +182,24 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入用户名（至少 3 个字符）"
                     className={cn(
-                      'pl-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
-                      fieldErrors.username && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
+                      'pl-10',
+                      fieldErrors.username && 'border-thread/50'
                     )}
                     disabled={isLoading}
                   />
                 </div>
                 {fieldErrors.username && (
-                  <p className="text-red-400 text-xs">{fieldErrors.username}</p>
+                  <p className="text-thread text-xs">{fieldErrors.username}</p>
                 )}
               </div>
 
               {/* 邮箱 */}
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-slate-300 text-sm">
-                  邮箱地址 <span className="text-slate-500 text-xs font-normal">（可选）</span>
+                <Label htmlFor="email" className="text-mist text-sm">
+                  邮箱地址 <span className="text-faint text-xs font-normal">（可选）</span>
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
                   <Input
                     id="email"
                     name="email"
@@ -209,24 +209,24 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入邮箱地址"
                     className={cn(
-                      'pl-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
-                      fieldErrors.email && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
+                      'pl-10',
+                      fieldErrors.email && 'border-thread/50'
                     )}
                     disabled={isLoading}
                   />
                 </div>
                 {fieldErrors.email && (
-                  <p className="text-red-400 text-xs">{fieldErrors.email}</p>
+                  <p className="text-thread text-xs">{fieldErrors.email}</p>
                 )}
               </div>
 
               {/* 昵称 */}
               <div className="space-y-1.5">
-                <Label htmlFor="nickname" className="text-slate-300 text-sm">
-                  昵称 <span className="text-slate-500 text-xs font-normal">（可选）</span>
+                <Label htmlFor="nickname" className="text-mist text-sm">
+                  昵称 <span className="text-faint text-xs font-normal">（可选）</span>
                 </Label>
                 <div className="relative">
-                  <Smile className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Smile className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
                   <Input
                     id="nickname"
                     name="nickname"
@@ -234,7 +234,7 @@ const RegisterPage: React.FC = () => {
                     value={formData.nickname}
                     onChange={handleInputChange}
                     placeholder="请输入昵称"
-                    className="pl-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20"
+                    className="pl-10"
                     disabled={isLoading}
                   />
                 </div>
@@ -242,11 +242,11 @@ const RegisterPage: React.FC = () => {
 
               {/* 密码 */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-slate-300 text-sm">
-                  密码 <span className="text-red-400">*</span>
+                <Label htmlFor="password" className="text-mist text-sm">
+                  密码 <span className="text-thread">*</span>
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
                   <Input
                     id="password"
                     name="password"
@@ -256,32 +256,32 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请输入密码（至少 6 个字符）"
                     className={cn(
-                      'pl-10 pr-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
-                      fieldErrors.password && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
+                      'pl-10 pr-10',
+                      fieldErrors.password && 'border-thread/50'
                     )}
                     disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-mist transition-colors"
                     disabled={isLoading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {fieldErrors.password && (
-                  <p className="text-red-400 text-xs">{fieldErrors.password}</p>
+                  <p className="text-thread text-xs">{fieldErrors.password}</p>
                 )}
               </div>
 
               {/* 确认密码 */}
               <div className="space-y-1.5">
-                <Label htmlFor="confirmPassword" className="text-slate-300 text-sm">
-                  确认密码 <span className="text-red-400">*</span>
+                <Label htmlFor="confirmPassword" className="text-mist text-sm">
+                  确认密码 <span className="text-thread">*</span>
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
@@ -291,28 +291,28 @@ const RegisterPage: React.FC = () => {
                     onBlur={handleBlur}
                     placeholder="请再次输入密码"
                     className={cn(
-                      'pl-10 pr-10 bg-slate-900/60 border border-slate-700/60 text-white placeholder:text-slate-500 hover:bg-slate-900/80 hover:border-slate-600 focus-visible:border-purple-500 focus-visible:ring-purple-500/20',
-                      fieldErrors.confirmPassword && 'border-red-500/60 focus-visible:border-red-500 focus-visible:ring-red-500/20'
+                      'pl-10 pr-10',
+                      fieldErrors.confirmPassword && 'border-thread/50'
                     )}
                     disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-mist transition-colors"
                     disabled={isLoading}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {fieldErrors.confirmPassword && (
-                  <p className="text-red-400 text-xs">{fieldErrors.confirmPassword}</p>
+                  <p className="text-thread text-xs">{fieldErrors.confirmPassword}</p>
                 )}
               </div>
 
               {/* 服务端错误 */}
               {error && (
-                <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
+                <div className="text-thread text-sm bg-thread/10 border border-thread/30 rounded-sm px-3 py-2">
                   {error}
                 </div>
               )}
@@ -320,12 +320,12 @@ const RegisterPage: React.FC = () => {
               {/* 注册按钮 */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-[#311b92] to-[#4a148c] hover:from-[#4527a0] hover:to-[#6a1b9a] text-white font-semibold rounded-md shadow-lg shadow-purple-900/30 transition-all duration-200"
+                className="w-full bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 font-semibold rounded-sm transition-all duration-200"
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-b-brass" />
                     注册中...
                   </span>
                 ) : (
@@ -337,11 +337,11 @@ const RegisterPage: React.FC = () => {
               </Button>
 
               {/* 登录链接 */}
-              <p className="text-center text-slate-500 text-sm">
+              <p className="text-center text-faint text-sm">
                 已有账户？{' '}
                 <Link
                   href="/auth/login"
-                  className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                  className="text-brass hover:text-paper font-medium transition-colors"
                 >
                   立即登录
                 </Link>

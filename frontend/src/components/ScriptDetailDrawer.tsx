@@ -76,7 +76,7 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[85vh] bg-slate-950/95 border-slate-700/30 backdrop-blur-xl">
+      <DrawerContent className="max-h-[85vh] bg-panel border-line">
         <div className="mx-auto w-full max-w-5xl">
           <DrawerHeader className="pb-6">
             <div className="flex items-start gap-6">
@@ -85,35 +85,35 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                 <img
                   src={displayScript.cover_image_url || displayScript.image || `https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent('mystery script book cover, dark theme, elegant design')}&image_size=square_hd`}
                   alt={displayScript.title}
-                  className="w-40 h-40 object-cover object-center rounded-2xl shadow-2xl"
+                  className="w-40 h-40 object-cover object-center rounded-sm border border-hairline"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-2xl" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-sm" />
               </div>
               <div className="flex-1 space-y-4">
-                <DrawerTitle className="text-3xl font-bold text-white leading-tight">{displayScript.title}</DrawerTitle>
+                <DrawerTitle className="font-dossier text-2xl font-bold text-paper leading-tight">{displayScript.title}</DrawerTitle>
 
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 bg-slate-800/50 rounded-full px-3 py-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold text-white">{displayScript.rating > 0 ? displayScript.rating.toFixed(1) : '暂无评分'}</span>
+                  <div className="flex items-center gap-2 bg-raised border border-line rounded-sm px-3 py-1">
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                    <span className="font-semibold text-paper">{displayScript.rating > 0 ? displayScript.rating.toFixed(1) : '暂无评分'}</span>
                   </div>
-                  <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-1 text-sm font-medium">
+                  <Badge className="px-3 py-1 text-sm font-medium">
                     {displayScript.category || '推理'}
                   </Badge>
-                  <Badge variant="outline" className="border-slate-600/50 text-slate-300 bg-slate-800/30 px-3 py-1">
+                  <Badge variant="outline" className="px-3 py-1">
                     {displayScript.difficulty_level || '中等'}
                   </Badge>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
                   {(displayScript.tags && Array.isArray(displayScript.tags) && displayScript.tags.length > 0 ? displayScript.tags : ['暂无标签']).map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="bg-slate-800/50 text-slate-300 border-slate-600/30 text-xs">
+                    <Badge key={index} variant="secondary" className="text-xs">
                       {typeof tag === 'string' ? tag : String(tag)}
                     </Badge>
                   ))}
                 </div>
 
-                <div className="flex items-center gap-8 text-slate-400">
+                <div className="flex items-center gap-8 text-mist">
                   <div className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
                     <span className="font-medium">{displayScript.player_count}人</span>
@@ -134,29 +134,17 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
           </DrawerHeader>
           <div className="px-6 pb-6">
             <Tabs defaultValue="description" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-slate-900/50 border-slate-700/30 rounded-xl p-1">
-                <TabsTrigger
-                  value="description"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-md transition-all font-medium"
-                >
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="description">
                   剧本介绍
                 </TabsTrigger>
-                <TabsTrigger
-                  value="characters"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-md transition-all font-medium"
-                >
+                <TabsTrigger value="characters">
                   角色信息
                 </TabsTrigger>
-                <TabsTrigger
-                  value="rules"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-md transition-all font-medium"
-                >
+                <TabsTrigger value="rules">
                   游戏规则
                 </TabsTrigger>
-                <TabsTrigger
-                  value="reviews"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-slate-400 rounded-md transition-all font-medium"
-                >
+                <TabsTrigger value="reviews">
                   评价
                 </TabsTrigger>
               </TabsList>
@@ -165,19 +153,19 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                   <div className="space-y-4">
                     {loading ? (
                       <div className="flex items-center justify-center h-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brass"></div>
                       </div>
                     ) : (
                       <>
-                        <p className="text-slate-300 leading-relaxed text-base">
+                        <p className="text-mist leading-relaxed text-base">
                           {displayScript.description || '暂无剧本介绍'}
                         </p>
                         {scriptDetails?.background_story && (
                           <>
-                            <Separator className="my-6 bg-slate-700/40" />
+                            <Separator className="my-6 bg-line" />
                             <div>
-                              <h4 className="font-semibold mb-3 text-white text-lg">背景故事</h4>
-                              <p className="text-slate-300 leading-relaxed text-base">
+                              <h4 className="font-semibold mb-3 text-paper text-lg">背景故事</h4>
+                              <p className="text-mist leading-relaxed text-base">
                                 {scriptDetails.info.description}
                               </p>
                             </div>
@@ -185,9 +173,9 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                         )}
                         {displayScript.status && (
                           <>
-                            <Separator className="my-6 bg-slate-700/40" />
+                            <Separator className="my-6 bg-line" />
                             <div className="flex items-center gap-2">
-                              <span className="text-slate-400">状态：</span>
+                              <span className="text-mist">状态：</span>
                               <Badge variant={displayScript.status === 'PUBLISHED' ? 'default' : 'secondary'}>
                                 {displayScript.status === 'PUBLISHED' ? '已发布' : displayScript.status === 'DRAFT' ? '草稿' : '已归档'}
                               </Badge>
@@ -204,11 +192,11 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                   <div className="space-y-4">
                     {loading ? (
                       <div className="flex items-center justify-center h-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brass"></div>
                       </div>
                     ) : characters.length > 0 ? (
                       characters.map((character, index) => (
-                        <div key={character.id || index} className="border border-slate-600/30 rounded-xl p-5 bg-slate-800/30 backdrop-blur-sm">
+                        <div key={character.id || index} className="border border-hairline rounded-sm p-5 bg-raised">
                           <div className="flex items-start gap-4">
                             {character.avatar_url && (
                               // eslint-disable-next-line @next/next/no-img-element -- 角色头像为动态远程URL，next/image 优化器无法保证可加载，保持 <img> 以避免渲染风险
@@ -219,29 +207,29 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                               />
                             )}
                             <div className="flex-1">
-                              <h4 className="font-semibold mb-2 text-white text-lg flex items-center gap-2">
+                              <h4 className="font-semibold mb-2 text-paper text-lg flex items-center gap-2">
                                 {character.name}
                                 {character.gender && (
-                                  <Badge variant="outline" className="text-xs border-slate-500/40 text-slate-300">
+                                  <Badge variant="outline" className="text-xs border-line text-mist">
                                     {character.gender === 'MALE' ? '男' : character.gender === 'FEMALE' ? '女' : '中性'}
                                   </Badge>
                                 )}
                                 {character.age && (
-                                  <Badge variant="outline" className="text-xs border-slate-500/40 text-slate-300">
+                                  <Badge variant="outline" className="text-xs border-line text-mist">
                                     {character.age}岁
                                   </Badge>
                                 )}
                               </h4>
                               {character.profession && (
-                                <p className="text-indigo-300 text-sm mb-2">{character.profession}</p>
+                                <p className="text-brass text-sm mb-2">{character.profession}</p>
                               )}
-                              <p className="text-slate-400 leading-relaxed text-sm">
+                              <p className="text-mist leading-relaxed text-sm">
                                 {character.background || '暂无角色背景'}
                               </p>
                               {character.personality_traits && Array.isArray(character.personality_traits) && character.personality_traits.length > 0 && (
                                 <div className="mt-3 flex flex-wrap gap-1">
                                   {character.personality_traits.map((trait, traitIndex) => (
-                                    <Badge key={traitIndex} variant="secondary" className="text-xs bg-slate-700/50 text-slate-300">
+                                    <Badge key={traitIndex} variant="secondary" className="text-xs">
                                       {typeof trait === 'string' ? trait : String(trait)}
                                     </Badge>
                                   ))}
@@ -253,7 +241,7 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                       ))
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-slate-400">暂无角色信息</p>
+                        <p className="text-mist">暂无角色信息</p>
                       </div>
                     )}
                   </div>
@@ -264,31 +252,31 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                   <div className="space-y-6">
                     {loading ? (
                       <div className="flex items-center justify-center h-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brass"></div>
                       </div>
                     ) : (
                       <>
                         {Array.isArray(gamePhases) && gamePhases.length > 0 ? (
-                          <div className="bg-slate-800/30 rounded-xl p-5">
-                            <h4 className="font-semibold mb-4 text-white text-lg">游戏阶段</h4>
-                            <ol className="list-decimal list-inside space-y-2 text-slate-400 leading-relaxed">
+                          <div className="bg-raised border border-hairline rounded-sm p-5">
+                            <h4 className="font-semibold mb-4 text-paper text-lg">游戏阶段</h4>
+                            <ol className="list-decimal list-inside space-y-2 text-mist leading-relaxed">
                               {gamePhases.map((phase, index) => (
                                 <li key={phase?.id || index}>
-                                  <span className="font-medium text-white">{phase?.name || `阶段${index + 1}`}</span>
+                                  <span className="font-medium text-paper">{phase?.name || `阶段${index + 1}`}</span>
                                   {phase?.description && (
                                     <span className="ml-2">- {phase.description}</span>
                                   )}
                                   {phase?.duration_minutes && (
-                                    <span className="ml-2 text-indigo-300">({phase.duration_minutes}分钟)</span>
+                                    <span className="ml-2 text-brass">({phase.duration_minutes}分钟)</span>
                                   )}
                                 </li>
                               ))}
                             </ol>
                           </div>
                         ) : (
-                          <div className="bg-slate-800/30 rounded-xl p-5">
-                            <h4 className="font-semibold mb-4 text-white text-lg">游戏流程</h4>
-                            <ol className="list-decimal list-inside space-y-2 text-slate-400 leading-relaxed">
+                          <div className="bg-raised border border-hairline rounded-sm p-5">
+                            <h4 className="font-semibold mb-4 text-paper text-lg">游戏流程</h4>
+                            <ol className="list-decimal list-inside space-y-2 text-mist leading-relaxed">
                               <li>角色分配和背景介绍</li>
                               <li>自由探索和线索搜集</li>
                               <li>集中讨论和信息交换</li>
@@ -297,30 +285,30 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                             </ol>
                           </div>
                         )}
-                        <div className="bg-slate-800/30 rounded-xl p-5">
-                          <h4 className="font-semibold mb-4 text-white text-lg">游戏信息</h4>
+                        <div className="bg-raised border border-hairline rounded-sm p-5">
+                          <h4 className="font-semibold mb-4 text-paper text-lg">游戏信息</h4>
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                              <span className="text-slate-400">玩家人数：</span>
-                              <span className="text-white font-medium">{displayScript.player_count}人</span>
+                              <span className="text-mist">玩家人数：</span>
+                              <span className="text-paper font-medium">{displayScript.player_count}人</span>
                             </div>
                             <div>
-                              <span className="text-slate-400">游戏时长：</span>
-                              <span className="text-white font-medium">{formatDuration(displayScript.estimated_duration)}</span>
+                              <span className="text-mist">游戏时长：</span>
+                              <span className="text-paper font-medium">{formatDuration(displayScript.estimated_duration)}</span>
                             </div>
                             <div>
-                              <span className="text-slate-400">难度等级：</span>
-                              <span className="text-white font-medium">{displayScript.difficulty_level || '中等'}</span>
+                              <span className="text-mist">难度等级：</span>
+                              <span className="text-paper font-medium">{displayScript.difficulty_level || '中等'}</span>
                             </div>
                             <div>
-                              <span className="text-slate-400">剧本分类：</span>
-                              <span className="text-white font-medium">{displayScript.category || '推理'}</span>
+                              <span className="text-mist">剧本分类：</span>
+                              <span className="text-paper font-medium">{displayScript.category || '推理'}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="bg-slate-800/30 rounded-xl p-5">
-                          <h4 className="font-semibold mb-4 text-white text-lg">注意事项</h4>
-                          <ul className="list-disc list-inside space-y-2 text-slate-400 leading-relaxed">
+                        <div className="bg-raised border border-hairline rounded-sm p-5">
+                          <h4 className="font-semibold mb-4 text-paper text-lg">注意事项</h4>
+                          <ul className="list-disc list-inside space-y-2 text-mist leading-relaxed">
                             <li>本剧本由 AI 角色自动演绎</li>
                             <li>无需真人参与即可观看流程</li>
                           </ul>
@@ -335,18 +323,18 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                   <div className="space-y-4">
                     {loading ? (
                       <div className="flex items-center justify-center h-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brass"></div>
                       </div>
                     ) : (
                       <>
-                        <div className="bg-slate-800/30 rounded-xl p-5">
-                          <h4 className="font-semibold mb-4 text-white text-lg">剧本统计</h4>
+                        <div className="bg-raised border border-hairline rounded-sm p-5">
+                          <h4 className="font-semibold mb-4 text-paper text-lg">剧本统计</h4>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-white mb-1">
+                              <div className="text-2xl font-bold text-paper mb-1">
                                 {displayScript.rating > 0 ? displayScript.rating.toFixed(1) : '暂无'}
                               </div>
-                              <div className="text-slate-400 text-sm">平均评分</div>
+                              <div className="text-mist text-sm">平均评分</div>
                               {displayScript.rating && typeof displayScript.rating === 'number' && displayScript.rating > 0 && (
                                 <div className="flex justify-center mt-2">
                                   {[1, 2, 3, 4, 5].map((star) => (
@@ -354,7 +342,7 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                                       key={star}
                                       className={`h-4 w-4 ${star <= Math.round(displayScript.rating)
                                           ? 'fill-amber-400 text-amber-400'
-                                          : 'text-slate-500'
+                                          : 'text-faint'
                                         }`}
                                     />
                                   ))}
@@ -362,37 +350,37 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                               )}
                             </div>
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-white mb-1">
+                              <div className="text-2xl font-bold text-paper mb-1">
                                 {displayScript.play_count || 0}
                               </div>
-                              <div className="text-slate-400 text-sm">游玩次数</div>
+                              <div className="text-mist text-sm">游玩次数</div>
                             </div>
                           </div>
                         </div>
 
-                        <div className="bg-slate-800/30 rounded-xl p-5">
-                          <h4 className="font-semibold mb-4 text-white text-lg">剧本信息</h4>
+                        <div className="bg-raised border border-hairline rounded-sm p-5">
+                          <h4 className="font-semibold mb-4 text-paper text-lg">剧本信息</h4>
                           <div className="space-y-3 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-slate-400">作者：</span>
-                              <span className="text-white">{displayScript.author || '未知'}</span>
+                              <span className="text-mist">作者：</span>
+                              <span className="text-paper">{displayScript.author || '未知'}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-400">创建时间：</span>
-                              <span className="text-white">
+                              <span className="text-mist">创建时间：</span>
+                              <span className="text-paper">
                                 {displayScript.created_at ? new Date(displayScript.created_at).toLocaleDateString() : '未知'}
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-400">最后更新：</span>
-                              <span className="text-white">
+                              <span className="text-mist">最后更新：</span>
+                              <span className="text-paper">
                                 {displayScript.updated_at ? new Date(displayScript.updated_at).toLocaleDateString() : '未知'}
                               </span>
                             </div>
                             {displayScript.price !== undefined && (
                               <div className="flex justify-between">
-                                <span className="text-slate-400">价格：</span>
-                                <span className="text-white">
+                                <span className="text-mist">价格：</span>
+                                <span className="text-paper">
                                   {displayScript.price > 0 ? `¥${displayScript.price}` : '免费'}
                                 </span>
                               </div>
@@ -401,8 +389,8 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
                         </div>
 
                         <div className="text-center py-4">
-                          <p className="text-slate-400 text-sm">暂无用户评价</p>
-                          <p className="text-slate-500 text-xs mt-1">成为第一个评价此剧本的用户</p>
+                          <p className="text-mist text-sm">暂无用户评价</p>
+                          <p className="text-faint text-xs mt-1">成为第一个评价此剧本的用户</p>
                         </div>
                       </>
                     )}
@@ -412,7 +400,7 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
             </Tabs>
             <div className="flex gap-3 mt-6">
               <Button
-                className="flex-1 h-12 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-medium"
+                className="flex-1 h-12 border border-brass/40 bg-brass/10 text-brass hover:bg-brass/20 font-medium"
                 onClick={() => {
                   onClose();
                   window.location.href = `/game?script_id=${displayScript.id}`;
@@ -423,14 +411,14 @@ const ScriptDetailDrawer: React.FC<ScriptDetailDrawerProps> = ({ script, isOpen,
               </Button>
               <Button
                 variant="outline"
-                className="h-12 px-6 border-slate-600/40 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50"
+                className="h-12 px-6"
               >
                 <Bookmark className="h-4 w-4 mr-2" />
                 收藏
               </Button>
               <Button
                 variant="outline"
-                className="h-12 px-6 border-slate-600/40 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500/50"
+                className="h-12 px-6"
               >
                 <Share2 className="h-4 w-4 mr-2" />
                 分享
