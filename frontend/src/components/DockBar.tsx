@@ -87,7 +87,7 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
               <Icon className="h-6 w-6 shrink-0" />
               <span className={cn(
                 "text-sm font-medium whitespace-nowrap transition-opacity duration-300",
-                expanded ? "opacity-100" : "opacity-0"
+                expanded ? "opacity-100" : "w-0 overflow-hidden opacity-0"
               )}>
                 {item.label}
               </span>
@@ -104,8 +104,8 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
       {/* 底部用户菜单 */}
       <div className="flex flex-col pb-6 border-t border-line pt-4 px-2">
         <div className={cn(
-          "flex items-center gap-3 rounded-sm transition-all duration-300",
-          expanded ? "w-full px-3" : "w-12 mx-auto justify-center"
+          "flex items-center rounded-sm transition-all duration-300",
+          expanded ? "w-full gap-3 px-3" : "w-12 mx-auto justify-center"
         )}>
           <div className="shrink-0">
             <UserMenu variant="compact" />
@@ -113,7 +113,7 @@ const DockBar: React.FC<DockBarProps> = ({ className }) => {
           {user && (
             <span className={cn(
               "text-sm font-medium text-paper whitespace-nowrap transition-opacity duration-300 truncate",
-              expanded ? "opacity-100" : "opacity-0"
+              expanded ? "opacity-100" : "w-0 overflow-hidden opacity-0"
             )}>
               {user.nickname || user.username}
             </span>
