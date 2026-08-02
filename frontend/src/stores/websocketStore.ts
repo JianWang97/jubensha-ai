@@ -63,7 +63,7 @@ interface WebSocketState {
   // WebSocket操作
   connect: (scriptId?: number, opts?: { autoEdit?: boolean }) => void;
   disconnect: () => void;
-  sendMessage: (message: Record<string, unknown>) => void;
+  sendMessage: (message: Record<string, unknown>) => boolean;
 
   // 游戏操作
   startGame: (scriptId: string) => void;
@@ -212,6 +212,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       case 'instruction_processing':
       case 'edit_result':
       case 'instruction_completed':
+      case 'script_edit_event':
       case 'script_data_update':
       case 'script_editing_started':
       case 'script_editing_stopped':
@@ -321,7 +322,17 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       }
 
       case 'error':
+        // 后端处理失败：转发给编辑面板等监听方，避免错误被吞
         console.error('游戏错误:', message.message);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'error',
+            data: {
+              success: false,
+              message: message.message || '服务器处理失败'
+            }
+          }
+        }));
         break;
     }
   },
@@ -424,15 +435,21 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     }
   },
 
-  // 发送消息
+  // 发送消息，返回是否发送成功
   sendMessage: (message: Record<string, unknown>) => {
     const state = get();
 
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-      state.ws.send(JSON.stringify(message));
-    } else {
-      console.error('WebSocket未连接');
+      try {
+        state.ws.send(JSON.stringify(message));
+        return true;
+      } catch (error) {
+        console.error('WebSocket发送消息失败:', error);
+        return false;
+      }
     }
+    console.error('WebSocket未连接');
+    return false;
   },
 
   // 开始游戏

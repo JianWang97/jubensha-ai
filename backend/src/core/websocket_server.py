@@ -10,11 +10,12 @@ from sqlalchemy.orm import Session
 # 显式导入以避免依赖包级 __init__ 导出（已精简以规避循环导入）
 from src.core.game_engine import GameEngine
 from src.schemas.game_phase import GamePhaseEnum as GamePhase
-from src.services.script_editor_service import ScriptEditorService, EditInstruction, EditResult
+from src.services.script_editor_service import ScriptEditorService, EditInstruction, EditResult, _make_edit_event
 from src.db.repositories import ScriptRepository
 from src.db.repositories.game_session_repository import GameSessionRepository
 from src.db.session import get_db_session, db_manager
 from src.db.models.game_session import GameSession as DBGameSession, GameSessionStatus
+from src.db.models.user import User
 from src.core.game_tts_manager import GameTTSManager
 from dotenv import load_dotenv
 import uuid
@@ -77,6 +78,9 @@ class GameSession:
         self.editor_service: ScriptEditorService|None = None
         self.editing_context: dict[str, Any] = {}  # 存储编辑上下文
         self.db_session:Session|None = None  # 数据库会话引用，类型为Session或None
+        # 会话所属用户信息（按user_id+script_id复用会话，用于剧本编辑权限校验）
+        self.user_id: int|None = None
+        self.username: str|None = None
         
         # 后台执行模式
         self.background_mode: bool = False  # 是否处于后台执行模式
@@ -977,24 +981,36 @@ class EditModeHandler:
             db_session = db_manager.get_session()
             script_repository = ScriptRepository(db_session)
             
-            # 初始化编辑服务
-            logger.debug(f"[EDITOR] 初始化编辑服务: 会话={session_id}")
-            session.editor_service = ScriptEditorService(script_repository)
-            session.db_session = db_session  # 保存数据库会话引用
-            session.is_editing_mode = True
-            session.script_id = target_script_id
-            
-            # 获取剧本数据
+            # 先获取剧本数据，校验存在性与编辑权限，通过后再进入编辑模式
             logger.debug(f"[EDITOR] 获取剧本数据: 剧本ID={target_script_id}")
             script = script_repository.get_script_by_id(target_script_id)
             if not script:
                 logger.error(f"[EDITOR] 剧本不存在: 剧本ID={target_script_id}, 会话={session_id}")
+                db_session.close()
                 await server.broadcast({
                     "type": "error",
                     "message": f"剧本 {target_script_id} 不存在",
                     "session_id": session_id
                 }, session_id)
                 return
+            
+            # 权限校验：与HTTP编辑接口保持一致，仅剧本作者可编辑（admin不额外放行）
+            if not session.username or script.info.author != session.username:
+                logger.warning(f"[EDITOR] 无权编辑剧本: 用户={session.username}, 剧本作者={script.info.author}, 会话={session_id}")
+                db_session.close()
+                await server.broadcast({
+                    "type": "error",
+                    "message": "无权编辑该剧本",
+                    "session_id": session_id
+                }, session_id)
+                return
+            
+            # 初始化编辑服务
+            logger.debug(f"[EDITOR] 初始化编辑服务: 会话={session_id}")
+            session.editor_service = ScriptEditorService(script_repository)
+            session.db_session = db_session  # 保存数据库会话引用
+            session.is_editing_mode = True
+            session.script_id = target_script_id
             
             # 发送编辑模式开始消息
             logger.info(f"[EDITOR] 广播编辑模式开始消息: 会话={session_id}, 剧本ID={target_script_id}")
@@ -1053,7 +1069,7 @@ class EditModeHandler:
     
     @staticmethod
     async def handle_edit_instruction(server: 'GameWebSocketServer', session_id: str, instruction: str):
-        """处理编辑指令"""
+        """处理编辑指令（同一剧本的指令通过编辑锁串行执行）"""
         session = server.sessions.get(session_id)
         if not session or not session.is_editing_mode or not session.editor_service:
             logger.warning(f"[EDITOR] 编辑指令被拒绝: 会话={session_id}, 编辑模式={session.is_editing_mode if session else False}")
@@ -1064,6 +1080,15 @@ class EditModeHandler:
             }, session_id)
             return
         
+        # 按剧本ID加锁串行执行，避免并发指令交叉修改同一剧本
+        # （同一用户多个标签页共享GameSession时，指令同样被该锁串行化）
+        lock = server.get_edit_lock(session.script_id)
+        async with lock:
+            await EditModeHandler._execute_edit_instruction(server, session, session_id, instruction)
+    
+    @staticmethod
+    async def _execute_edit_instruction(server: 'GameWebSocketServer', session: GameSession, session_id: str, instruction: str):
+        """在编辑锁保护下执行编辑指令：解析→执行→提交→推送更新"""
         try:
             logger.info(f"[EDITOR] 开始处理编辑指令: 会话={session_id}, 指令='{instruction[:100]}...'")
             
@@ -1074,23 +1099,56 @@ class EditModeHandler:
                 "data": {"instruction": instruction},
                 "session_id": session_id
             }, session_id)
-            
+
+            async def edit_event_callback(event: dict):
+                """编辑过程事件 → 实时广播（广播失败不影响编辑主流程）"""
+                try:
+                    await server.broadcast({
+                        "type": "script_edit_event",
+                        "data": event,
+                        "session_id": session_id
+                    }, session_id)
+                except Exception as e:
+                    logger.error(f"[EDITOR] 编辑事件广播失败: 会话={session_id}, 错误={e}")
+
             # 解析用户指令
             logger.debug(f"[EDITOR] 解析用户指令: 会话={session_id}")
             edit_instructions = await session.editor_service.parse_user_instruction(
-                instruction, session.script_id
+                instruction, session.script_id, event_callback=edit_event_callback
             )
             logger.info(f"[EDITOR] 指令解析完成: 会话={session_id}, 生成{len(edit_instructions)}个编辑操作")
-            
+
+            # 解析失败（LLM 重试后仍无法识别指令）：明确反馈，不执行任何写库
+            if not edit_instructions:
+                logger.warning(f"[EDITOR] 指令无法解析: 会话={session_id}, 指令='{instruction[:100]}'")
+                await server.broadcast({
+                    "type": "error",
+                    "message": "无法理解该指令，请换个更明确的说法（例如：添加一个叫张三的侦探角色）",
+                    "session_id": session_id
+                }, session_id)
+                return
+
             # 执行编辑指令
+            total = len(edit_instructions)
+            await edit_event_callback(_make_edit_event("step_start", "execute", data={"total": total}))
             results = []
             for i, edit_instruction in enumerate(edit_instructions, 1):
-                logger.debug(f"[EDITOR] 执行编辑操作 {i}/{len(edit_instructions)}: 会话={session_id}")
+                logger.debug(f"[EDITOR] 执行编辑操作 {i}/{total}: 会话={session_id}")
+                # 操作摘要优先用指令描述，空则拼接 action/target
+                summary = edit_instruction.description or f"{edit_instruction.action} {edit_instruction.target}"
+                await edit_event_callback(_make_edit_event(
+                    "action", "execute", content=summary,
+                    data={"index": i, "total": total, "instruction": serialize_object(edit_instruction)},
+                ))
                 result = await session.editor_service.execute_instruction(
                     edit_instruction, session.script_id
                 )
                 results.append(result)
-                
+                await edit_event_callback(_make_edit_event(
+                    "observation", "execute", content=result.message,
+                    data={"index": i, "success": result.success},
+                ))
+
                 # 实时发送每个操作的结果
                 logger.debug(f"[EDITOR] 广播编辑结果 {i}: 成功={result.success}, 会话={session_id}")
                 await server.broadcast({
@@ -1101,9 +1159,12 @@ class EditModeHandler:
                     },
                     "session_id": session_id
                 }, session_id)
-            
+
             success_count = sum(1 for r in results if r.success)
             logger.info(f"[EDITOR] 编辑指令执行完成: 会话={session_id}, 成功={success_count}/{len(results)}")
+            await edit_event_callback(_make_edit_event(
+                "step_end", "execute", content=f"成功 {success_count}/{len(results)} 项"
+            ))
             
             # 发送完成消息
             await server.broadcast({
@@ -1234,6 +1295,7 @@ class GameWebSocketServer:
     def __init__(self):
         self.sessions: Dict[str, GameSession] = {}
         self.client_sessions: Dict[Any, str] = {}  # 客户端到会话的映射
+        self.edit_locks: Dict[int, asyncio.Lock] = {}  # 剧本ID到编辑锁的映射，串行化同一剧本的编辑指令
         # 注册消息处理器
         # 普通指令处理器（断线重连/增量同步单独处理）
         self.message_handlers: Dict[str, MessageHandler] = {
@@ -1270,10 +1332,17 @@ class GameWebSocketServer:
         
         return self.sessions[session_id]
     
+    def get_edit_lock(self, script_id: int) -> asyncio.Lock:
+        """获取指定剧本的编辑锁（不存在则创建），用于串行化同一剧本的编辑指令"""
+        if script_id not in self.edit_locks:
+            self.edit_locks[script_id] = asyncio.Lock()
+        return self.edit_locks[script_id]
+    
     async def register_client(self, websocket: Any, script_id: int = 1, user_id: Optional[int] = None):
         """注册新的WebSocket客户端到指定会话"""
         # 基于用户ID和剧本ID自动管理会话，不需要前端传递session_id
         actual_session_id = None
+        username = None
         
         # 如果提供了用户ID，使用GameSessionRepository处理会话
         if user_id is not None:
@@ -1284,6 +1353,13 @@ class GameWebSocketServer:
                 db_session = repo.create_or_resume_session(user_id, script_id, None)
                 actual_session_id = str(db_session.session_id)
                 
+                # 查询用户名，用于剧本编辑权限校验；查询失败时保持None（后续编辑校验会拒绝）
+                try:
+                    user = db.query(User).filter(User.id == user_id).first()
+                    username = user.username if user else None
+                except Exception as e:
+                    logger.error(f"[SESSION] 查询用户信息失败: 用户ID={user_id}, 错误={e}")
+                
                 logger.info(f"[SESSION] 用户 {user_id} 的会话处理完成: {actual_session_id}, 状态: {db_session.status}")
         else:
             # 如果没有用户ID，创建临时会话
@@ -1292,6 +1368,10 @@ class GameWebSocketServer:
         
         # 获取或创建内存中的游戏会话
         session = self.get_or_create_session(actual_session_id, script_id)
+        
+        # 记录会话所属用户信息（会话按user_id+script_id复用，同一会话的用户信息一致）
+        session.user_id = user_id
+        session.username = username
         
         # 检查是否是重新连接到后台运行的会话
         is_background_reconnect = session.background_mode and len(session.clients) == 0

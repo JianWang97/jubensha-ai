@@ -76,6 +76,17 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
     initEvidenceForm();
   }, [initEvidenceForm]);
 
+  // AI 通过对话更新剧本后实时刷新证据列表
+  useEffect(() => {
+    const handleScriptDataUpdate = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'script_data_update') {
+        initEvidenceForm();
+      }
+    };
+    window.addEventListener('script_edit_result', handleScriptDataUpdate);
+    return () => window.removeEventListener('script_edit_result', handleScriptDataUpdate);
+  }, [initEvidenceForm]);
+
 
   // 处理证据表单变化
   const handleEvidenceFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -216,7 +227,7 @@ const EvidenceManager: React.FC<EvidenceManagerProps> = ({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
               {evidences.map((ev) => (
                 <div key={ev.id} className="rounded-sm border border-line bg-raised p-5 transition-colors hover:border-brass/30 group evidence-card">
                   {/* 卡片头部 */}

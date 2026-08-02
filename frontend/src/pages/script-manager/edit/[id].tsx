@@ -6,7 +6,7 @@ import {
 import Layout from '@/components/Layout';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { Script_Output as Script } from '@/client';
 import { Button } from '@/components/ui/button';
@@ -140,6 +140,30 @@ const ScriptEditPage = () => {
     return null;
   })();
 
+  // —— 未保存修改（dirty）追踪 ——
+  // 快照记录封面表单 / 背景故事"已持久化"的内容；本地 state 与快照不一致即视为 dirty。
+  // AI 推送 script_data_update 时，dirty 区域不被重置，避免冲掉未保存的手工编辑。
+  const coverSavedSnapshotRef = useRef('');
+  const backgroundSavedSnapshotRef = useRef('');
+  const basicFormDataRef = useRef(basicFormData);
+  const backgroundStoryRef = useRef(backgroundStory);
+
+  useEffect(() => {
+    basicFormDataRef.current = basicFormData;
+  }, [basicFormData]);
+
+  useEffect(() => {
+    backgroundStoryRef.current = backgroundStory;
+  }, [backgroundStory]);
+
+  // 快照为空表示基线尚未建立（初次加载中），不算 dirty
+  const isCoverDirty = () =>
+    coverSavedSnapshotRef.current !== '' &&
+    JSON.stringify(basicFormDataRef.current) !== coverSavedSnapshotRef.current;
+  const isBackgroundDirty = () =>
+    backgroundSavedSnapshotRef.current !== '' &&
+    JSON.stringify(backgroundStoryRef.current) !== backgroundSavedSnapshotRef.current;
+
   // 获取脚本数据
   useEffect(() => {
     if (scriptId !== null) {
@@ -154,7 +178,7 @@ const ScriptEditPage = () => {
             return;
           }
           setScript(scriptData);
-          setBasicFormData({
+          const nextBasicForm = {
             title: scriptData.info.title || '',
             description: scriptData.info.description || '',
             author: scriptData.info.author || '',
@@ -164,7 +188,9 @@ const ScriptEditPage = () => {
             tags: scriptData.info.tags || [],
             status: (scriptData.info.status as ScriptStatus) || ScriptStatus.DRAFT,
             cover_image_url: scriptData.info.cover_image_url || ''
-          });
+          };
+          setBasicFormData(nextBasicForm);
+          coverSavedSnapshotRef.current = JSON.stringify(nextBasicForm);
         } catch (err) {
           console.error('获取剧本详情失败:', err);
           setError('获取剧本详情失败');
@@ -189,10 +215,14 @@ const ScriptEditPage = () => {
     };
   }, [scriptId, connect, disconnect]);
 
-  // 加载背景故事数据
+  // 加载背景故事数据（有未保存修改时跳过重置，保留手工编辑）
   useEffect(() => {
     if (script?.background_story) {
-      setBackgroundStory({
+      if (isBackgroundDirty()) {
+        toast.info('AI 已更新剧本，你在背景故事上未保存的修改已保留。');
+        return;
+      }
+      const nextBackgroundStory = {
         title: script.background_story.title || '',
         setting_description: script.background_story.setting_description || '',
         incident_description: script.background_story.incident_description || '',
@@ -203,7 +233,9 @@ const ScriptEditPage = () => {
         murder_location: script.background_story.murder_location || '',
         discovery_time: script.background_story.discovery_time || '',
         victory_conditions: script.background_story.victory_conditions || {}
-      });
+      };
+      setBackgroundStory(nextBackgroundStory);
+      backgroundSavedSnapshotRef.current = JSON.stringify(nextBackgroundStory);
     }
   }, [script?.background_story]);
 
@@ -229,6 +261,7 @@ const ScriptEditPage = () => {
             : basicFormData.duration_minutes
       });
       toast('封面已保存。');
+      coverSavedSnapshotRef.current = JSON.stringify(basicFormDataRef.current);
     } catch (err) {
       console.error('更新脚本失败:', err);
       toast('保存失败，请重试。');
@@ -269,6 +302,7 @@ const ScriptEditPage = () => {
         }
       });
       toast('背景故事已保存。');
+      backgroundSavedSnapshotRef.current = JSON.stringify(backgroundStoryRef.current);
     } catch (err) {
       console.error('保存背景故事失败:', err);
       toast('保存失败，请重试。');
@@ -292,7 +326,12 @@ const ScriptEditPage = () => {
         scriptId,
         ScriptStatus.PUBLISHED
       );
-      setBasicFormData((prev) => ({ ...prev, status: ScriptStatus.PUBLISHED }));
+      // 发布已持久化 status，同步封面快照避免误判 dirty
+      setBasicFormData((prev) => {
+        const next = { ...prev, status: ScriptStatus.PUBLISHED };
+        coverSavedSnapshotRef.current = JSON.stringify(next);
+        return next;
+      });
       toast('已发布。');
     } catch (err) {
       console.error('发布失败:', err);
@@ -968,17 +1007,23 @@ const ScriptEditPage = () => {
                 onScriptUpdate={(updatedScript) => {
                   setScript(updatedScript);
                   if (updatedScript.info) {
-                    setBasicFormData({
-                      title: updatedScript.info.title || '',
-                      description: updatedScript.info.description || '',
-                      author: updatedScript.info.author || '',
-                      player_count: updatedScript.info.player_count || 0,
-                      duration_minutes: updatedScript.info.duration_minutes || 0,
-                      difficulty: updatedScript.info.difficulty || '',
-                      tags: updatedScript.info.tags || [],
-                      status: (updatedScript.info.status as ScriptStatus) || ScriptStatus.DRAFT,
-                      cover_image_url: updatedScript.info.cover_image_url || ''
-                    });
+                    if (isCoverDirty()) {
+                      toast.info('AI 已更新剧本，你在卷宗封面上未保存的修改已保留。');
+                    } else {
+                      const nextBasicForm = {
+                        title: updatedScript.info.title || '',
+                        description: updatedScript.info.description || '',
+                        author: updatedScript.info.author || '',
+                        player_count: updatedScript.info.player_count || 0,
+                        duration_minutes: updatedScript.info.duration_minutes || 0,
+                        difficulty: updatedScript.info.difficulty || '',
+                        tags: updatedScript.info.tags || [],
+                        status: (updatedScript.info.status as ScriptStatus) || ScriptStatus.DRAFT,
+                        cover_image_url: updatedScript.info.cover_image_url || ''
+                      };
+                      setBasicFormData(nextBasicForm);
+                      coverSavedSnapshotRef.current = JSON.stringify(nextBasicForm);
+                    }
                   }
                 }}
               />

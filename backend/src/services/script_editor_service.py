@@ -4,8 +4,8 @@
 """
 
 import json
-import re
 import logging
+from datetime import datetime
 from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from pydantic import BaseModel
 
@@ -25,6 +25,48 @@ else:
             pass
 
 logger = logging.getLogger(__name__)
+
+# 编辑过程事件的步骤中文名（与前端 script_edit_event 契约一致）
+EDIT_STEP_NAME = {
+    "classify": "理解指令",
+    "parse": "解析编辑操作",
+    "execute": "执行修改",
+}
+
+# 指令分类的中文名（用于 classify 阶段的 action 摘要）
+CATEGORY_NAME = {
+    "character": "角色",
+    "evidence": "证据",
+    "location": "场景",
+    "story": "背景故事",
+    "info": "剧本信息",
+    "other": "其他",
+}
+
+
+def _make_edit_event(event_type: str, step: str, content: str = "",
+                     kind: Optional[str] = None, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """构建编辑过程事件（经 script_edit_event 消息广播给前端）"""
+    return {
+        "type": event_type,
+        "step": step,
+        "step_name": EDIT_STEP_NAME.get(step),
+        "content": content,
+        "kind": kind,
+        "data": data,
+        "timestamp": datetime.now().isoformat(),
+    }
+
+
+async def _emit_edit_event(event_callback, event_type: str, step: str, content: str = "",
+                           kind: Optional[str] = None, data: Optional[Dict[str, Any]] = None):
+    """发送编辑事件给回调（前端展示用），回调异常不影响主流程"""
+    if event_callback is None:
+        return
+    try:
+        await event_callback(_make_edit_event(event_type, step, content, kind, data))
+    except Exception as e:
+        logger.error(f"[SCRIPT_EDIT] 事件回调失败: {e}")
 
 
 class InstructionCategory(BaseModel):
@@ -56,14 +98,9 @@ class ScriptEditorService:
     def __init__(self, script_repository: ScriptRepository):
         self.script_repository = script_repository
 
-    async def categorize_instruction(self, instruction: str, script_id: int) -> InstructionCategory:
-        """对用户指令进行分类"""
-        # 获取当前剧本信息用于上下文
-        current_script = self.script_repository.get_script_by_id(script_id)
-        if not current_script:
-            raise ValueError(f"剧本 {script_id} 不存在")
-        
-        # 构建AI提示
+    async def categorize_instruction(self, instruction: str, script_id: int, event_callback=None) -> InstructionCategory:
+        """对用户指令进行分类（可选透出 classify 阶段事件）"""
+        # 构建AI提示（分类只需要指令文本，无需查询剧本内容）
         system_prompt = """你是一个专业的指令分类助手，能够理解用户的自然语言指令并识别出操作类型和目标对象。
 
 请分析用户的指令，识别出：
@@ -120,19 +157,25 @@ class ScriptEditorService:
         ]
         
         try:
+            await _emit_edit_event(event_callback, "step_start", "classify")
             response = await llm_service.chat_completion(messages, max_tokens=300, temperature=0.1)
-            
+
+            # 透出思考过程（分类的正式内容是单词/短JSON，不作为 text thought 透出）
+            if getattr(response, "reasoning_content", None):
+                await _emit_edit_event(event_callback, "thought", "classify",
+                                       content=response.reasoning_content, kind="reasoning")
+
             if not response.content:
                 raise ValueError("AI服务返回空内容")
-            
+
             # 尝试解析JSON响应
             category_data = json.loads(response.content.strip())
-            return InstructionCategory(**category_data)
-            
+            result = InstructionCategory(**category_data)
+
         except json.JSONDecodeError as e:
             logger.warning(f"[INSTRUCTION_CATEGORIZE] JSON解析失败: {e}")
             # 返回默认分类
-            return InstructionCategory(
+            result = InstructionCategory(
                 category="other",
                 confidence=0.5,
                 reasoning="无法解析分类结果，使用默认分类"
@@ -140,23 +183,34 @@ class ScriptEditorService:
         except Exception as e:
             logger.error(f"[INSTRUCTION_CATEGORIZE] 分类失败: {e}")
             # 返回默认分类
-            return InstructionCategory(
+            result = InstructionCategory(
                 category="other",
                 confidence=0.5,
                 reasoning="分类过程出错，使用默认分类"
             )
 
-    async def parse_user_instruction(self, instruction: str, script_id: int) -> List[EditInstruction]:
-        """解析用户的自然语言指令为具体的编辑操作"""
+        await _emit_edit_event(event_callback, "action", "classify",
+                               content=f"指令分类：{CATEGORY_NAME.get(result.category, result.category)}",
+                               data={"category": result.category})
+        await _emit_edit_event(event_callback, "step_end", "classify")
+        return result
+
+    async def parse_user_instruction(self, instruction: str, script_id: int, event_callback=None) -> List[EditInstruction]:
+        """解析用户的自然语言指令为具体的编辑操作（可选透出 classify/parse 阶段事件）"""
         # 重试机制
         max_retries = 3
         last_error = None
         base_temperature = 0.3
-        
+
         # 首先对指令进行分类
         logger.info(f"[INSTRUCTION_PARSE] 开始对指令进行分类: {instruction}")
-        category_result = await self.categorize_instruction(instruction, script_id)
+        category_result = await self.categorize_instruction(instruction, script_id, event_callback=event_callback)
         logger.info(f"[INSTRUCTION_PARSE] 指令分类结果: {category_result.category}, 置信度: {category_result.confidence}")
+
+        await _emit_edit_event(event_callback, "step_start", "parse")
+
+        # 重试时追加的提醒内容（每轮重试重建 user_prompt 时携带）
+        retry_reminder = ""
         
         for attempt in range(max_retries):
             try:
@@ -176,7 +230,7 @@ class ScriptEditorService:
 
 用户指令：{instruction}
 
-请分析用户指令并返回对应的编辑操作JSON数组。"""
+请分析用户指令并返回对应的编辑操作JSON数组。{retry_reminder}"""
                 
                 messages = [
                     LLMMessage(role="system", content=system_prompt),
@@ -187,11 +241,16 @@ class ScriptEditorService:
                 current_temperature = base_temperature + (attempt * 0.1)
                 
                 response = await llm_service.chat_completion(
-                    messages, 
-                    max_tokens=1000, 
+                    messages,
+                    max_tokens=1000,
                     temperature=current_temperature  # 每次重试时temperature增加0.1
                 )
-                
+
+                # 透出思考过程（parse 的正式内容是JSON，不作为 text thought 透出）
+                if getattr(response, "reasoning_content", None):
+                    await _emit_edit_event(event_callback, "thought", "parse",
+                                           content=response.reasoning_content, kind="reasoning")
+
                 if not response.content:
                     raise ValueError("AI服务返回空内容")
                 
@@ -211,28 +270,35 @@ class ScriptEditorService:
                 else:
                     if isinstance(instructions_data, dict):
                         instructions.append(EditInstruction(**instructions_data))
-                
+
+                await _emit_edit_event(
+                    event_callback, "action", "parse",
+                    content=f"解析出 {len(instructions)} 项编辑操作",
+                    data={"operations": [
+                        {"action": ins.action, "target": ins.target, "description": ins.description}
+                        for ins in instructions
+                    ]},
+                )
+                await _emit_edit_event(event_callback, "step_end", "parse")
                 return instructions
-                
+
             except (json.JSONDecodeError, ValueError, Exception) as e:
                 last_error = e
                 logger.warning(f"[INSTRUCTION_PARSE] 第{attempt + 1}次尝试解析用户指令失败: {str(e)}")
-                
+
                 if attempt < max_retries - 1:
-                    # 在重试前调整提示词，强调之前失败的原因
-                    if "JSON" in str(e) or "格式" in str(e):
-                        user_prompt += "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
-        
-        # 所有重试都失败了，使用备用解析方法
-        logger.error(f"[INSTRUCTION_PARSE] 解析用户指令失败，已重试{max_retries}次。最后错误: {str(last_error)}")
-        logger.info("[INSTRUCTION_PARSE] 尝试使用备用解析方法")
-        try:
-            fallback_instructions = self._fallback_parse_instruction(instruction)
-            logger.info(f"[INSTRUCTION_PARSE] 备用解析方法成功，生成 {len(fallback_instructions)} 个指令")
-            return fallback_instructions
-        except Exception as fallback_error:
-            logger.error(f"[INSTRUCTION_PARSE] 备用解析方法也失败了: {str(fallback_error)}")
-            raise ValueError(f"解析用户指令失败，已重试{max_retries}次。最后错误: {str(last_error)}")
+                    await _emit_edit_event(event_callback, "observation", "parse",
+                                           content=f"解析失败，正在重试（{attempt + 1}/{max_retries}）")
+                    # 记录失败原因提醒，下一轮重试重建 user_prompt 时会带上
+                    # 注意 JSONDecodeError 的错误文本不含"JSON"字样，需按异常类型判断
+                    if isinstance(e, json.JSONDecodeError) or "JSON" in str(e) or "格式" in str(e):
+                        retry_reminder = "\n\n注意：请确保返回的是标准JSON格式，不要包含任何代码标记或额外文字。"
+
+        # 所有重试都失败了：不再生成关键词占位的兜底指令，避免将不可靠的内容写入数据库。
+        # 返回空指令列表，由调用方（websocket_server）向用户反馈解析失败
+        logger.error(f"[INSTRUCTION_PARSE] 解析用户指令失败，已重试{max_retries}次，放弃本次编辑。最后错误: {str(last_error)}")
+        await _emit_edit_event(event_callback, "step_end", "parse", content="解析失败")
+        return []
     
     def _get_category_specific_context(self, category: str, script) -> str:
         """根据分类获取特定的上下文信息"""
@@ -523,182 +589,15 @@ class ScriptEditorService:
             return "无"
         return "\n".join([f"- {loc.name}: {loc.description}" for loc in locations])
     
-    def _fallback_parse_instruction(self, instruction: str) -> List[EditInstruction]:
-        """备用指令解析方法"""
-        logger.info(f"[FALLBACK_PARSE] 使用备用解析方法处理指令: {instruction}")
-        instruction_lower = instruction.lower()
-        
-        # 简单的关键词匹配
-        if "添加" in instruction or "新增" in instruction or "创建" in instruction:
-            if "角色" in instruction or "人物" in instruction:
-                logger.info(f"[FALLBACK_PARSE] 识别为角色添加指令")
-                # 为角色添加提供完整的默认数据
-                return [EditInstruction(
-                    action="add",
-                    target="character",
-                    content={
-                        "name": "新角色",
-                        "profession": "待定职业",
-                        "background": "这是一个神秘的角色，背景有待进一步完善。他/她在剧本中扮演着的重要性，与其他角色有着复杂的关系。",
-                        "secret": "这个角色隐藏着一个重要的秘密，这个秘密可能与案件的真相有关。",
-                        "objective": "角色的具体目标需要根据剧本发展来确定。",
-                        "gender": "中性",
-                        "age": 30,
-                        "personality_traits": ["神秘", "复杂", "重要"],
-                        "is_murderer": False,
-                        "is_victim": False
-                    },
-                    description="添加新角色（需要进一步完善）"
-                )]
-            elif "证据" in instruction or "线索" in instruction:
-                return [EditInstruction(
-                    action="add",
-                    target="evidence",
-                    content={
-                        "name": "新证据",
-                        "description": "这是一个重要的证据，需要进一步完善其具体内容和发现方式。",
-                        "location": "待定位置",
-                        "related_to": "",
-                        "significance": "这个证据可能与案件真相有重要关联。",
-                        "evidence_type": "PHYSICAL",
-                        "importance": "重要证据",
-                        "is_hidden": False,
-                        "discovery_condition": "玩家需要仔细搜查才能发现这个证据。"
-                    },
-                    description="添加新证据（需要进一步完善）"
-                )]
-            elif "场景" in instruction or "地点" in instruction:
-                return [EditInstruction(
-                    action="add",
-                    target="location",
-                    content={"name": "新场景", "description": "待完善的场景描述"},
-                    description="添加新场景"
-                )]
-        elif "删除" in instruction or "移除" in instruction:
-            if "角色" in instruction or "人物" in instruction:
-                # 尝试从指令中提取角色名称
-                character_name = "新角色"  # 默认值
-                # 简单的名称提取逻辑
-                if "名字叫" in instruction:
-                    parts = instruction.split("名字叫")
-                    if len(parts) > 1:
-                        character_name = parts[1].strip()
-                elif "叫" in instruction:
-                    parts = instruction.split("叫")
-                    if len(parts) > 1:
-                        character_name = parts[1].strip()
-                
-                return [EditInstruction(
-                    action="delete",
-                    target="character",
-                    content={"name": character_name},
-                    description=f"删除角色: {character_name}"
-                )]
-            elif "证据" in instruction or "线索" in instruction:
-                # 尝试从指令中提取证据名称
-                evidence_name = "新证据"  # 默认值
-                if "名字叫" in instruction:
-                    parts = instruction.split("名字叫")
-                    if len(parts) > 1:
-                        evidence_name = parts[1].strip()
-                elif "叫" in instruction:
-                    parts = instruction.split("叫")
-                    if len(parts) > 1:
-                        evidence_name = parts[1].strip()
-                
-                return [EditInstruction(
-                    action="delete",
-                    target="evidence",
-                    content={"name": evidence_name},
-                    description=f"删除证据: {evidence_name}"
-                )]
-            elif "场景" in instruction or "地点" in instruction:
-                # 尝试从指令中提取场景名称
-                location_name = "新场景"  # 默认值
-                if "名字叫" in instruction:
-                    parts = instruction.split("名字叫")
-                    if len(parts) > 1:
-                        location_name = parts[1].strip()
-                elif "叫" in instruction:
-                    parts = instruction.split("叫")
-                    if len(parts) > 1:
-                        location_name = parts[1].strip()
-                
-                return [EditInstruction(
-                    action="delete",
-                    target="location",
-                    content={"name": location_name},
-                    description=f"删除场景: {location_name}"
-                )]
-        
-        # 检查是否为背景故事相关指令
-        instruction_lower = instruction.lower()
-        
-        # 检查是否为角色背景故事更新（优先级较高）
-        # 匹配模式：[角色名] + 的 + 背景/背景故事
-        character_background_patterns = [
-            r'(\w+)的背景故事',
-            r'(\w+)的背景',
-            r'更新(\w+)的背景',
-            r'修改(\w+)的背景',
-            r'(\w+)角色背景',
-            r'(\w+)角色的背景'
-        ]
-        
-        for pattern in character_background_patterns:
-            import re
-            match = re.search(pattern, instruction)
-            if match:
-                character_name = match.group(1)
-                # 从指令中提取背景内容
-                background_content = instruction
-                # 如果指令包含具体的背景描述，尝试提取
-                if "：" in instruction:
-                    parts = instruction.split("：", 1)
-                    if len(parts) > 1:
-                        background_content = parts[1].strip()
-                elif "改为" in instruction:
-                    parts = instruction.split("改为", 1)
-                    if len(parts) > 1:
-                        background_content = parts[1].strip()
-                
-                return [EditInstruction(
-                    action="update",
-                    target="character",
-                    content={
-                        "name": character_name,
-                        "background": background_content
-                    },
-                    description=f"更新角色 {character_name} 的背景"
-                )]
-        
-        # 只有当明确指向剧本整体背景故事时才归类为story
-        if any(keyword in instruction for keyword in ["剧本背景故事", "整体背景故事", "剧本的背景故事", "剧情背景"]) or \
-           (("背景故事" in instruction or "故事背景" in instruction) and not any(char_keyword in instruction for char_keyword in ["的背景", "角色背景"])):
-            return [EditInstruction(
-                action="update",
-                target="story",
-                content={
-                    "story": instruction,
-                    "generate_missing": True
-                },
-                description="更新剧本背景故事"
-            )]
-        
-        # 默认返回修改剧本信息的指令
-        return [EditInstruction(
-            action="modify",
-            target="info",
-            content={"description": instruction},
-            description="修改剧本信息"
-        )]
-    
     async def execute_instruction(self, instruction: EditInstruction, script_id: int) -> EditResult:
         """执行编辑指令"""
         logger.info(f"[SCRIPT_EDIT] 开始执行编辑指令 - 剧本ID: {script_id}, 操作: {instruction.action}, 目标: {instruction.target}")
         logger.debug(f"[SCRIPT_EDIT] 指令详情: {instruction.model_dump()}")
         
         try:
+            # 使会话中已加载的ORM对象失效，确保同一会话内能读到之前指令 flush 的最新状态
+            self.script_repository.db.expire_all()
+            
             # 获取当前剧本
             current_script = self.script_repository.get_script_by_id(script_id)
             if not current_script:
@@ -740,11 +639,12 @@ class ScriptEditorService:
                     # 记录具体变更内容
                     changes = self._get_changes_detail(before_state, after_state, instruction)
                     logger.info(f"[SCRIPT_EDIT] 具体变更: {changes}")
-                    
-                    # 更新数据库
-                    updated_script = self.script_repository.update_script(script_id, result.updated_script)
-                    result.updated_script = updated_script
-                    logger.info(f"[SCRIPT_EDIT] 数据库更新完成")
+                
+                # 各处理器已通过增量方法完成 flush，此处不再整体重建剧本；
+                # 事务由调用方（websocket_server）在全部指令执行成功后统一 commit
+                # 使会话缓存失效，保证调用方后续读取（如HTTP路由重读剧本）拿到最新状态
+                self.script_repository.db.expire_all()
+                logger.info(f"[SCRIPT_EDIT] 数据库增量更新完成（待统一提交）")
             else:
                 logger.warning(f"[SCRIPT_EDIT] 操作失败: {result.message}")
             
@@ -835,14 +735,16 @@ class ScriptEditorService:
             logger.info(f"[CHARACTER_EDIT] 准备添加角色数据: {character_data}")
             
             new_character = ScriptCharacter(**character_data)
-            script.characters.append(new_character)
+            # 增量落库（仅 flush，事务由调用方统一提交）
+            persisted_character = self.script_repository.add_character(new_character)
+            script.characters.append(persisted_character)
             
-            logger.info(f"[CHARACTER_EDIT] 成功添加角色: {new_character.name}, 当前角色总数: {len(script.characters)}")
+            logger.info(f"[CHARACTER_EDIT] 成功添加角色: {persisted_character.name}, 当前角色总数: {len(script.characters)}")
             
             return EditResult(
                 success=True,
-                message=f"成功添加角色: {new_character.name}",
-                data={"character": new_character.model_dump()},
+                message=f"成功添加角色: {persisted_character.name}",
+                data={"character": persisted_character.model_dump()},
                 updated_script=script
             )
         
@@ -868,7 +770,8 @@ class ScriptEditorService:
             before_update = character.model_dump()
             logger.info(f"[CHARACTER_EDIT] 更新前角色状态: {before_update}")
             
-            # 更新角色属性
+            # 构建增量更新数据（类型转换逻辑与原内存修改保持一致）
+            update_data = {}
             updated_fields = []
             for key, value in instruction.content.items():
                 if hasattr(character, key) and key != "id" and key != "script_id":
@@ -902,15 +805,27 @@ class ScriptEditorService:
                     elif key in ["is_murderer", "is_victim"] and value is not None:
                         value = bool(value)
                     
-                    setattr(character, key, value)
+                    update_data[key] = value
                     updated_fields.append(f"{key}: {old_value} -> {value}")
             
             logger.info(f"[CHARACTER_EDIT] 角色 '{character_name}' 字段更新: {'; '.join(updated_fields)}")
             
+            # 增量落库（仅 flush，事务由调用方统一提交）
+            updated_character = self.script_repository.update_character_by_name(script.info.id, character_name, update_data)
+            if not updated_character:
+                logger.warning(f"[CHARACTER_EDIT] 更新角色失败: 数据库中未找到角色 {character_name}")
+                return EditResult(success=False, message=f"未找到角色: {character_name}")
+            
+            # 同步内存中的剧本快照
+            for i, char in enumerate(script.characters):
+                if char.name == character_name:
+                    script.characters[i] = updated_character
+                    break
+            
             return EditResult(
                 success=True,
-                message=f"成功更新角色: {character.name}",
-                data={"character": character.model_dump()},
+                message=f"成功更新角色: {updated_character.name}",
+                data={"character": updated_character.model_dump()},
                 updated_script=script
             )
         
@@ -926,6 +841,11 @@ class ScriptEditorService:
                 if char.name == character_name:
                     deleted_character = char.model_dump()
                     logger.info(f"[CHARACTER_EDIT] 准备删除角色: {deleted_character}")
+                    
+                    # 增量落库（仅 flush，事务由调用方统一提交）
+                    if not self.script_repository.delete_character_by_name(script.info.id, character_name):
+                        logger.warning(f"[CHARACTER_EDIT] 删除角色失败: 数据库中未找到角色 {character_name}")
+                        return EditResult(success=False, message=f"未找到角色: {character_name}")
                     
                     del script.characters[i]
                     
@@ -974,14 +894,16 @@ class ScriptEditorService:
             logger.info(f"[EVIDENCE_EDIT] 准备添加证据数据: {evidence_data}")
             
             new_evidence = ScriptEvidence(**evidence_data)
-            script.evidence.append(new_evidence)
+            # 增量落库（仅 flush，事务由调用方统一提交）
+            persisted_evidence = self.script_repository.add_evidence(new_evidence)
+            script.evidence.append(persisted_evidence)
             
-            logger.info(f"[EVIDENCE_EDIT] 成功添加证据: {new_evidence.name}, 当前证据总数: {len(script.evidence)}")
+            logger.info(f"[EVIDENCE_EDIT] 成功添加证据: {persisted_evidence.name}, 当前证据总数: {len(script.evidence)}")
             
             return EditResult(
                 success=True,
-                message=f"成功添加证据: {new_evidence.name}",
-                data={"evidence": new_evidence.model_dump()},
+                message=f"成功添加证据: {persisted_evidence.name}",
+                data={"evidence": persisted_evidence.model_dump()},
                 updated_script=script
             )
         
@@ -1007,23 +929,37 @@ class ScriptEditorService:
             before_update = evidence.model_dump()
             logger.info(f"[EVIDENCE_EDIT] 更新前证据状态: {before_update}")
             
-            # 更新证据属性
+            # 构建增量更新数据（类型转换逻辑与原内存修改保持一致）
+            update_data = {}
             updated_fields = []
             for key, value in instruction.content.items():
                 if hasattr(evidence, key) and key != "id" and key != "script_id":
                     old_value = getattr(evidence, key)
                     if key == "evidence_type" and isinstance(value, str):
-                        setattr(evidence, key, EvidenceType(value))
+                        # 校验证据类型合法性，非法值会抛出 ValueError（与原行为一致）
+                        update_data[key] = EvidenceType(value).value
                     else:
-                        setattr(evidence, key, value)
+                        update_data[key] = value
                     updated_fields.append(f"{key}: {old_value} -> {value}")
             
             logger.info(f"[EVIDENCE_EDIT] 证据 '{evidence_name}' 字段更新: {'; '.join(updated_fields)}")
             
+            # 增量落库（仅 flush，事务由调用方统一提交）
+            updated_evidence = self.script_repository.update_evidence_by_name(script.info.id, evidence_name, update_data)
+            if not updated_evidence:
+                logger.warning(f"[EVIDENCE_EDIT] 更新证据失败: 数据库中未找到证据 {evidence_name}")
+                return EditResult(success=False, message=f"未找到证据: {evidence_name}")
+            
+            # 同步内存中的剧本快照
+            for i, ev in enumerate(script.evidence):
+                if ev.name == evidence_name:
+                    script.evidence[i] = updated_evidence
+                    break
+            
             return EditResult(
                 success=True,
-                message=f"成功更新证据: {evidence.name}",
-                data={"evidence": evidence.model_dump()},
+                message=f"成功更新证据: {updated_evidence.name}",
+                data={"evidence": updated_evidence.model_dump()},
                 updated_script=script
             )
         
@@ -1039,6 +975,11 @@ class ScriptEditorService:
                 if ev.name == evidence_name:
                     deleted_evidence = ev.model_dump()
                     logger.info(f"[EVIDENCE_EDIT] 准备删除证据: {deleted_evidence}")
+                    
+                    # 增量落库（仅 flush，事务由调用方统一提交）
+                    if not self.script_repository.delete_evidence_by_name(script.info.id, evidence_name):
+                        logger.warning(f"[EVIDENCE_EDIT] 删除证据失败: 数据库中未找到证据 {evidence_name}")
+                        return EditResult(success=False, message=f"未找到证据: {evidence_name}")
                     
                     del script.evidence[i]
                     
@@ -1072,14 +1013,16 @@ class ScriptEditorService:
             logger.info(f"[LOCATION_EDIT] 准备添加场景数据: {location_data}")
             
             new_location = ScriptLocation(**location_data)
-            script.locations.append(new_location)
+            # 增量落库（仅 flush，事务由调用方统一提交）
+            persisted_location = self.script_repository.add_location(new_location)
+            script.locations.append(persisted_location)
             
-            logger.info(f"[LOCATION_EDIT] 成功添加场景: {new_location.name}, 当前场景总数: {len(script.locations)}")
+            logger.info(f"[LOCATION_EDIT] 成功添加场景: {persisted_location.name}, 当前场景总数: {len(script.locations)}")
             
             return EditResult(
                 success=True,
-                message=f"成功添加场景: {new_location.name}",
-                data={"location": new_location.model_dump()},
+                message=f"成功添加场景: {persisted_location.name}",
+                data={"location": persisted_location.model_dump()},
                 updated_script=script
             )
         
@@ -1105,20 +1048,33 @@ class ScriptEditorService:
             before_update = location.model_dump()
             logger.info(f"[LOCATION_EDIT] 更新前场景状态: {before_update}")
             
-            # 更新场景属性
+            # 构建增量更新数据
+            update_data = {}
             updated_fields = []
             for key, value in instruction.content.items():
                 if hasattr(location, key) and key != "id" and key != "script_id":
                     old_value = getattr(location, key)
-                    setattr(location, key, value)
+                    update_data[key] = value
                     updated_fields.append(f"{key}: {old_value} -> {value}")
             
             logger.info(f"[LOCATION_EDIT] 场景 '{location_name}' 字段更新: {'; '.join(updated_fields)}")
             
+            # 增量落库（仅 flush，事务由调用方统一提交）
+            updated_location = self.script_repository.update_location_by_name(script.info.id, location_name, update_data)
+            if not updated_location:
+                logger.warning(f"[LOCATION_EDIT] 更新场景失败: 数据库中未找到场景 {location_name}")
+                return EditResult(success=False, message=f"未找到场景: {location_name}")
+            
+            # 同步内存中的剧本快照
+            for i, loc in enumerate(script.locations):
+                if loc.name == location_name:
+                    script.locations[i] = updated_location
+                    break
+            
             return EditResult(
                 success=True,
-                message=f"成功更新场景: {location.name}",
-                data={"location": location.model_dump()},
+                message=f"成功更新场景: {updated_location.name}",
+                data={"location": updated_location.model_dump()},
                 updated_script=script
             )
         
@@ -1134,6 +1090,11 @@ class ScriptEditorService:
                 if loc.name == location_name:
                     deleted_location = loc.model_dump()
                     logger.info(f"[LOCATION_EDIT] 准备删除场景: {deleted_location}")
+                    
+                    # 增量落库（仅 flush，事务由调用方统一提交）
+                    if not self.script_repository.delete_location_by_name(script.info.id, location_name):
+                        logger.warning(f"[LOCATION_EDIT] 删除场景失败: 数据库中未找到场景 {location_name}")
+                        return EditResult(success=False, message=f"未找到场景: {location_name}")
                     
                     del script.locations[i]
                     
@@ -1160,6 +1121,7 @@ class ScriptEditorService:
             logger.info(f"[INFO_EDIT] 更新前剧本信息: {before_update}")
             
             # 更新剧本基本信息
+            update_data = {}
             updated_fields = []
             for key, value in instruction.content.items():
                 if hasattr(script.info, key) and key not in ["id", "author", "created_at", "updated_at"]:
@@ -1168,16 +1130,28 @@ class ScriptEditorService:
                     if key == "player_count" and value is not None:
                         value = int(value) if isinstance(value, (int, str)) and str(value).isdigit() else old_value
                     elif key in ["title", "description", "difficulty", "theme", "tags"] and value is not None:
-                        value = str(value)
+                        # 标签等列表字段保持列表形式，避免字符串化后无法通过校验
+                        value = [str(item) for item in value] if isinstance(value, list) else str(value)
                     elif key == "estimated_duration" and value is not None:
                         value = int(value) if isinstance(value, (int, str)) and str(value).isdigit() else old_value
                     elif key in ["is_published", "is_featured"] and value is not None:
                         value = bool(value)
                     
                     setattr(script.info, key, value)
+                    update_data[key] = value
                     updated_fields.append(f"{key}: {old_value} -> {value}")
             
             logger.info(f"[INFO_EDIT] 剧本信息字段更新: {'; '.join(updated_fields)}")
+            
+            # Pydantic字段名与数据库列名不一致的字段做映射
+            db_field_mapping = {
+                "estimated_duration": "duration_minutes",
+                "difficulty_level": "difficulty",
+            }
+            db_update_data = {db_field_mapping.get(key, key): value for key, value in update_data.items()}
+            
+            # 增量落库（仅 flush，事务由调用方统一提交）
+            self.script_repository.update_script_info_fields(script.info.id, db_update_data)
             
             return EditResult(
                 success=True,
@@ -1192,9 +1166,6 @@ class ScriptEditorService:
     async def _handle_story_instruction(self, instruction: EditInstruction, script: Script) -> EditResult:
         """处理背景故事相关指令"""
         logger.info(f"[STORY_EDIT] 处理背景故事指令 - 操作: {instruction.action}")
-        
-        # 导入背景故事相关模块
-        from ..schemas.background_story import BackgroundStory
         
         if instruction.action == "update" or instruction.action == "modify":
             try:
@@ -1256,23 +1227,20 @@ class ScriptEditorService:
                 if not story_data:
                     return EditResult(success=False, message="未提供有效的背景故事内容")
                 
-                # 修改内存中的script对象
-                if hasattr(script, 'background_story') and script.background_story:
-                    # 更新现有背景故事
-                    for key, value in story_data.items():
-                        setattr(script.background_story, key, value)
+                # 增量落库：按剧本维度 upsert（仅 flush，事务由调用方统一提交）
+                had_story = bool(script.background_story)
+                persisted_story = self.script_repository.upsert_background_story(script.info.id, story_data)
+                script.background_story = persisted_story
+                if had_story:
                     logger.info(f"[STORY_EDIT] 更新现有背景故事: {list(story_data.keys())}")
                 else:
-                    # 创建新的背景故事
-                    story_data["script_id"] = script.info.id
-                    script.background_story = BackgroundStory(**story_data)
                     logger.info(f"[STORY_EDIT] 创建新背景故事: {list(story_data.keys())}")
                 
                 logger.info(f"[STORY_EDIT] 成功更新背景故事")
                 return EditResult(
                     success=True,
                     message=f"成功更新背景故事 ({len(story_data)}个字段)",
-                    data={"background_story": script.background_story.model_dump()},
+                    data={"background_story": persisted_story.model_dump()},
                     updated_script=script
                 )
                     

@@ -138,6 +138,17 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
     }
   }, [scriptId, loadCharacters]);
 
+  // AI 通过对话更新剧本后实时刷新角色列表
+  useEffect(() => {
+    const handleScriptDataUpdate = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'script_data_update') {
+        loadCharacters();
+      }
+    };
+    window.addEventListener('script_edit_result', handleScriptDataUpdate);
+    return () => window.removeEventListener('script_edit_result', handleScriptDataUpdate);
+  }, [loadCharacters]);
+
   // 编辑角色
   const handleEditCharacter = (character: ScriptCharacter) => {
     setEditingCharacter(character);
@@ -235,7 +246,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
               {characters.map((character) => {
                 const isExpanded = expandedIds.has(character.id!);
                 const toggleExpand = () => {
@@ -286,7 +297,7 @@ const CharacterManager: React.FC<CharacterManagerProps> = ({
                         </p>
                       )}
                       {!isExpanded && character.background && (
-                        <p className="text-xs text-paper/85/60 mt-1 line-clamp-1">{character.background}</p>
+                        <p className="text-xs text-paper/60 mt-1 line-clamp-1">{character.background}</p>
                       )}
                     </div>
                     <div className="flex-shrink-0 ml-2 text-brass/70">

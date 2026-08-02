@@ -99,6 +99,17 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     initLocationForm();
   }, [initLocationForm]);
 
+  // AI 通过对话更新剧本后实时刷新场景列表
+  useEffect(() => {
+    const handleScriptDataUpdate = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'script_data_update') {
+        initLocationForm();
+      }
+    };
+    window.addEventListener('script_edit_result', handleScriptDataUpdate);
+    return () => window.removeEventListener('script_edit_result', handleScriptDataUpdate);
+  }, [initLocationForm]);
+
   // 添加或编辑场景
   const handleSaveLocation = async () => {
     setIsLoading(true);
@@ -237,7 +248,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
       </CardHeader>
       <CardContent className="px-0">
         {/* 场景列表 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
           {locations?.map((location) => (
             <Card key={location.id} className="rounded-sm border border-line bg-raised transition-colors hover:border-brass/30 group location-card shadow-none">
               <CardContent className="p-5">

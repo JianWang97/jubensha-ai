@@ -7,6 +7,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Send, Bot, User, CheckCircle, XCircle, MessageCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWebSocketStore } from '@/stores/websocketStore';
+import EditProcessTimeline, {
+  EditProcessEvent,
+  EditProcessStatus
+} from '@/components/EditProcessTimeline';
 
 interface ChatMessage {
   id: string;
@@ -54,6 +58,9 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  // AI 对话编辑的实时执行过程事件（script_edit_event），不进 messages 列表
+  const [processEvents, setProcessEvents] = useState<EditProcessEvent[]>([]);
+  const [processStatus, setProcessStatus] = useState<EditProcessStatus>('running');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { isConnected, sendMessage } = useWebSocketStore();
@@ -83,6 +90,18 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     scrollToBottom();
   }, [messages]);
 
+  // 执行过程时间线更新时跟随滚动（仅进行中，避免完成后展开/折叠打断阅读）
+  useEffect(() => {
+    if (processStatus === 'running' && processEvents.length > 0) {
+      scrollToBottom();
+    }
+  }, [processEvents, processStatus]);
+
+  // 移除"正在处理指令"的临时系统消息：终态由结果消息与执行时间线呈现，避免错误/成功图标重复
+  const clearProcessingMessage = () => {
+    setMessages(prev => prev.filter(msg => !(msg.type === 'system' && msg.status === 'pending')));
+  };
+
   // 处理WebSocket消息 - 使用自定义事件监听
   useEffect(() => {
     const handleScriptEditResult = (event: CustomEvent<{type: string, data?: MessageData}>) => {
@@ -103,8 +122,19 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             };
             setMessages(prev => [...prev, processingMessage]);
           }
+          // 新指令开始：清空上一次的执行过程时间线
+          setProcessEvents([]);
+          setProcessStatus('running');
           // 确保处理状态设置为true
           setIsProcessing(true);
+          break;
+
+        case 'script_edit_event':
+          // 实时执行过程事件（思考/工具调用/结果），追加到时间线
+          const editEvent = message.data as unknown as EditProcessEvent;
+          if (editEvent && editEvent.type) {
+            setProcessEvents(prev => [...prev, editEvent]);
+          }
           break;
           
         case 'edit_result':
@@ -127,6 +157,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           
         case 'instruction_completed':
           // 指令完成
+          clearProcessingMessage();
           const completedData = message.data;
           if (completedData) {
             const successCount = completedData.success_count || 0;
@@ -146,9 +177,11 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             clearTimeout(processingTimeoutRef.current);
             processingTimeoutRef.current = null;
           }
+          // 标记执行过程结束（时间线保留在最后一条结果下方，默认折叠）
+          setProcessStatus('done');
           setIsProcessing(false);
           break;
-          
+
         case 'script_data_update':
           // 剧本数据更新
           if (message.data?.script && onScriptUpdate) {
@@ -200,6 +233,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           
         case 'script_edit_result':
           // 保持向后兼容
+          clearProcessingMessage();
           const messageId = message.data?.message_id;
           if (messageId) {
             setMessages(prev => prev.map(msg => 
@@ -240,11 +274,13 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             clearTimeout(processingTimeoutRef.current);
             processingTimeoutRef.current = null;
           }
+          setProcessStatus(message.data?.success === false ? 'error' : 'done');
           setIsProcessing(false);
           break;
-          
+
         case 'script_edit_error':
           // 错误处理
+          clearProcessingMessage();
           const errorMessage: ChatMessage = {
             id: Date.now().toString(),
             type: 'assistant',
@@ -254,12 +290,33 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             data: message.data
           };
           setMessages(prev => [...prev, errorMessage]);
-          toast.error(`编辑失败：${message.data?.message || '操作失败'}`);
           // 清除超时定时器并重置处理状态
           if (processingTimeoutRef.current) {
             clearTimeout(processingTimeoutRef.current);
             processingTimeoutRef.current = null;
           }
+          setProcessStatus('error');
+          setIsProcessing(false);
+          break;
+
+        case 'error':
+          // 后端通用错误（如指令处理被拒绝/失败），聊天内展示一次即可，不再重复 toast
+          clearProcessingMessage();
+          const serverErrorMessage: ChatMessage = {
+            id: Date.now().toString(),
+            type: 'system',
+            content: `处理失败：${message.data?.message || '服务器处理失败'}`,
+            timestamp: new Date(),
+            status: 'error',
+            data: message.data
+          };
+          setMessages(prev => [...prev, serverErrorMessage]);
+          // 清除超时定时器并重置处理状态
+          if (processingTimeoutRef.current) {
+            clearTimeout(processingTimeoutRef.current);
+            processingTimeoutRef.current = null;
+          }
+          setProcessStatus('error');
           setIsProcessing(false);
           break;
       }
@@ -278,7 +335,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     };
   }, [onScriptUpdate]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!inputValue.trim() || isProcessing) return;
     
     if (!isConnected) {
@@ -296,6 +353,34 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
+
+    // 发送编辑指令到WebSocket；发送失败时立即反馈，不进入处理状态
+    const sent = sendMessage({
+      type: 'edit_instruction',
+      instruction: userMessage.content,
+      message_id: userMessage.id
+    });
+
+    if (!sent) {
+      setMessages(prev => prev.map(msg => 
+        msg.id === userMessage.id 
+          ? { ...msg, status: 'error' }
+          : msg
+      ));
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
+      toast.error('发送失败，请检查连接');
+      return;
+    }
+
+    // 更新消息状态为已发送
+    setMessages(prev => prev.map(msg => 
+      msg.id === userMessage.id 
+        ? { ...msg, status: 'success' }
+        : msg
+    ));
     setIsProcessing(true);
 
     // 设置30秒超时，防止处理状态卡住
@@ -304,38 +389,11 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     }
     processingTimeoutRef.current = setTimeout(() => {
       console.warn('指令处理超时，自动重置状态');
+      clearProcessingMessage();
+      setProcessStatus('error');
       setIsProcessing(false);
       toast.error('指令处理超时，请重试');
     }, 30000);
-
-    try {
-      // 发送编辑指令到WebSocket
-      sendMessage({
-        type: 'edit_instruction',
-        instruction: userMessage.content,
-        message_id: userMessage.id
-      });
-      
-      // 更新消息状态为已发送
-      setMessages(prev => prev.map(msg => 
-        msg.id === userMessage.id 
-          ? { ...msg, status: 'success' }
-          : msg
-      ));
-      
-    } catch (error) {
-      console.error('发送消息失败:', error);
-      setMessages(prev => prev.map(msg => 
-        msg.id === userMessage.id 
-          ? { ...msg, status: 'error' }
-          : msg
-      ));
-      toast.error('发送失败，请重试');
-      if (processingTimeoutRef.current) {
-        clearTimeout(processingTimeoutRef.current);
-      }
-      setIsProcessing(false);
-    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -496,6 +554,10 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
                 </div>
               </div>
             ))}
+            {/* 实时执行过程时间线：进行中默认展开，完成后保留在最后一条结果下方（默认折叠） */}
+            {processEvents.length > 0 && (
+              <EditProcessTimeline events={processEvents} status={processStatus} />
+            )}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
