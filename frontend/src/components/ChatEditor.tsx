@@ -102,6 +102,22 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     setMessages(prev => prev.filter(msg => !(msg.type === 'system' && msg.status === 'pending')));
   };
 
+  // 空闲超时：ReAct 编辑需多轮 LLM 调用，固定超时不可用。
+  // 处理期间任何事件流动（process 事件/结果消息）都会重置计时，连续静默超时才判定卡死
+  const PROCESSING_IDLE_TIMEOUT = 180000; // 3 分钟无进展
+  const armProcessingTimeout = () => {
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.warn('指令处理长时间无进展，自动重置状态');
+      clearProcessingMessage();
+      setProcessStatus('error');
+      setIsProcessing(false);
+      toast.error('长时间未收到处理进展，请检查网络或稍后重试');
+    }, PROCESSING_IDLE_TIMEOUT);
+  };
+
   // 处理WebSocket消息 - 使用自定义事件监听
   useEffect(() => {
     const handleScriptEditResult = (event: CustomEvent<{type: string, data?: MessageData}>) => {
@@ -127,18 +143,22 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           setProcessStatus('running');
           // 确保处理状态设置为true
           setIsProcessing(true);
+          // 处理开始，启动空闲超时
+          armProcessingTimeout();
           break;
 
         case 'script_edit_event':
-          // 实时执行过程事件（思考/工具调用/结果），追加到时间线
+          // 实时执行过程事件（思考/工具调用/结果），追加到时间线；有进展则重置空闲超时
           const editEvent = message.data as unknown as EditProcessEvent;
           if (editEvent && editEvent.type) {
             setProcessEvents(prev => [...prev, editEvent]);
+            armProcessingTimeout();
           }
           break;
           
         case 'edit_result':
-          // 单个编辑操作结果
+          // 单个编辑操作结果；有进展则重置空闲超时
+          armProcessingTimeout();
           const result = message.data?.result;
           if (result) {
             const resultMessage: ChatMessage = {
@@ -383,17 +403,8 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     ));
     setIsProcessing(true);
 
-    // 设置30秒超时，防止处理状态卡住
-    if (processingTimeoutRef.current) {
-      clearTimeout(processingTimeoutRef.current);
-    }
-    processingTimeoutRef.current = setTimeout(() => {
-      console.warn('指令处理超时，自动重置状态');
-      clearProcessingMessage();
-      setProcessStatus('error');
-      setIsProcessing(false);
-      toast.error('指令处理超时，请重试');
-    }, 30000);
+    // 启动空闲超时（后续事件流动会自动重置，仅在连续无进展时触发）
+    armProcessingTimeout();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

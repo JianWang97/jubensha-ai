@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 # 显式导入以避免依赖包级 __init__ 导出（已精简以规避循环导入）
 from src.core.game_engine import GameEngine
 from src.schemas.game_phase import GamePhaseEnum as GamePhase
-from src.services.script_editor_service import ScriptEditorService, EditInstruction, EditResult, _make_edit_event
+from src.services.script_editor_service import ScriptEditorService
 from src.db.repositories import ScriptRepository
 from src.db.repositories.game_session_repository import GameSessionRepository
 from src.db.session import get_db_session, db_manager
@@ -1088,10 +1088,10 @@ class EditModeHandler:
     
     @staticmethod
     async def _execute_edit_instruction(server: 'GameWebSocketServer', session: GameSession, session_id: str, instruction: str):
-        """在编辑锁保护下执行编辑指令：解析→执行→提交→推送更新"""
+        """在编辑锁保护下执行编辑指令：ReAct Agent 规划执行→提交→推送更新"""
         try:
             logger.info(f"[EDITOR] 开始处理编辑指令: 会话={session_id}, 指令='{instruction[:100]}...'")
-            
+
             # 发送处理中消息
             logger.debug(f"[EDITOR] 发送处理中消息: 会话={session_id}")
             await server.broadcast({
@@ -1111,72 +1111,69 @@ class EditModeHandler:
                 except Exception as e:
                     logger.error(f"[EDITOR] 编辑事件广播失败: 会话={session_id}, 错误={e}")
 
-            # 解析用户指令
-            logger.debug(f"[EDITOR] 解析用户指令: 会话={session_id}")
-            edit_instructions = await session.editor_service.parse_user_instruction(
-                instruction, session.script_id, event_callback=edit_event_callback
+            # ReAct 编辑 Agent：共享编辑会话的长寿命 db_session，工具只 flush，
+            # commit 由本函数在全部操作完成后统一执行
+            from src.agents.script_editing_agent import ScriptEditingAgent
+            agent = ScriptEditingAgent(
+                script_id=session.script_id,
+                instruction=instruction,
+                db_session=session.db_session,
+                event_callback=edit_event_callback,
             )
-            logger.info(f"[EDITOR] 指令解析完成: 会话={session_id}, 生成{len(edit_instructions)}个编辑操作")
+            agent_result = await agent.run()
+            tool_results = agent_result.get("tool_results", [])
+            success_count = agent_result.get("successful_ops", 0)
+            logger.info(f"[EDITOR] 编辑 Agent 执行完成: 会话={session_id}, 状态={agent_result.get('status')}, 成功={success_count}/{len(tool_results)}")
 
-            # 解析失败（LLM 重试后仍无法识别指令）：明确反馈，不执行任何写库
-            if not edit_instructions:
-                logger.warning(f"[EDITOR] 指令无法解析: 会话={session_id}, 指令='{instruction[:100]}'")
+            # Agent 未落实任何编辑操作：明确反馈，不写库
+            if not tool_results:
+                logger.warning(f"[EDITOR] 指令未产生编辑操作: 会话={session_id}, 指令='{instruction[:100]}'")
                 await server.broadcast({
                     "type": "error",
-                    "message": "无法理解该指令，请换个更明确的说法（例如：添加一个叫张三的侦探角色）",
+                    "message": agent_result.get("summary") or "无法理解该指令，请换个更明确的说法（例如：添加一个叫张三的侦探角色）",
                     "session_id": session_id
                 }, session_id)
                 return
 
-            # 执行编辑指令
-            total = len(edit_instructions)
-            await edit_event_callback(_make_edit_event("step_start", "execute", data={"total": total}))
-            results = []
-            for i, edit_instruction in enumerate(edit_instructions, 1):
-                logger.debug(f"[EDITOR] 执行编辑操作 {i}/{total}: 会话={session_id}")
-                # 操作摘要优先用指令描述，空则拼接 action/target
-                summary = edit_instruction.description or f"{edit_instruction.action} {edit_instruction.target}"
-                await edit_event_callback(_make_edit_event(
-                    "action", "execute", content=summary,
-                    data={"index": i, "total": total, "instruction": serialize_object(edit_instruction)},
-                ))
-                result = await session.editor_service.execute_instruction(
-                    edit_instruction, session.script_id
-                )
-                results.append(result)
-                await edit_event_callback(_make_edit_event(
-                    "observation", "execute", content=result.message,
-                    data={"index": i, "success": result.success},
-                ))
-
-                # 实时发送每个操作的结果
-                logger.debug(f"[EDITOR] 广播编辑结果 {i}: 成功={result.success}, 会话={session_id}")
+            # 逐条广播既有 edit_result 消息（前端聊天气泡依赖该结构）
+            for tr in tool_results:
+                logger.debug(f"[EDITOR] 广播编辑结果: 成功={tr['success']}, 会话={session_id}")
                 await server.broadcast({
                     "type": "edit_result",
                     "data": {
-                        "instruction": serialize_object(edit_instruction),
-                        "result": serialize_object(result)
+                        "instruction": {
+                            "action": tr["action"],
+                            "target": tr["target"],
+                            "description": tr["description"],
+                        },
+                        "result": {
+                            "success": tr["success"],
+                            "message": tr["message"],
+                        }
                     },
                     "session_id": session_id
                 }, session_id)
 
-            success_count = sum(1 for r in results if r.success)
-            logger.info(f"[EDITOR] 编辑指令执行完成: 会话={session_id}, 成功={success_count}/{len(results)}")
-            await edit_event_callback(_make_edit_event(
-                "step_end", "execute", content=f"成功 {success_count}/{len(results)} 项"
-            ))
-            
+            # Agent 整体失败且无任何成功操作：走既有 error 广播
+            if agent_result.get("status") == "error" and success_count == 0:
+                await server.broadcast({
+                    "type": "error",
+                    "message": agent_result.get("summary") or agent_result.get("message") or "无法理解该指令，请换个更明确的说法（例如：添加一个叫张三的侦探角色）",
+                    "session_id": session_id
+                }, session_id)
+                return
+
             # 发送完成消息
             await server.broadcast({
                 "type": "instruction_completed",
                 "data": {
                     "instruction": instruction,
-                    "results": [serialize_object(r) for r in results],
+                    "results": [{"success": tr["success"], "message": tr["message"]} for tr in tool_results],
                     "success_count": success_count
                 },
                 "session_id": session_id
             }, session_id)
-            
+
             # 如果有成功的操作，提交事务并发送更新后的剧本数据
             if success_count > 0:
                 try:
@@ -1186,10 +1183,10 @@ class EditModeHandler:
                     session.db_session.rollback()
                     logger.error(f"[ERROR] 数据库事务提交失败: 会话={session_id}, 错误={e}")
                     raise e
-                
+
                 logger.debug(f"[EDITOR] 发送更新后的剧本数据: 会话={session_id}")
                 await EditModeHandler.get_script_data(server, session_id)
-            
+
         except Exception as e:
             logger.error(f"[ERROR] 处理编辑指令失败: 会话={session_id}, 错误={e}")
             print(f"Error handling edit instruction for session {session_id}: {e}")

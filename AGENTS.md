@@ -110,6 +110,15 @@ AI 剧本生成走 WebSocket 上的分步 Agent 流程（非黑盒 HTTP）：
 - 思考透出：`llm_service.py` 的 `LLMResponse.reasoning_content`、`chat_completion_stream_chunks` 与 `split_think_tags` 负责分离 reasoning 与正式内容。
 - 前端：`scriptGenerationStore.ts` + `ScriptGenerationPanel.tsx`（步骤时间线 + 事件流），入口 `pages/script-manager/create.tsx`；`websocketStore.connect(scriptId, { autoEdit: false })` 可避免连接时自动进入编辑模式。
 
+### Script Editing (ReAct Agent)
+
+AI 剧本对话式编辑同样走 ReAct Agent（替代旧的 categorize → parse → execute 两段式管线）：
+
+- Agent: [`backend/src/agents/script_editing_agent.py`](backend/src/agents/script_editing_agent.py) — 结构镜像生成 Agent（`_emit` / `run()` / tools 模式 + JSON 行动降级 / 四件套事件）。先 `plan` 规划再逐个调用工具；批量创建必须逐个 add；校验失败作为 observation 回喂自我修正。
+- 工具：角色/证据/场景 add/update/delete（构造 `EditInstruction` 复用 `ScriptEditorService.execute_instruction` 的校验与增量落库）、`update_script_info`、`update_background_story`、game_phases 四工具（`ScriptRepository` 新增 flush-only 方法）、`bind_character_voice`（音色匹配逻辑在 `src/services/tts_voices.py`，与 `/api/tts/voices` 共用）、`finish`。
+- 事务：Agent 共享编辑会话的长寿命 db_session，工具只 flush，commit 由 WS handler 在 `successful_ops > 0` 时统一执行。`plan_only=True` 时工具在 SAVEPOINT 内执行并回滚（只校验不落库），供 HTTP `/api/script-editor/parse-instruction` 返回解析计划。
+- 事件契约不变：`script_edit_event`（`{type, step, step_name, content, kind, data, timestamp}`），step 取值改为工具域（plan/characters/evidence/locations/script_info/background_story/game_phases/voice，中文名映射在 `EDIT_STEP_NAME`）；`edit_result` 由 handler 按 `result.tool_results` 逐条广播。
+
 ---
 
 ## Frontend Architecture

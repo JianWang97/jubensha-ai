@@ -1,16 +1,17 @@
 """WebSocket剧本编辑权限校验与并发控制测试
 
-覆盖两项修复：
+覆盖：
 1. start_script_editing 在进入编辑模式前校验剧本作者权限（与HTTP编辑接口一致）
 2. handle_edit_instruction 通过按剧本ID的asyncio.Lock串行化编辑指令
+3. 编辑链路改由 ScriptEditingAgent（ReAct）驱动后的 handler 行为：
+   Agent 事件透传、edit_result 消息映射、空操作 error 分支、成功才 commit
 """
 import asyncio
-import json
 from types import SimpleNamespace
 from unittest.mock import Mock, AsyncMock, patch
 
 from src.core.websocket_server import GameWebSocketServer, GameSession, EditModeHandler
-from src.services.script_editor_service import ScriptEditorService, EditInstruction, EditResult
+from src.services.script_editor_service import ScriptEditorService, _make_edit_event
 
 
 def _make_server_and_session(script_id: int = 1, username: str | None = "author"):
@@ -128,26 +129,28 @@ def test_edit_instructions_serialized_per_script():
     server, session = _make_server_and_session(script_id=1)
     session.is_editing_mode = True
     session.db_session = Mock()
+    session.editor_service = Mock()  # handle_edit_instruction 要求编辑服务已初始化
 
     call_order = []
 
-    async def fake_parse(instruction, script_id, event_callback=None):
-        call_order.append(f"start:{instruction}")
-        await asyncio.sleep(0.02)
-        call_order.append(f"end:{instruction}")
-        return []
+    class FakeAgent:
+        def __init__(self, script_id, instruction, db_session, event_callback=None):
+            self.instruction = instruction
 
-    editor = Mock()
-    editor.parse_user_instruction = fake_parse
-    session.editor_service = editor
+        async def run(self):
+            call_order.append(f"start:{self.instruction}")
+            await asyncio.sleep(0.02)
+            call_order.append(f"end:{self.instruction}")
+            return {"status": "done", "summary": "", "tool_results": [], "successful_ops": 0}
 
-    async def run_two_instructions():
-        await asyncio.gather(
-            EditModeHandler.handle_edit_instruction(server, "test-session", "指令A"),
-            EditModeHandler.handle_edit_instruction(server, "test-session", "指令B"),
-        )
+    with patch("src.agents.script_editing_agent.ScriptEditingAgent", FakeAgent):
+        async def run_two_instructions():
+            await asyncio.gather(
+                EditModeHandler.handle_edit_instruction(server, "test-session", "指令A"),
+                EditModeHandler.handle_edit_instruction(server, "test-session", "指令B"),
+            )
 
-    asyncio.run(run_two_instructions())
+        asyncio.run(run_two_instructions())
 
     # 若未加锁，两条指令会交错为 start:A, start:B, end:A, end:B
     assert call_order == ["start:指令A", "end:指令A", "start:指令B", "end:指令B"]
@@ -164,26 +167,27 @@ def test_edit_instruction_rejected_when_not_editing():
 
 
 def test_edit_instruction_unparseable_returns_error_without_write():
-    """指令无法解析（LLM重试后返回空列表）时明确反馈错误且不写库"""
+    """Agent 未落实任何编辑操作（tool_results 为空）时明确反馈错误且不写库"""
     server, session = _make_server_and_session(script_id=1)
     session.is_editing_mode = True
     session.db_session = Mock()
+    session.editor_service = Mock()
 
-    async def fake_parse(instruction, script_id, event_callback=None):
-        return []
+    class FakeAgent:
+        def __init__(self, script_id, instruction, db_session, event_callback=None):
+            pass
 
-    editor = Mock()
-    editor.parse_user_instruction = fake_parse
-    session.editor_service = editor
+        async def run(self):
+            return {"status": "done", "summary": "", "tool_results": [], "successful_ops": 0}
 
-    asyncio.run(EditModeHandler.handle_edit_instruction(server, "test-session", "胡言乱语"))
+    with patch("src.agents.script_editing_agent.ScriptEditingAgent", FakeAgent):
+        asyncio.run(EditModeHandler.handle_edit_instruction(server, "test-session", "胡言乱语"))
 
     types = _broadcast_types(server)
     assert "error" in types
     assert "edit_result" not in types
     error_msgs = [c.args[0] for c in server.broadcast.await_args_list if c.args[0].get("type") == "error"]
     assert any("无法理解该指令" in m.get("message", "") for m in error_msgs)
-    editor.execute_instruction.assert_not_called()
     session.db_session.commit.assert_not_called()
 
 
@@ -191,175 +195,109 @@ def test_edit_instruction_unparseable_returns_error_without_write():
 # 编辑过程事件透出（script_edit_event）
 # ---------------------------------------------------------------------------
 
-def _make_editor_service():
-    """构造内存中的编辑服务（不依赖真实数据库与LLM）"""
-    fake_script = SimpleNamespace(
-        info=SimpleNamespace(title="测试剧本", description="描述", category="推理",
-                             difficulty="中等", tags=[]),
-        characters=[], evidence=[], locations=[],
-    )
-    repo = Mock()
-    repo.get_script_by_id.return_value = fake_script
-    return ScriptEditorService(repo)
-
-
-def _categorize_response(reasoning="先判断目标对象"):
-    return SimpleNamespace(
-        content=json.dumps({"category": "character", "confidence": 0.9, "reasoning": "r"}),
-        reasoning_content=reasoning,
-    )
-
-
-def test_parse_emits_full_event_sequence():
-    """parse_user_instruction 按序透出 classify/parse 全阶段事件"""
-    service = _make_editor_service()
-    parse_resp = SimpleNamespace(
-        content=json.dumps([
-            {"action": "add", "target": "character", "content": {"name": "张三"}, "description": "添加角色张三"},
-            {"action": "update", "target": "character", "content": {"name": "李四"}, "description": "更新角色李四"},
-        ]),
-        reasoning_content="需要拆成两步操作",
-    )
-    events = []
-
-    async def cb(event):
-        events.append(event)
-
-    with patch("src.services.script_editor_service.llm_service") as mock_llm:
-        mock_llm.chat_completion = AsyncMock(side_effect=[_categorize_response(), parse_resp])
-        result = asyncio.run(service.parse_user_instruction("调整角色", 1, event_callback=cb))
-
-    assert len(result) == 2
-    seq = [(e["type"], e["step"]) for e in events]
-    assert seq == [
-        ("step_start", "classify"),
-        ("thought", "classify"),
-        ("action", "classify"),
-        ("step_end", "classify"),
-        ("step_start", "parse"),
-        ("thought", "parse"),
-        ("action", "parse"),
-        ("step_end", "parse"),
-    ]
-    # 关键内容与字段
-    assert events[0]["step_name"] == "理解指令"
-    assert events[4]["step_name"] == "解析编辑操作"
-    assert events[1]["kind"] == "reasoning" and events[1]["content"] == "先判断目标对象"
-    assert events[2]["content"] == "指令分类：角色"
-    assert events[2]["data"] == {"category": "character"}
-    assert events[5]["kind"] == "reasoning" and events[5]["content"] == "需要拆成两步操作"
-    assert events[6]["content"] == "解析出 2 项编辑操作"
-    assert [op["action"] for op in events[6]["data"]["operations"]] == ["add", "update"]
-    assert all(e["timestamp"] for e in events)
-
-
-def test_parse_emits_retry_observation_and_failure_step_end():
-    """解析重试时透出 observation，三次全失败时 step_end 标记解析失败且不发 action"""
-    service = _make_editor_service()
-    bad_resp = SimpleNamespace(content="这不是JSON", reasoning_content=None)
-    events = []
-
-    async def cb(event):
-        events.append(event)
-
-    with patch("src.services.script_editor_service.llm_service") as mock_llm:
-        mock_llm.chat_completion = AsyncMock(
-            side_effect=[_categorize_response(), bad_resp, bad_resp, bad_resp]
-        )
-        result = asyncio.run(service.parse_user_instruction("胡言乱语", 1, event_callback=cb))
-
-    assert result == []
-    observations = [e for e in events if e["type"] == "observation"]
-    assert [o["content"] for o in observations] == ["解析失败，正在重试（1/3）", "解析失败，正在重试（2/3）"]
-    assert all(o["step"] == "parse" for o in observations)
-    # parse 阶段失败：不发 action，step_end 标记解析失败
-    parse_actions = [e for e in events if e["type"] == "action" and e["step"] == "parse"]
-    assert parse_actions == []
-    last = events[-1]
-    assert last["type"] == "step_end" and last["step"] == "parse" and last["content"] == "解析失败"
-
-
-def test_parse_event_callback_error_does_not_break_flow():
-    """事件回调抛异常不影响解析主流程"""
-    service = _make_editor_service()
-    parse_resp = SimpleNamespace(
-        content=json.dumps([
-            {"action": "add", "target": "character", "content": {"name": "张三"}, "description": "添加角色张三"},
-        ]),
-        reasoning_content="思考",
-    )
-
-    async def bad_cb(event):
-        raise RuntimeError("广播失败")
-
-    with patch("src.services.script_editor_service.llm_service") as mock_llm:
-        mock_llm.chat_completion = AsyncMock(side_effect=[_categorize_response(), parse_resp])
-        result = asyncio.run(service.parse_user_instruction("添加角色", 1, event_callback=bad_cb))
-
-    assert len(result) == 1
-    assert result[0].action == "add"
-
-
-def test_edit_instruction_emits_execute_events():
-    """handler 层透出 execute 阶段事件：action/observation 按序且 index 正确"""
+def test_edit_instruction_emits_agent_events_and_results():
+    """handler 层透传 Agent 事件、按 tool_results 广播 edit_result、成功才 commit"""
     server, session = _make_server_and_session(script_id=1)
     session.is_editing_mode = True
     session.db_session = Mock()
+    session.editor_service = Mock()  # commit 后 get_script_data 依赖编辑服务
 
-    instructions = [
-        EditInstruction(action="add", target="character",
-                        content={"name": "张三"}, description="添加角色张三"),
-        EditInstruction(action="delete", target="evidence",
-                        content={"name": "血迹"}, description=""),
+    tool_results = [
+        {"action": "add", "target": "character", "description": "添加角色：张三",
+         "success": True, "message": "成功添加角色: 张三"},
+        {"action": "delete", "target": "evidence", "description": "删除证据：血迹",
+         "success": False, "message": "未找到证据: 血迹"},
     ]
 
-    async def fake_parse(instruction, script_id, event_callback=None):
-        return instructions
+    class FakeAgent:
+        def __init__(self, script_id, instruction, db_session, event_callback=None):
+            self._cb = event_callback
 
-    editor = Mock()
-    editor.parse_user_instruction = fake_parse
-    editor.execute_instruction = AsyncMock(side_effect=[
-        EditResult(success=True, message="成功添加角色: 张三"),
-        EditResult(success=False, message="未找到证据: 血迹"),
-    ])
-    session.editor_service = editor
+        async def run(self):
+            # 模拟 Agent 透出 plan/characters 步骤事件与思考过程
+            await self._cb(_make_edit_event("step_start", "plan"))
+            await self._cb(_make_edit_event("action", "plan", content="规划：先加角色再删证据"))
+            await self._cb(_make_edit_event("observation", "plan", content="计划已记录"))
+            await self._cb(_make_edit_event("step_end", "plan"))
+            await self._cb(_make_edit_event("thought", "", content="深度思考", kind="reasoning"))
+            await self._cb(_make_edit_event("step_start", "characters"))
+            await self._cb(_make_edit_event("action", "characters", content="添加角色：张三"))
+            await self._cb(_make_edit_event("observation", "characters", content="成功添加角色: 张三"))
+            await self._cb(_make_edit_event("step_end", "characters"))
+            await self._cb(_make_edit_event("done", "", content="编辑完成"))
+            return {"status": "done", "summary": "编辑完成",
+                    "tool_results": tool_results, "successful_ops": 1}
 
-    asyncio.run(EditModeHandler.handle_edit_instruction(server, "test-session", "整理证据"))
+    with patch("src.agents.script_editing_agent.ScriptEditingAgent", FakeAgent):
+        asyncio.run(EditModeHandler.handle_edit_instruction(server, "test-session", "整理证据"))
 
+    # Agent 事件原样透传为 script_edit_event，且均携带 session_id
     edit_events = [c.args[0]["data"] for c in server.broadcast.await_args_list
                    if c.args[0].get("type") == "script_edit_event"]
-    # 广播均携带 session_id
+    assert [e["type"] for e in edit_events] == [
+        "step_start", "action", "observation", "step_end",  # plan
+        "thought",
+        "step_start", "action", "observation", "step_end",  # characters
+        "done",
+    ]
     for c in server.broadcast.await_args_list:
         if c.args[0].get("type") == "script_edit_event":
             assert c.args[0].get("session_id") == "test-session"
+    assert edit_events[0]["step_name"] == "规划"
+    assert edit_events[5]["step_name"] == "角色管理"
 
-    step_starts = [e for e in edit_events if e["type"] == "step_start" and e["step"] == "execute"]
-    assert len(step_starts) == 1 and step_starts[0]["data"] == {"total": 2}
-    assert step_starts[0]["step_name"] == "执行修改"
-
-    actions = [e for e in edit_events if e["type"] == "action"]
-    assert [a["data"]["index"] for a in actions] == [1, 2]
-    assert actions[0]["content"] == "添加角色张三"
-    # description 为空时拼接 action/target 作为摘要
-    assert actions[1]["content"] == "delete evidence"
-    assert actions[0]["data"]["instruction"]["target"] == "character"
-
-    observations = [e for e in edit_events if e["type"] == "observation"]
-    assert [o["data"]["index"] for o in observations] == [1, 2]
-    assert [o["data"]["success"] for o in observations] == [True, False]
-    assert observations[0]["content"] == "成功添加角色: 张三"
-    assert observations[1]["content"] == "未找到证据: 血迹"
-
-    step_ends = [e for e in edit_events if e["type"] == "step_end" and e["step"] == "execute"]
-    assert step_ends[-1]["content"] == "成功 1/2 项"
-
-    # 事件顺序：step_start → action/observation 交替 → step_end
-    seq = [(e["type"], (e.get("data") or {}).get("index")) for e in edit_events]
-    assert seq == [("step_start", None), ("action", 1), ("observation", 1),
-                   ("action", 2), ("observation", 2), ("step_end", None)]
-
-    # 既有结果消息保持不变
+    # 既有消息序列保持不变：instruction_processing → edit_result×2 → instruction_completed
     types = _broadcast_types(server)
     assert "instruction_processing" in types
     assert types.count("edit_result") == 2
     assert "instruction_completed" in types
+
+    # edit_result 结构：data.instruction={action,target,description}, data.result={success,message}
+    edit_results = [c.args[0]["data"] for c in server.broadcast.await_args_list
+                    if c.args[0].get("type") == "edit_result"]
+    assert edit_results[0]["instruction"] == {
+        "action": "add", "target": "character", "description": "添加角色：张三"}
+    assert edit_results[0]["result"] == {"success": True, "message": "成功添加角色: 张三"}
+    assert edit_results[1]["result"] == {"success": False, "message": "未找到证据: 血迹"}
+
+    # instruction_completed 汇总
+    completed = [c.args[0]["data"] for c in server.broadcast.await_args_list
+                 if c.args[0].get("type") == "instruction_completed"][0]
+    assert completed["instruction"] == "整理证据"
+    assert completed["success_count"] == 1
+    assert completed["results"] == [
+        {"success": True, "message": "成功添加角色: 张三"},
+        {"success": False, "message": "未找到证据: 血迹"},
+    ]
+
+    # 有 1 项成功操作 → commit 一次并推送剧本数据
+    session.db_session.commit.assert_called_once()
+    assert "script_data_update" in types
+
+
+def test_edit_instruction_all_failed_does_not_commit():
+    """全部操作失败时不 commit、不推送剧本更新"""
+    server, session = _make_server_and_session(script_id=1)
+    session.is_editing_mode = True
+    session.db_session = Mock()
+    session.editor_service = Mock()
+
+    class FakeAgent:
+        def __init__(self, script_id, instruction, db_session, event_callback=None):
+            pass
+
+        async def run(self):
+            return {"status": "done", "summary": "编辑完成", "successful_ops": 0,
+                    "tool_results": [
+                        {"action": "delete", "target": "evidence", "description": "删除证据：血迹",
+                         "success": False, "message": "未找到证据: 血迹"},
+                    ]}
+
+    with patch("src.agents.script_editing_agent.ScriptEditingAgent", FakeAgent):
+        asyncio.run(EditModeHandler.handle_edit_instruction(server, "test-session", "删除血迹"))
+
+    types = _broadcast_types(server)
+    assert types.count("edit_result") == 1
+    assert "instruction_completed" in types
+    session.db_session.commit.assert_not_called()
+    assert "script_data_update" not in types

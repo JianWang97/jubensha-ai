@@ -14,7 +14,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 /** AI 对话编辑的单步执行事件（WS 消息 script_edit_event 的 data） */
 export interface EditProcessEvent {
   type: 'step_start' | 'thought' | 'action' | 'observation' | 'step_end';
-  step: 'classify' | 'parse' | 'execute' | string;
+  /** 步骤标识：ReAct 编辑 Agent 的工具域（plan/characters/evidence/locations/script_info/background_story/game_phases/voice） */
+  step: string;
   step_name: string;
   content: string;
   kind?: 'reasoning' | 'text' | null;
@@ -67,11 +68,11 @@ function buildStepGroups(events: EditProcessEvent[]): StepGroup[] {
         current = null;
       }
     } else {
-      // 容错：step_start 缺失时归入当前（或新建）分组
+      // 容错：step_start 缺失时归入当前（或新建）分组；纯思考事件的分组标记为"思考过程"
       if (!current) {
         current = {
           key: `${ev.step || 'step'}-${seq++}`,
-          stepName: ev.step_name || ev.step || '步骤',
+          stepName: ev.step_name || ev.step || (ev.type === 'thought' ? '思考过程' : '步骤'),
           ended: false,
           items: []
         };

@@ -492,6 +492,74 @@ class ScriptRepository(BaseRepository[ScriptDBModel]):
                 continue
             if hasattr(db_script, field):
                 setattr(db_script, field, value)
-        
+
         self.db.flush()
         return ScriptInfo.model_validate(db_script, from_attributes=True)
+
+    # ===== 游戏阶段编辑方法 =====
+    # 供 ScriptEditingAgent 的 game_phases 工具使用，按名称寻址，仅 flush 不 commit
+
+    def get_game_phases(self, script_id: int) -> List["GamePhase"]:
+        """获取剧本的全部游戏阶段（按 order_index 排序）"""
+        from ...schemas.game_phase import GamePhase
+
+        db_phases = self.db.query(GamePhaseDBModel).filter(
+            GamePhaseDBModel.script_id == script_id
+        ).order_by(GamePhaseDBModel.order_index).all()
+        return [GamePhase.model_validate(p, from_attributes=True) for p in db_phases]
+
+    def add_game_phase(self, game_phase: "GamePhase") -> "GamePhase":
+        """添加单个游戏阶段（仅 flush，不提交事务）"""
+        db_data = game_phase.to_db_dict()
+        db_phase = GamePhaseDBModel(**db_data)
+        self.db.add(db_phase)
+        self.db.flush()
+        from ...schemas.game_phase import GamePhase
+        return GamePhase.model_validate(db_phase, from_attributes=True)
+
+    def update_game_phase_by_name(self, script_id: int, name: str, update_data: Dict[str, Any]) -> Optional["GamePhase"]:
+        """按名称更新游戏阶段（仅 flush，不提交事务）"""
+        from ...schemas.game_phase import GamePhase
+
+        db_phase = self.db.query(GamePhaseDBModel).filter(
+            GamePhaseDBModel.script_id == script_id,
+            GamePhaseDBModel.name == name
+        ).first()
+        if not db_phase:
+            return None
+
+        for field, value in update_data.items():
+            if field in self._PROTECTED_FIELDS:
+                continue
+            if hasattr(db_phase, field):
+                setattr(db_phase, field, value)
+
+        self.db.flush()
+        return GamePhase.model_validate(db_phase, from_attributes=True)
+
+    def delete_game_phase_by_name(self, script_id: int, name: str) -> bool:
+        """按名称删除游戏阶段（仅 flush，不提交事务）"""
+        db_phase = self.db.query(GamePhaseDBModel).filter(
+            GamePhaseDBModel.script_id == script_id,
+            GamePhaseDBModel.name == name
+        ).first()
+        if not db_phase:
+            return False
+
+        self.db.delete(db_phase)
+        self.db.flush()
+        return True
+
+    def reorder_game_phases(self, script_id: int, ordered_names: List[str]) -> bool:
+        """按名称数组顺序重写各阶段的 order_index（仅 flush，不提交事务）"""
+        db_phases = self.db.query(GamePhaseDBModel).filter(
+            GamePhaseDBModel.script_id == script_id
+        ).all()
+        by_name = {p.name: p for p in db_phases}
+        for index, name in enumerate(ordered_names):
+            db_phase = by_name.get(name)
+            if db_phase is not None:
+                setattr(db_phase, 'order_index', index)
+
+        self.db.flush()
+        return True

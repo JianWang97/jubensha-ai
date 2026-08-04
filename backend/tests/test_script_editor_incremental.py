@@ -1,16 +1,14 @@
-"""剧本编辑增量落库与指令解析的单元测试
+"""剧本编辑增量落库的单元测试
 
 覆盖：
 - ScriptRepository 增量方法（仅 flush 不 commit，子实体ID保持稳定）
 - ScriptEditorService.execute_instruction 走增量落库、不再整本重建、game_phases 不被触碰
-- parse_user_instruction 解析彻底失败时返回空指令列表（不再关键词兜底生成占位指令）
-- 解析重试时格式提醒真正带入下一轮请求
+（自然语言指令理解已迁移至 ScriptEditingAgent，见 test_script_editing_agent.py）
 """
 import asyncio
 import os
 import sys
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -338,51 +336,3 @@ class TestExecuteInstructionIncremental:
         # 统一提交后数据仍在
         db_session.commit()
         assert db_session.query(CharacterDBModel).filter_by(script_id=script_id).count() == 3
-
-
-class TestParseInstruction:
-    """parse_user_instruction 解析行为测试"""
-
-    def _llm_response(self, content):
-        return SimpleNamespace(content=content)
-
-    def test_parse_failure_returns_empty_list(self, editor, script_id):
-        """LLM解析彻底失败时返回空指令列表，不再生成兜底占位指令"""
-        categorize = self._llm_response('{"category": "character", "confidence": 0.9, "reasoning": "测试"}')
-        with patch("src.services.script_editor_service.llm_service") as mock_llm:
-            mock_llm.chat_completion = AsyncMock(side_effect=[
-                categorize,
-                Exception("LLM服务异常"),
-                Exception("LLM服务异常"),
-                Exception("LLM服务异常"),
-            ])
-            result = _run(editor.parse_user_instruction("添加一个角色", script_id))
-        assert result == []
-
-    def test_parse_invalid_json_all_retries_returns_empty_list(self, editor, script_id):
-        """LLM持续返回非法JSON时也返回空指令列表"""
-        categorize = self._llm_response('{"category": "character", "confidence": 0.9, "reasoning": "测试"}')
-        bad = self._llm_response("这不是合法的JSON")
-        with patch("src.services.script_editor_service.llm_service") as mock_llm:
-            mock_llm.chat_completion = AsyncMock(side_effect=[categorize, bad, bad, bad])
-            result = _run(editor.parse_user_instruction("添加一个角色", script_id))
-        assert result == []
-
-    def test_parse_retry_carries_reminder(self, editor, script_id):
-        """首次返回非法JSON时，下一轮重试的请求中应带有格式提醒"""
-        categorize = self._llm_response('{"category": "character", "confidence": 0.9, "reasoning": "测试"}')
-        bad = self._llm_response("这不是合法的JSON")
-        good = self._llm_response(
-            '[{"action": "delete", "target": "character", "content": {"name": "张三"}, "description": "删除张三"}]'
-        )
-        with patch("src.services.script_editor_service.llm_service") as mock_llm:
-            mock_llm.chat_completion = AsyncMock(side_effect=[categorize, bad, good])
-            result = _run(editor.parse_user_instruction("删除张三这个角色", script_id))
-        assert len(result) == 1
-        assert result[0].action == "delete"
-        # 第一次解析尝试不带提醒
-        first_messages = mock_llm.chat_completion.call_args_list[1].args[0]
-        assert "标准JSON格式" not in first_messages[1].content
-        # 第二次解析尝试（重试）带有格式提醒
-        retry_messages = mock_llm.chat_completion.call_args_list[2].args[0]
-        assert "标准JSON格式" in retry_messages[1].content
