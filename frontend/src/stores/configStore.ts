@@ -90,7 +90,7 @@ const createInitialConfig = (): ConfigState => {
 // 创建配置store
 export const useConfigStore = create<ConfigStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...createInitialConfig(),
       
       updateApiConfig: (config) => {

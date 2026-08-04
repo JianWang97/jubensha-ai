@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { authService } from '@/services/authService';
+import type { GenEvent, GenerationStatus } from '@/types/scriptGeneration';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { useConfigStore } from './configStore';
+import { useScriptGenerationStore } from './scriptGenerationStore';
 import { useTTSStore } from './ttsStore';
 
 export interface GameState {
@@ -59,9 +61,9 @@ interface WebSocketState {
 
 
   // WebSocket操作
-  connect: (scriptId?: number) => void;
+  connect: (scriptId?: number, opts?: { autoEdit?: boolean }) => void;
   disconnect: () => void;
-  sendMessage: (message: Record<string, unknown>) => void;
+  sendMessage: (message: Record<string, unknown>) => boolean;
 
   // 游戏操作
   startGame: (scriptId: string) => void;
@@ -210,6 +212,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       case 'instruction_processing':
       case 'edit_result':
       case 'instruction_completed':
+      case 'script_edit_event':
       case 'script_data_update':
       case 'script_editing_started':
       case 'script_editing_stopped':
@@ -292,15 +295,53 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         }));
         break;
 
+      case 'script_generation_event': {
+        // AI 剧本生成 Agent 执行过程事件
+        const genEvent = message.data as unknown as GenEvent;
+        if (genEvent && genEvent.type) {
+          useScriptGenerationStore.getState().appendEvent(genEvent);
+        }
+        break;
+      }
+
+      case 'script_generation_state': {
+        // AI 剧本生成状态重放（断线/刷新恢复）
+        const genState = message.data as unknown as {
+          status: GenerationStatus;
+          script_id: number | null;
+          events: GenEvent[];
+        };
+        if (genState) {
+          useScriptGenerationStore.getState().setStateFromReplay(
+            genState.status,
+            genState.script_id ?? null,
+            genState.events || []
+          );
+        }
+        break;
+      }
+
       case 'error':
+        // 后端处理失败：转发给编辑面板等监听方，避免错误被吞
         console.error('游戏错误:', message.message);
+        window.dispatchEvent(new CustomEvent('script_edit_result', {
+          detail: {
+            type: 'error',
+            data: {
+              success: false,
+              message: message.message || '服务器处理失败'
+            }
+          }
+        }));
         break;
     }
   },
 
   // 连接WebSocket
-  connect: (scriptId?: number) => {
+  connect: (scriptId?: number, opts?: { autoEdit?: boolean }) => {
     const state = get();
+    // 默认保持原有行为：连接后自动进入剧本编辑模式
+    const autoEdit = opts?.autoEdit !== false;
 
     // 如果已经有连接且状态正常，不重复连接
     if (state.ws && (state.ws.readyState === WebSocket.CONNECTING || state.ws.readyState === WebSocket.OPEN)) {
@@ -341,8 +382,8 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       console.log('WebSocket连接已建立');
       set({ isConnected: true });
       
-      // 如果有scriptId，自动启动编辑模式
-      if (scriptId) {
+      // 如果有scriptId且未禁用，自动启动编辑模式
+      if (scriptId && autoEdit) {
         console.log('自动启动剧本编辑模式, script_id:', scriptId);
         setTimeout(() => {
           get().sendMessage({
@@ -365,7 +406,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       if (get().ws === ws) {
         const timeout = setTimeout(() => {
           console.log('尝试重新连接WebSocket...');
-          get().connect(scriptId);
+          get().connect(scriptId, opts);
         }, 3000);
         set({ reconnectTimeout: timeout });
       }
@@ -394,15 +435,21 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     }
   },
 
-  // 发送消息
+  // 发送消息，返回是否发送成功
   sendMessage: (message: Record<string, unknown>) => {
     const state = get();
 
     if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-      state.ws.send(JSON.stringify(message));
-    } else {
-      console.error('WebSocket未连接');
+      try {
+        state.ws.send(JSON.stringify(message));
+        return true;
+      } catch (error) {
+        console.error('WebSocket发送消息失败:', error);
+        return false;
+      }
     }
+    console.error('WebSocket未连接');
+    return false;
   },
 
   // 开始游戏

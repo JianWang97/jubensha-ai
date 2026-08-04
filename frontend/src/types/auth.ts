@@ -98,13 +98,15 @@ export interface GameParticipant {
 }
 
 export interface GameHistory {
-  id: string;
+  id: number;
+  session_id: string;
   script_id: number;
-  script_name: string;
-  host_user_id: number;
-  session_name: string;
+  script_title?: string;
   status: string;
-  created_at: string;
+  created_at?: string;
+  started_at?: string;
   finished_at?: string;
-  participants: GameParticipant[];
+  duration_minutes?: number;
+  player_count?: number;
+  event_count?: number;
 }

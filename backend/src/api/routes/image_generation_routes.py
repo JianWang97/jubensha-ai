@@ -23,7 +23,7 @@ from src.schemas.image_generation_schemas import (
     ImageType
 )
 from src.core.container_integration import get_script_repo_depends, get_image_repo_depends
-from src.core.auth_dependencies import get_current_active_user
+from src.core.auth_middleware import get_current_active_user_from_request
 from src.db.models.user import User
 from src.db.models.image import ImageDBModel
 from ...schemas.base import APIResponse
@@ -192,7 +192,7 @@ async def optimize_prompt_with_llm(image_type: ImageType, script_info: dict, use
 @router.post("/generate", summary="生成图片")
 async def generate_image(
     request: ImageGenRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     script_repository: ScriptRepository = get_script_repo_depends(),
     image_repository: ImageRepository = get_image_repo_depends()
 ) -> APIResponse[dict]:
@@ -324,7 +324,7 @@ async def generate_image(
 @router.get("/my-images", summary="获取当前用户的图片")
 async def get_my_images(
     script_id: int = None,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     image_repository: ImageRepository = get_image_repo_depends()
 ) -> List[ImageResponse]:
     """
@@ -358,7 +358,7 @@ async def get_my_images(
 @router.delete("/{image_id}", summary="删除图片")
 async def delete_image(
     image_id: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     image_repository: ImageRepository = get_image_repo_depends()
 ):
     """删除指定图片"""
@@ -389,7 +389,7 @@ async def delete_image(
 @router.delete("/script/{script_id}", summary="删除剧本相关图片")
 async def delete_script_images(
     script_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     script_repository: ScriptRepository = get_script_repo_depends(),
     image_repository: ImageRepository = get_image_repo_depends()
 ):

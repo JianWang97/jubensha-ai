@@ -1,21 +1,53 @@
+import AppLayout from '@/components/AppLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
 import { useGameHistoryStore } from '../../../stores/gameHistoryStore';
-import Link from 'next/link';
 
-export default function ResumePage(){
+export default function ResumePage() {
   const router = useRouter();
   const { sessionId } = router.query;
   const { resumeInfo, resume } = useGameHistoryStore();
-  useEffect(()=> { if(sessionId && typeof sessionId==='string') resume(sessionId); }, [sessionId]);
-  if(!sessionId) return <div className='p-6'>加载中...</div>;
-  return <div className='p-6 space-y-4'>
-    <h1 className='text-xl font-semibold'>继续游戏 - {sessionId}</h1>
-    {!resumeInfo && <div>正在准备会话...</div>}
-    {resumeInfo && <div className='space-y-3'>
-      <div className='text-sm'>WebSocket URL: <code className='text-xs bg-slate-100 px-1 rounded'>{resumeInfo.websocket_url}</code></div>
-      <div className='text-sm'>状态: {resumeInfo.current_state?.status}</div>
-      <Link href={`/game`} className='inline-block bg-emerald-600 text-white text-xs px-4 py-2 rounded'>进入游戏</Link>
-    </div>}
-  </div>;
+
+  useEffect(() => {
+    if (sessionId && typeof sessionId === 'string') resume(sessionId);
+  }, [sessionId, resume]);
+
+  return (
+    <ProtectedRoute>
+      <AppLayout>
+        <div className="min-h-screen bg-ink flex items-center justify-center px-6">
+          <Card className="w-full max-w-lg">
+            <CardContent className="pt-6 space-y-4">
+              <h1 className="font-dossier text-xl font-bold text-paper">继续游戏</h1>
+              <p className="text-sm text-mist font-data break-all">{sessionId}</p>
+              {!resumeInfo ? (
+                <div className="flex items-center gap-3 text-mist">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brass" />
+                  正在准备会话...
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="text-sm text-mist">
+                    状态：<span className="text-paper">{resumeInfo.current_state?.status}</span>
+                  </div>
+                  <div className="text-sm text-mist break-all">
+                    WebSocket：<code className="text-xs bg-raised border border-hairline px-1.5 py-0.5 rounded-sm font-data">{resumeInfo.websocket_url}</code>
+                  </div>
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => router.push('/game')}
+                  >
+                    进入游戏
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    </ProtectedRoute>
+  );
 }

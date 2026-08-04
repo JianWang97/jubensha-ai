@@ -10,11 +10,12 @@ from sqlalchemy.orm import Session
 # 显式导入以避免依赖包级 __init__ 导出（已精简以规避循环导入）
 from src.core.game_engine import GameEngine
 from src.schemas.game_phase import GamePhaseEnum as GamePhase
-from src.services.script_editor_service import ScriptEditorService, EditInstruction, EditResult
+from src.services.script_editor_service import ScriptEditorService
 from src.db.repositories import ScriptRepository
 from src.db.repositories.game_session_repository import GameSessionRepository
 from src.db.session import get_db_session, db_manager
 from src.db.models.game_session import GameSession as DBGameSession, GameSessionStatus
+from src.db.models.user import User
 from src.core.game_tts_manager import GameTTSManager
 from dotenv import load_dotenv
 import uuid
@@ -77,9 +78,19 @@ class GameSession:
         self.editor_service: ScriptEditorService|None = None
         self.editing_context: dict[str, Any] = {}  # 存储编辑上下文
         self.db_session:Session|None = None  # 数据库会话引用，类型为Session或None
+        # 会话所属用户信息（按user_id+script_id复用会话，用于剧本编辑权限校验）
+        self.user_id: int|None = None
+        self.username: str|None = None
         
         # 后台执行模式
         self.background_mode: bool = False  # 是否处于后台执行模式
+        
+        # 剧本生成 Agent 相关
+        self.generation_task: asyncio.Task | None = None  # 生成循环任务
+        self.generation_agent: Any = None  # ScriptGenerationAgent 实例（用于取消）
+        self.generation_events: list[dict[str, Any]] = []  # 生成事件日志（有界，用于重连回放）
+        self.generation_status: str = "idle"  # idle/running/done/error/cancelled
+        self.generation_script_id: int | None = None  # 正在生成的剧本ID
         
         # TTS管理器
         self.tts_manager: GameTTSManager|None = None
@@ -357,6 +368,166 @@ class SetBackgroundModeHandler(MessageHandler):
             "session_id": session_id,
             "background_mode": background_mode,
             "message": f"后台模式已{'启用' if background_mode else '禁用'}"
+        })
+
+# 剧本生成处理器
+class ScriptGenerationModeHandler:
+    """处理剧本生成 Agent 相关业务逻辑"""
+
+    MAX_EVENT_LOG = 500  # 会话内保留的生成事件上限（用于断线重连回放）
+
+    @staticmethod
+    async def start_generation(server: 'GameWebSocketServer', session_id: str, data: dict):
+        """启动剧本生成 Agent（后台任务，事件实时广播）"""
+        from src.agents.script_generation_agent import ScriptGenerationAgent
+
+        session = server.sessions.get(session_id)
+        if not session:
+            logger.error(f"[GEN] 启动生成失败: 会话不存在 {session_id}")
+            return
+
+        if session.generation_status == "running" and session.generation_task \
+                and not session.generation_task.done():
+            logger.warning(f"[GEN] 生成任务已在运行: 会话={session_id}")
+            await server.broadcast({
+                "type": "error",
+                "message": "生成任务已在进行中",
+                "session_id": session_id
+            }, session_id)
+            return
+
+        script_id = data.get("script_id") or session.script_id
+        if isinstance(script_id, str):
+            script_id = int(script_id)
+        theme = (data.get("theme") or "").strip()
+        player_count = int(data.get("player_count") or 4)
+        script_type = (data.get("script_type") or "推理").strip()
+
+        if not theme:
+            await server.broadcast({
+                "type": "error",
+                "message": "缺少创作主题 theme",
+                "session_id": session_id
+            }, session_id)
+            return
+
+        # 校验剧本存在
+        try:
+            with db_manager.session_scope() as db:
+                script_repository = ScriptRepository(db)
+                script_info = script_repository.get_script_info_by_id(script_id)
+            if not script_info:
+                raise ValueError(f"剧本不存在: ID={script_id}")
+        except Exception as e:
+            logger.error(f"[GEN] 剧本校验失败: 剧本ID={script_id}, 错误={e}")
+            await server.broadcast({
+                "type": "error",
+                "message": f"无法开始生成: {e}",
+                "session_id": session_id
+            }, session_id)
+            return
+
+        # 重置生成状态
+        session.generation_events = []
+        session.generation_status = "running"
+        session.generation_script_id = script_id
+
+        async def event_callback(event: dict):
+            """Agent 事件 → 会话事件日志 + 实时广播"""
+            session.generation_events.append(event)
+            if len(session.generation_events) > ScriptGenerationModeHandler.MAX_EVENT_LOG:
+                session.generation_events = session.generation_events[-ScriptGenerationModeHandler.MAX_EVENT_LOG:]
+            event_type = event.get("type")
+            if event_type == "done":
+                session.generation_status = "done"
+            elif event_type == "error":
+                session.generation_status = "error"
+            elif event_type == "cancelled":
+                session.generation_status = "cancelled"
+            await server.broadcast({
+                "type": "script_generation_event",
+                "data": event,
+                "session_id": session_id
+            }, session_id)
+
+        agent = ScriptGenerationAgent(
+            script_id=script_id,
+            theme=theme,
+            player_count=player_count,
+            script_type=script_type,
+            event_callback=event_callback,
+        )
+        session.generation_agent = agent
+
+        async def run_and_finalize():
+            try:
+                result = await agent.run()
+                logger.info(f"[GEN] 生成任务结束: 会话={session_id}, 结果={result.get('status')}")
+                if result.get("status") == "done":
+                    # 推送完整剧本数据，前端/编辑页可直接刷新
+                    try:
+                        with db_manager.session_scope() as db:
+                            full_script = ScriptRepository(db).get_script_by_id(script_id)
+                        if full_script:
+                            await server.broadcast({
+                                "type": "script_data_update",
+                                "data": {"updated_script": serialize_script_data(full_script)},
+                                "session_id": session_id
+                            }, session_id)
+                    except Exception as e:
+                        logger.error(f"[GEN] 推送生成结果失败: 会话={session_id}, 错误={e}")
+            except Exception as e:
+                session.generation_status = "error"
+                logger.error(f"[GEN] 生成任务异常: 会话={session_id}, 错误={e}", exc_info=True)
+
+        session.generation_task = asyncio.create_task(run_and_finalize())
+        logger.info(f"[GEN] 生成任务已启动: 会话={session_id}, 剧本ID={script_id}, 主题='{theme[:50]}'")
+
+    @staticmethod
+    async def cancel_generation(server: 'GameWebSocketServer', session_id: str):
+        """取消正在进行的生成任务"""
+        session = server.sessions.get(session_id)
+        if not session:
+            return
+        if session.generation_agent and session.generation_status == "running":
+            session.generation_agent.cancel()
+            logger.info(f"[GEN] 已请求取消生成: 会话={session_id}")
+        else:
+            logger.warning(f"[GEN] 无进行中的生成任务可取消: 会话={session_id}")
+
+class StartScriptGenerationHandler(MessageHandler):
+    """处理启动剧本生成消息"""
+
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        logger.info(f"[GEN] 启动剧本生成请求: 会话={session_id}, 剧本ID={data.get('script_id')}")
+        await ScriptGenerationModeHandler.start_generation(server, session_id, data)
+
+class CancelScriptGenerationHandler(MessageHandler):
+    """处理取消剧本生成消息"""
+
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        logger.info(f"[GEN] 取消剧本生成请求: 会话={session_id}")
+        await ScriptGenerationModeHandler.cancel_generation(server, session_id)
+
+class GetScriptGenerationStateHandler(MessageHandler):
+    """处理获取剧本生成状态消息（断线重连/页面刷新后回放）"""
+
+    async def handle(self, server: 'GameWebSocketServer', websocket: Any, data: dict):
+        session_id = data.get("session_id") or server.client_sessions.get(websocket)
+        session = server.sessions.get(session_id)
+        if not session:
+            await server.send_to_client(websocket, {"type": "error", "message": "会话不存在", "session_id": session_id})
+            return
+        await server.send_to_client(websocket, {
+            "type": "script_generation_state",
+            "data": {
+                "status": session.generation_status,
+                "script_id": session.generation_script_id,
+                "events": session.generation_events,
+            },
+            "session_id": session_id
         })
 
 # 游戏模式处理器
@@ -810,24 +981,36 @@ class EditModeHandler:
             db_session = db_manager.get_session()
             script_repository = ScriptRepository(db_session)
             
-            # 初始化编辑服务
-            logger.debug(f"[EDITOR] 初始化编辑服务: 会话={session_id}")
-            session.editor_service = ScriptEditorService(script_repository)
-            session.db_session = db_session  # 保存数据库会话引用
-            session.is_editing_mode = True
-            session.script_id = target_script_id
-            
-            # 获取剧本数据
+            # 先获取剧本数据，校验存在性与编辑权限，通过后再进入编辑模式
             logger.debug(f"[EDITOR] 获取剧本数据: 剧本ID={target_script_id}")
             script = script_repository.get_script_by_id(target_script_id)
             if not script:
                 logger.error(f"[EDITOR] 剧本不存在: 剧本ID={target_script_id}, 会话={session_id}")
+                db_session.close()
                 await server.broadcast({
                     "type": "error",
                     "message": f"剧本 {target_script_id} 不存在",
                     "session_id": session_id
                 }, session_id)
                 return
+            
+            # 权限校验：与HTTP编辑接口保持一致，仅剧本作者可编辑（admin不额外放行）
+            if not session.username or script.info.author != session.username:
+                logger.warning(f"[EDITOR] 无权编辑剧本: 用户={session.username}, 剧本作者={script.info.author}, 会话={session_id}")
+                db_session.close()
+                await server.broadcast({
+                    "type": "error",
+                    "message": "无权编辑该剧本",
+                    "session_id": session_id
+                }, session_id)
+                return
+            
+            # 初始化编辑服务
+            logger.debug(f"[EDITOR] 初始化编辑服务: 会话={session_id}")
+            session.editor_service = ScriptEditorService(script_repository)
+            session.db_session = db_session  # 保存数据库会话引用
+            session.is_editing_mode = True
+            session.script_id = target_script_id
             
             # 发送编辑模式开始消息
             logger.info(f"[EDITOR] 广播编辑模式开始消息: 会话={session_id}, 剧本ID={target_script_id}")
@@ -886,7 +1069,7 @@ class EditModeHandler:
     
     @staticmethod
     async def handle_edit_instruction(server: 'GameWebSocketServer', session_id: str, instruction: str):
-        """处理编辑指令"""
+        """处理编辑指令（同一剧本的指令通过编辑锁串行执行）"""
         session = server.sessions.get(session_id)
         if not session or not session.is_editing_mode or not session.editor_service:
             logger.warning(f"[EDITOR] 编辑指令被拒绝: 会话={session_id}, 编辑模式={session.is_editing_mode if session else False}")
@@ -897,9 +1080,18 @@ class EditModeHandler:
             }, session_id)
             return
         
+        # 按剧本ID加锁串行执行，避免并发指令交叉修改同一剧本
+        # （同一用户多个标签页共享GameSession时，指令同样被该锁串行化）
+        lock = server.get_edit_lock(session.script_id)
+        async with lock:
+            await EditModeHandler._execute_edit_instruction(server, session, session_id, instruction)
+    
+    @staticmethod
+    async def _execute_edit_instruction(server: 'GameWebSocketServer', session: GameSession, session_id: str, instruction: str):
+        """在编辑锁保护下执行编辑指令：ReAct Agent 规划执行→提交→推送更新"""
         try:
             logger.info(f"[EDITOR] 开始处理编辑指令: 会话={session_id}, 指令='{instruction[:100]}...'")
-            
+
             # 发送处理中消息
             logger.debug(f"[EDITOR] 发送处理中消息: 会话={session_id}")
             await server.broadcast({
@@ -907,48 +1099,81 @@ class EditModeHandler:
                 "data": {"instruction": instruction},
                 "session_id": session_id
             }, session_id)
-            
-            # 解析用户指令
-            logger.debug(f"[EDITOR] 解析用户指令: 会话={session_id}")
-            edit_instructions = await session.editor_service.parse_user_instruction(
-                instruction, session.script_id
+
+            async def edit_event_callback(event: dict):
+                """编辑过程事件 → 实时广播（广播失败不影响编辑主流程）"""
+                try:
+                    await server.broadcast({
+                        "type": "script_edit_event",
+                        "data": event,
+                        "session_id": session_id
+                    }, session_id)
+                except Exception as e:
+                    logger.error(f"[EDITOR] 编辑事件广播失败: 会话={session_id}, 错误={e}")
+
+            # ReAct 编辑 Agent：共享编辑会话的长寿命 db_session，工具只 flush，
+            # commit 由本函数在全部操作完成后统一执行
+            from src.agents.script_editing_agent import ScriptEditingAgent
+            agent = ScriptEditingAgent(
+                script_id=session.script_id,
+                instruction=instruction,
+                db_session=session.db_session,
+                event_callback=edit_event_callback,
             )
-            logger.info(f"[EDITOR] 指令解析完成: 会话={session_id}, 生成{len(edit_instructions)}个编辑操作")
-            
-            # 执行编辑指令
-            results = []
-            for i, edit_instruction in enumerate(edit_instructions, 1):
-                logger.debug(f"[EDITOR] 执行编辑操作 {i}/{len(edit_instructions)}: 会话={session_id}")
-                result = await session.editor_service.execute_instruction(
-                    edit_instruction, session.script_id
-                )
-                results.append(result)
-                
-                # 实时发送每个操作的结果
-                logger.debug(f"[EDITOR] 广播编辑结果 {i}: 成功={result.success}, 会话={session_id}")
+            agent_result = await agent.run()
+            tool_results = agent_result.get("tool_results", [])
+            success_count = agent_result.get("successful_ops", 0)
+            logger.info(f"[EDITOR] 编辑 Agent 执行完成: 会话={session_id}, 状态={agent_result.get('status')}, 成功={success_count}/{len(tool_results)}")
+
+            # Agent 未落实任何编辑操作：明确反馈，不写库
+            if not tool_results:
+                logger.warning(f"[EDITOR] 指令未产生编辑操作: 会话={session_id}, 指令='{instruction[:100]}'")
+                await server.broadcast({
+                    "type": "error",
+                    "message": agent_result.get("summary") or "无法理解该指令，请换个更明确的说法（例如：添加一个叫张三的侦探角色）",
+                    "session_id": session_id
+                }, session_id)
+                return
+
+            # 逐条广播既有 edit_result 消息（前端聊天气泡依赖该结构）
+            for tr in tool_results:
+                logger.debug(f"[EDITOR] 广播编辑结果: 成功={tr['success']}, 会话={session_id}")
                 await server.broadcast({
                     "type": "edit_result",
                     "data": {
-                        "instruction": serialize_object(edit_instruction),
-                        "result": serialize_object(result)
+                        "instruction": {
+                            "action": tr["action"],
+                            "target": tr["target"],
+                            "description": tr["description"],
+                        },
+                        "result": {
+                            "success": tr["success"],
+                            "message": tr["message"],
+                        }
                     },
                     "session_id": session_id
                 }, session_id)
-            
-            success_count = sum(1 for r in results if r.success)
-            logger.info(f"[EDITOR] 编辑指令执行完成: 会话={session_id}, 成功={success_count}/{len(results)}")
-            
+
+            # Agent 整体失败且无任何成功操作：走既有 error 广播
+            if agent_result.get("status") == "error" and success_count == 0:
+                await server.broadcast({
+                    "type": "error",
+                    "message": agent_result.get("summary") or agent_result.get("message") or "无法理解该指令，请换个更明确的说法（例如：添加一个叫张三的侦探角色）",
+                    "session_id": session_id
+                }, session_id)
+                return
+
             # 发送完成消息
             await server.broadcast({
                 "type": "instruction_completed",
                 "data": {
                     "instruction": instruction,
-                    "results": [serialize_object(r) for r in results],
+                    "results": [{"success": tr["success"], "message": tr["message"]} for tr in tool_results],
                     "success_count": success_count
                 },
                 "session_id": session_id
             }, session_id)
-            
+
             # 如果有成功的操作，提交事务并发送更新后的剧本数据
             if success_count > 0:
                 try:
@@ -958,10 +1183,10 @@ class EditModeHandler:
                     session.db_session.rollback()
                     logger.error(f"[ERROR] 数据库事务提交失败: 会话={session_id}, 错误={e}")
                     raise e
-                
+
                 logger.debug(f"[EDITOR] 发送更新后的剧本数据: 会话={session_id}")
                 await EditModeHandler.get_script_data(server, session_id)
-            
+
         except Exception as e:
             logger.error(f"[ERROR] 处理编辑指令失败: 会话={session_id}, 错误={e}")
             print(f"Error handling edit instruction for session {session_id}: {e}")
@@ -1067,6 +1292,7 @@ class GameWebSocketServer:
     def __init__(self):
         self.sessions: Dict[str, GameSession] = {}
         self.client_sessions: Dict[Any, str] = {}  # 客户端到会话的映射
+        self.edit_locks: Dict[int, asyncio.Lock] = {}  # 剧本ID到编辑锁的映射，串行化同一剧本的编辑指令
         # 注册消息处理器
         # 普通指令处理器（断线重连/增量同步单独处理）
         self.message_handlers: Dict[str, MessageHandler] = {
@@ -1083,6 +1309,9 @@ class GameWebSocketServer:
             "get_tts_history": GetTTSHistoryHandler(),
             "fetch_history": FetchHistoryHandler(),
             "set_background_mode": SetBackgroundModeHandler(),
+            "start_script_generation": StartScriptGenerationHandler(),
+            "cancel_script_generation": CancelScriptGenerationHandler(),
+            "get_script_generation_state": GetScriptGenerationStateHandler(),
         }
         # 不再需要会话保留和后台清理相关属性
 
@@ -1100,10 +1329,17 @@ class GameWebSocketServer:
         
         return self.sessions[session_id]
     
+    def get_edit_lock(self, script_id: int) -> asyncio.Lock:
+        """获取指定剧本的编辑锁（不存在则创建），用于串行化同一剧本的编辑指令"""
+        if script_id not in self.edit_locks:
+            self.edit_locks[script_id] = asyncio.Lock()
+        return self.edit_locks[script_id]
+    
     async def register_client(self, websocket: Any, script_id: int = 1, user_id: Optional[int] = None):
         """注册新的WebSocket客户端到指定会话"""
         # 基于用户ID和剧本ID自动管理会话，不需要前端传递session_id
         actual_session_id = None
+        username = None
         
         # 如果提供了用户ID，使用GameSessionRepository处理会话
         if user_id is not None:
@@ -1114,6 +1350,13 @@ class GameWebSocketServer:
                 db_session = repo.create_or_resume_session(user_id, script_id, None)
                 actual_session_id = str(db_session.session_id)
                 
+                # 查询用户名，用于剧本编辑权限校验；查询失败时保持None（后续编辑校验会拒绝）
+                try:
+                    user = db.query(User).filter(User.id == user_id).first()
+                    username = user.username if user else None
+                except Exception as e:
+                    logger.error(f"[SESSION] 查询用户信息失败: 用户ID={user_id}, 错误={e}")
+                
                 logger.info(f"[SESSION] 用户 {user_id} 的会话处理完成: {actual_session_id}, 状态: {db_session.status}")
         else:
             # 如果没有用户ID，创建临时会话
@@ -1122,6 +1365,10 @@ class GameWebSocketServer:
         
         # 获取或创建内存中的游戏会话
         session = self.get_or_create_session(actual_session_id, script_id)
+        
+        # 记录会话所属用户信息（会话按user_id+script_id复用，同一会话的用户信息一致）
+        session.user_id = user_id
+        session.username = username
         
         # 检查是否是重新连接到后台运行的会话
         is_background_reconnect = session.background_mode and len(session.clients) == 0
@@ -1369,9 +1616,15 @@ class GameWebSocketServer:
                 if 'db_session' in locals():
                     db_session.close()
             
+            # 取消未完成的剧本生成任务
+            if session.generation_task and not session.generation_task.done():
+                if session.generation_agent:
+                    session.generation_agent.cancel()
+                session.generation_task.cancel()
+                logger.info(f"[SESSION] 已取消未完成的生成任务: {session_id}")
+
             session.cleanup()
             del self.sessions[session_id]
-            self.session_last_active.pop(session_id, None)
             logger.info(f"[SESSION] 清理会话: {session_id}")
         except Exception as e:
             logger.error(f"[SESSION] 清理会话失败 {session_id}: {e}")

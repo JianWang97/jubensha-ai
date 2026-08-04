@@ -4,10 +4,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Bot, User, CheckCircle, XCircle, MessageCircle } from 'lucide-react';
+import { Loader2, Send, Bot, User, CheckCircle, XCircle, MessageCircle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWebSocketStore } from '@/stores/websocketStore';
+import EditProcessTimeline, {
+  EditProcessEvent,
+  EditProcessStatus
+} from '@/components/EditProcessTimeline';
 
 interface ChatMessage {
   id: string;
@@ -49,24 +52,71 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     {
       id: '1',
       type: 'system',
-      content: '👋 你好！我是剧本编辑助手。你可以用自然语言告诉我你想要对剧本进行的修改，比如：\n\n• "添加一个名叫张三的侦探角色"\n• "修改李四的背景故事"\n• "删除那个破损的花瓶证据"\n• "在客厅添加一个书架"\n\n我会帮你实时更新剧本内容！',
+      content: '我是你的剧本编辑助手。用自然语言告诉我要怎么改，比如：\n\n"添加一个叫张三的侦探角色"\n"修改李四的背景故事"\n"删除破损的花瓶这个证据"\n"在客厅加一个书架"\n\n我会直接改好剧本。',
       timestamp: new Date()
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  // AI 对话编辑的实时执行过程事件（script_edit_event），不进 messages 列表
+  const [processEvents, setProcessEvents] = useState<EditProcessEvent[]>([]);
+  const [processStatus, setProcessStatus] = useState<EditProcessStatus>('running');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { isConnected, sendMessage } = useWebSocketStore();
 
-  // 自动滚动到底部
+  // 自动滚动到底部（只滚动消息容器，避免 scrollIntoView 把整页容器一起卷上去）
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesEndRef.current;
+    if (!el) return;
+    const viewport = el.closest('[data-slot="scroll-area-viewport"]');
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+      return;
+    }
+    let scroller = el.parentElement;
+    while (scroller && scroller !== document.body) {
+      const overflowY = getComputedStyle(scroller).overflowY;
+      if (/(auto|scroll)/.test(overflowY)) {
+        scroller.scrollTop = scroller.scrollHeight;
+        return;
+      }
+      scroller = scroller.parentElement;
+    }
+    el.scrollIntoView();
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // 执行过程时间线更新时跟随滚动（仅进行中，避免完成后展开/折叠打断阅读）
+  useEffect(() => {
+    if (processStatus === 'running' && processEvents.length > 0) {
+      scrollToBottom();
+    }
+  }, [processEvents, processStatus]);
+
+  // 移除"正在处理指令"的临时系统消息：终态由结果消息与执行时间线呈现，避免错误/成功图标重复
+  const clearProcessingMessage = () => {
+    setMessages(prev => prev.filter(msg => !(msg.type === 'system' && msg.status === 'pending')));
+  };
+
+  // 空闲超时：ReAct 编辑需多轮 LLM 调用，固定超时不可用。
+  // 处理期间任何事件流动（process 事件/结果消息）都会重置计时，连续静默超时才判定卡死
+  const PROCESSING_IDLE_TIMEOUT = 180000; // 3 分钟无进展
+  const armProcessingTimeout = () => {
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.warn('指令处理长时间无进展，自动重置状态');
+      clearProcessingMessage();
+      setProcessStatus('error');
+      setIsProcessing(false);
+      toast.error('长时间未收到处理进展，请检查网络或稍后重试');
+    }, PROCESSING_IDLE_TIMEOUT);
+  };
 
   // 处理WebSocket消息 - 使用自定义事件监听
   useEffect(() => {
@@ -82,26 +132,41 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             const processingMessage: ChatMessage = {
               id: Date.now().toString(),
               type: 'system',
-              content: `正在处理指令: ${instruction}`,
+              content: `正在处理指令：${instruction}`,
               timestamp: new Date(),
               status: 'pending'
             };
             setMessages(prev => [...prev, processingMessage]);
           }
+          // 新指令开始：清空上一次的执行过程时间线
+          setProcessEvents([]);
+          setProcessStatus('running');
           // 确保处理状态设置为true
           setIsProcessing(true);
+          // 处理开始，启动空闲超时
+          armProcessingTimeout();
+          break;
+
+        case 'script_edit_event':
+          // 实时执行过程事件（思考/工具调用/结果），追加到时间线；有进展则重置空闲超时
+          const editEvent = message.data as unknown as EditProcessEvent;
+          if (editEvent && editEvent.type) {
+            setProcessEvents(prev => [...prev, editEvent]);
+            armProcessingTimeout();
+          }
           break;
           
         case 'edit_result':
-          // 单个编辑操作结果
+          // 单个编辑操作结果；有进展则重置空闲超时
+          armProcessingTimeout();
           const result = message.data?.result;
           if (result) {
             const resultMessage: ChatMessage = {
               id: Date.now().toString(),
               type: 'assistant',
               content: result.success ? 
-                `✅ ${result.message}` : 
-                `❌ ${result.message}`,
+                result.message : 
+                `操作失败：${result.message}`,
               timestamp: new Date(),
               status: result.success ? 'success' : 'error',
               data: message.data
@@ -112,6 +177,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           
         case 'instruction_completed':
           // 指令完成
+          clearProcessingMessage();
           const completedData = message.data;
           if (completedData) {
             const successCount = completedData.success_count || 0;
@@ -119,7 +185,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             const completedMessage: ChatMessage = {
               id: Date.now().toString(),
               type: 'assistant',
-              content: `🎉 指令执行完成！成功操作: ${successCount}/${resultsLength}`,
+              content: `指令执行完成，成功 ${successCount} / ${resultsLength} 项`,
               timestamp: new Date(),
               status: 'success',
               data: completedData
@@ -131,9 +197,11 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             clearTimeout(processingTimeoutRef.current);
             processingTimeoutRef.current = null;
           }
+          // 标记执行过程结束（时间线保留在最后一条结果下方，默认折叠）
+          setProcessStatus('done');
           setIsProcessing(false);
           break;
-          
+
         case 'script_data_update':
           // 剧本数据更新
           if (message.data?.script && onScriptUpdate) {
@@ -148,7 +216,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             const suggestionMessage: ChatMessage = {
               id: Date.now().toString(),
               type: 'assistant',
-              content: `💡 AI建议:\n${suggestion}`,
+              content: `建议：${suggestion}`,
               timestamp: new Date(),
               status: 'success',
               data: message.data
@@ -162,7 +230,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           const startMessage: ChatMessage = {
             id: Date.now().toString(),
             type: 'system',
-            content: '🎭 剧本编辑模式已启动，您可以开始编辑剧本了！',
+            content: '剧本编辑模式已启动。',
             timestamp: new Date(),
             status: 'success',
             data: message.data
@@ -175,7 +243,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           const stopMessage: ChatMessage = {
             id: Date.now().toString(),
             type: 'system',
-            content: '⏹️ 剧本编辑模式已停止',
+            content: '剧本编辑模式已停止。',
             timestamp: new Date(),
             status: 'success',
             data: message.data
@@ -185,6 +253,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
           
         case 'script_edit_result':
           // 保持向后兼容
+          clearProcessingMessage();
           const messageId = message.data?.message_id;
           if (messageId) {
             setMessages(prev => prev.map(msg => 
@@ -200,7 +269,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             const aiMessage: ChatMessage = {
               id: Date.now().toString(),
               type: 'assistant',
-              content: message.data?.message || (message.data?.success ? '✅ 操作成功完成！' : '❌ 操作失败'),
+              content: message.data?.message || (message.data?.success ? '操作完成。' : '操作失败'),
               timestamp: new Date(),
               status: 'success',
               data: message.data
@@ -214,7 +283,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             }
             
             if (message.data?.success) {
-              toast.success('剧本更新成功！');
+              toast.success('剧本更新成功。');
             } else {
               toast.error('操作失败：' + (message.data?.message || '未知错误'));
             }
@@ -225,26 +294,49 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
             clearTimeout(processingTimeoutRef.current);
             processingTimeoutRef.current = null;
           }
+          setProcessStatus(message.data?.success === false ? 'error' : 'done');
           setIsProcessing(false);
           break;
-          
+
         case 'script_edit_error':
           // 错误处理
+          clearProcessingMessage();
           const errorMessage: ChatMessage = {
             id: Date.now().toString(),
             type: 'assistant',
-            content: `❌ 错误: ${message.data?.message || '操作失败'}`,
+            content: `错误：${message.data?.message || '操作失败'}`,
             timestamp: new Date(),
             status: 'error',
             data: message.data
           };
           setMessages(prev => [...prev, errorMessage]);
-          toast.error(`编辑失败: ${message.data?.message || '操作失败'}`);
           // 清除超时定时器并重置处理状态
           if (processingTimeoutRef.current) {
             clearTimeout(processingTimeoutRef.current);
             processingTimeoutRef.current = null;
           }
+          setProcessStatus('error');
+          setIsProcessing(false);
+          break;
+
+        case 'error':
+          // 后端通用错误（如指令处理被拒绝/失败），聊天内展示一次即可，不再重复 toast
+          clearProcessingMessage();
+          const serverErrorMessage: ChatMessage = {
+            id: Date.now().toString(),
+            type: 'system',
+            content: `处理失败：${message.data?.message || '服务器处理失败'}`,
+            timestamp: new Date(),
+            status: 'error',
+            data: message.data
+          };
+          setMessages(prev => [...prev, serverErrorMessage]);
+          // 清除超时定时器并重置处理状态
+          if (processingTimeoutRef.current) {
+            clearTimeout(processingTimeoutRef.current);
+            processingTimeoutRef.current = null;
+          }
+          setProcessStatus('error');
           setIsProcessing(false);
           break;
       }
@@ -263,7 +355,7 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
     };
   }, [onScriptUpdate]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!inputValue.trim() || isProcessing) return;
     
     if (!isConnected) {
@@ -281,46 +373,38 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
-    setIsProcessing(true);
 
-    // 设置30秒超时，防止处理状态卡住
-    if (processingTimeoutRef.current) {
-      clearTimeout(processingTimeoutRef.current);
-    }
-    processingTimeoutRef.current = setTimeout(() => {
-      console.warn('指令处理超时，自动重置状态');
-      setIsProcessing(false);
-      toast.error('指令处理超时，请重试');
-    }, 30000);
+    // 发送编辑指令到WebSocket；发送失败时立即反馈，不进入处理状态
+    const sent = sendMessage({
+      type: 'edit_instruction',
+      instruction: userMessage.content,
+      message_id: userMessage.id
+    });
 
-    try {
-      // 发送编辑指令到WebSocket
-      sendMessage({
-        type: 'edit_instruction',
-        instruction: userMessage.content,
-        message_id: userMessage.id
-      });
-      
-      // 更新消息状态为已发送
-      setMessages(prev => prev.map(msg => 
-        msg.id === userMessage.id 
-          ? { ...msg, status: 'success' }
-          : msg
-      ));
-      
-    } catch (error) {
-      console.error('发送消息失败:', error);
+    if (!sent) {
       setMessages(prev => prev.map(msg => 
         msg.id === userMessage.id 
           ? { ...msg, status: 'error' }
           : msg
       ));
-      toast.error('发送失败，请重试');
       if (processingTimeoutRef.current) {
         clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
       }
-      setIsProcessing(false);
+      toast.error('发送失败，请检查连接');
+      return;
     }
+
+    // 更新消息状态为已发送
+    setMessages(prev => prev.map(msg => 
+      msg.id === userMessage.id 
+        ? { ...msg, status: 'success' }
+        : msg
+    ));
+    setIsProcessing(true);
+
+    // 启动空闲超时（后续事件流动会自动重置，仅在连续无进展时触发）
+    armProcessingTimeout();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -350,41 +434,41 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
   const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'pending':
-        return <Loader2 className="w-3 h-3 animate-spin text-yellow-500" />;
+        return <Loader2 className="h-3 w-3 animate-spin text-mist" />;
       case 'success':
-        return <CheckCircle className="w-3 h-3 text-green-500" />;
+        return <CheckCircle className="h-3 w-3 text-brass" />;
       case 'error':
-        return <XCircle className="w-3 h-3 text-red-500" />;
+        return <XCircle className="h-3 w-3 text-thread" />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-      {/* 固定头部 */}
-      <div className="flex-shrink-0 flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
-            <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
+    <div className="flex h-full w-full flex-col border-l border-line bg-panel">
+      {/* 抽屉头 */}
+      <div className="flex flex-shrink-0 flex-row items-center justify-between border-b border-line bg-ink/40 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm border border-brass/40 bg-brass/10">
+            <MessageCircle className="h-4 w-4 text-brass" />
           </div>
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
-            AI 对话编辑
+          <h3 className="truncate font-dossier text-base font-semibold tracking-wide text-paper">
+            AI 助手
           </h3>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-          <Badge 
-            variant="outline"
-            className={`text-xs px-1.5 sm:px-2 py-0.5 ${isConnected ? 'border-green-200 text-green-700 bg-green-50 dark:border-green-800 dark:text-green-300 dark:bg-green-900/20' : 'border-red-200 text-red-700 bg-red-50 dark:border-red-800 dark:text-red-300 dark:bg-red-900/20'}`}
-          >
-            <span className="hidden sm:inline">{isConnected ? '已连接' : '未连接'}</span>
-            <span className="sm:hidden">{isConnected ? '连接' : '断开'}</span>
-          </Badge>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <span
+            className={`h-1.5 w-1.5 rounded-full transition-colors duration-300 ${
+              isConnected ? 'bg-brass' : 'bg-faint'
+            }`}
+          />
+          <span className="font-data text-[11px] tracking-wider text-mist">
+            {isConnected ? '已连接' : '未连接'}
+          </span>
         </div>
       </div>
-      
-      {/* 消息列表区域 - 使用固定高度计算 */}
+
+      {/* 消息列表 */}
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full px-4">
           <div className="space-y-4 py-4">
@@ -395,116 +479,153 @@ const ChatEditor: React.FC<ChatEditorProps> = ({ onScriptUpdate }) => {
                   message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
                 }`}
               >
-                {/* 简化的头像 */}
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${
-                  message.status === 'error'
-                    ? 'bg-red-500'
-                    : message.type === 'user' 
-                    ? 'bg-blue-500' 
-                    : message.type === 'assistant'
-                    ? 'bg-purple-500'
-                    : 'bg-gray-500'
-                }`}>
+                {/* 头像 */}
+                <div
+                  className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[11px] ${
+                    message.status === 'error'
+                      ? 'bg-thread-dim text-thread'
+                      : message.type === 'user'
+                      ? 'bg-brass/15 text-brass'
+                      : message.type === 'assistant'
+                      ? 'bg-panel text-mist ring-1 ring-line'
+                      : 'text-faint'
+                  }`}
+                >
                   {getMessageIcon(message)}
                 </div>
-                
-                <div className={`flex-1 max-w-[85%] sm:max-w-[75%] md:max-w-[70%] ${
-                   message.type === 'user' ? 'text-right' : 'text-left'
-                 }`}>
-                  {/* 简化的消息气泡 */}
-                   <div className={`inline-block p-3 sm:p-4 rounded-lg text-sm sm:text-base ${
-                    message.status === 'error'
-                      ? 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
-                      : message.type === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : message.type === 'assistant'
-                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
-                      : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                  }`}>
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {message.content}
+
+                <div
+                  className={`flex max-w-[85%] flex-col sm:max-w-[80%] ${
+                    message.type === 'user' ? 'items-end' : 'items-start'
+                  }`}
+                >
+                  {/* 消息主体 */}
+                  {message.type === 'system' ? (
+                    <div className="rounded-sm border border-hairline bg-ink/60 px-3 py-2.5 text-[13px] leading-relaxed text-mist">
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                      {message.status === 'pending' && (
+                        <span className="mt-1.5 flex items-center gap-1" aria-label="处理中">
+                          <span className="h-1 w-1 animate-pulse rounded-full bg-brass" />
+                          <span className="h-1 w-1 animate-pulse rounded-full bg-brass [animation-delay:150ms]" />
+                          <span className="h-1 w-1 animate-pulse rounded-full bg-brass [animation-delay:300ms]" />
+                        </span>
+                      )}
                     </div>
-                    
-                    {/* 操作结果数据 */}
-                    {message.data && message.data.data && (
-                      <div className="mt-3 p-2 bg-black/10 dark:bg-white/10 rounded text-xs border">
-                        <div className="font-medium mb-1">操作详情：</div>
-                        <pre className="overflow-x-auto text-xs">
-                          {JSON.stringify(message.data.data, null, 2)}
-                        </pre>
+                  ) : (
+                    <div className="relative w-full">
+                      {/* 红线批注：助手消息的左边线 */}
+                      {message.type === 'assistant' && (
+                        <div
+                          className={`absolute -left-3 top-1 bottom-1 w-px ${
+                            message.status === 'error' ? 'bg-thread' : 'bg-brass/50'
+                          }`}
+                        />
+                      )}
+                      <div
+                        className={`inline-block rounded-sm px-3.5 py-2.5 text-sm leading-relaxed ${
+                          message.status === 'error'
+                            ? 'border border-thread/30 bg-thread-dim/15 text-thread'
+                            : message.type === 'user'
+                            ? 'border border-brass/25 bg-brass/10 text-paper'
+                            : 'bg-raised text-paper'
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap">{message.content}</div>
+                        {message.type === 'assistant' && message.status === 'pending' && (
+                          <span
+                            className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse align-middle bg-brass"
+                            aria-label="正在生成"
+                          />
+                        )}
+
+                        {/* 操作详情 */}
+                        {message.data && message.data.data && (
+                          <div className="mt-2.5 rounded-sm border border-hairline bg-ink/60 px-2.5 py-2">
+                            <div className="mb-1 font-data text-[10px] uppercase tracking-wider text-mist">
+                              操作详情
+                            </div>
+                            <pre className="overflow-x-auto font-data text-[11px] text-paper/80">
+                              {JSON.stringify(message.data.data, null, 2)}
+                            </pre>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  
-                  {/* 时间戳和状态 */}
-                  <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400 ${
-                    message.type === 'user' ? 'justify-end' : 'justify-start'
-                  }`}>
-                    <span>{message.timestamp.toLocaleTimeString()}</span>
+                    </div>
+                  )}
+
+                  {/* 时间戳与状态 */}
+                  <div
+                    className={`mt-1.5 flex items-center gap-2 font-data text-[10px] tracking-wider text-faint ${
+                      message.type === 'user' ? 'justify-end' : 'justify-start'
+                    }`}
+                  >
+                    <span>{message.timestamp.toLocaleTimeString('zh-CN', { hour12: false })}</span>
                     {getStatusIcon(message.status)}
                   </div>
                 </div>
               </div>
             ))}
+            {/* 实时执行过程时间线：进行中默认展开，完成后保留在最后一条结果下方（默认折叠） */}
+            {processEvents.length > 0 && (
+              <EditProcessTimeline events={processEvents} status={processStatus} />
+            )}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
-        
-      {/* 固定底部输入区域 */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 space-y-3 bg-white dark:bg-gray-900">
+
+      {/* 输入区 */}
+      <div className="flex-shrink-0 space-y-2.5 border-t border-line bg-ink/40 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="输入编辑指令..."
-              className="pr-10 text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="输入编辑指令…"
+              className="h-9 rounded-sm border-line bg-panel pr-8 text-sm text-paper placeholder:text-faint"
               disabled={isProcessing || !isConnected}
             />
             {inputValue && (
               <button
                 onClick={() => setInputValue('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg"
+                aria-label="清空输入"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-faint transition-colors hover:text-paper"
               >
-                ×
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
           <Button
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isProcessing || !isConnected}
-            className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 px-3 sm:px-4 py-2 min-w-[44px]"
+            aria-label="发送指令"
+            className="h-9 rounded-sm border border-brass/40 bg-brass/15 px-3 text-paper hover:bg-brass/25 disabled:opacity-40"
           >
             {isProcessing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="h-4 w-4" />
             )}
           </Button>
         </div>
-        
+
         {/* 快捷指令 */}
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {[
-            { text: '添加角色', fullText: '添加侦探角色', icon: '🕵️' },
-            { text: '修改标题', fullText: '修改剧本标题', icon: '📝' },
-            { text: '添加证据', fullText: '添加关键证据', icon: '🔍' },
-            { text: '创建场景', fullText: '创建新场景', icon: '🎬' }
+            { text: '添加角色', fullText: '添加一个侦探角色' },
+            { text: '修改标题', fullText: '修改剧本标题' },
+            { text: '添加证据', fullText: '添加一条关键证据' },
+            { text: '创建场景', fullText: '创建一个新场景' }
           ].map((suggestion) => (
-            <Button
+            <button
               key={suggestion.fullText}
-              variant="outline"
-              size="sm"
               onClick={() => setInputValue(suggestion.fullText)}
-              className="text-xs h-7 sm:h-8 px-2 sm:px-3 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex-shrink-0"
               disabled={isProcessing}
+              className="h-7 rounded-sm border border-line px-2.5 font-data text-[11px] tracking-wide text-mist transition-colors hover:border-brass/40 hover:text-brass disabled:opacity-40"
             >
-              <span className="mr-1">{suggestion.icon}</span>
-              <span className="hidden sm:inline">{suggestion.fullText}</span>
-              <span className="sm:hidden">{suggestion.text}</span>
-            </Button>
+              {suggestion.text}
+            </button>
           ))}
         </div>
       </div>

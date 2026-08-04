@@ -7,20 +7,20 @@ interface LayoutProps {
 
 const Layout = ({ children, backgroundImage }: LayoutProps) => {
   return (
-    <div className="relative h-screen w-screen text-white font-sans overflow-hidden">
-      {/* 背景图片层 */}
+    <div className="relative h-screen w-screen overflow-hidden bg-ink font-sans text-paper antialiased">
+      {/* 背景层 */}
       {backgroundImage ? (
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: `url(${backgroundImage})` }}
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a237e] via-[#311b92] to-[#4a148c]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0C0F14] via-[#0E1116] to-[#11151D]" />
       )}
-      
+
       {/* 遮罩层 */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
-      
+      {backgroundImage && <div className="absolute inset-0 bg-ink/70" />}
+
       {/* 内容层 */}
       <div className="relative z-10 h-full w-full">
         <main className="h-full w-full">

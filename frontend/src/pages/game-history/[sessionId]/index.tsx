@@ -1,76 +1,52 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
+import AppLayout from '@/components/AppLayout';
+import GameHistoryDetailContent from '@/components/GameHistoryDetailContent';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { useGameHistoryStore } from '../../../stores/gameHistoryStore';
 
-export default function GameDetailPage(){
+export default function GameDetailPage() {
   const router = useRouter();
   const { sessionId } = router.query;
   const { loadDetail, detail } = useGameHistoryStore();
-  useEffect(()=> { if(sessionId && typeof sessionId==='string') loadDetail(sessionId); }, [sessionId]);
-  if(!sessionId) return <div className='p-6'>加载中...</div>;
-  if(!detail) return <div className='p-6'>加载中或未找到...</div>;
-  const { session_info, statistics } = detail;
-  const status = session_info.status;
 
-  const isActive = ['STARTED','PENDING','PAUSED'].includes(status);
-  const isEnded = status === 'ENDED';
-  const isCanceled = status === 'CANCELED';
+  useEffect(() => {
+    if (sessionId && typeof sessionId === 'string') loadDetail(sessionId);
+  }, [sessionId, loadDetail]);
 
-  return <div className='p-6 space-y-4'>
-    <div className='flex items-center gap-4'>
-      <h1 className='text-xl font-semibold'>会话详情 {session_info.session_id}</h1>
-      {isEnded && <Link href={`/game-history/${session_info.session_id}/replay`} className='text-xs px-3 py-1 rounded bg-indigo-600 text-white'>回放</Link>}
-      {isActive && <Link href={`/game?script_id=${session_info.script_id}`} className='text-xs px-3 py-1 rounded bg-emerald-600 text-white'>进入游戏</Link>}
-      {isCanceled && <span className='text-xs px-3 py-1 rounded bg-gray-500 text-white opacity-50'>已取消</span>}
-    </div>
-    <section className='grid md:grid-cols-2 gap-6'>
-      <div className='border rounded p-4 bg-white shadow'>
-        <h2 className='font-semibold mb-2 text-sm'>基本信息</h2>
-        <div className='text-xs space-y-1 text-slate-700'>
-          <div>剧本ID: {session_info.script_id}</div>
-          <div>状态: {session_info.status}</div>
-          <div>开始: {session_info.started_at?.replace('T',' ').slice(0,16)}</div>
-          <div>结束: {session_info.finished_at?.replace('T',' ').slice(0,16)}</div>
-        </div>
-      </div>
-      <div className='border rounded p-4 bg-white shadow'>
-        <h2 className='font-semibold mb-2 text-sm'>统计</h2>
-        <div className='text-xs space-y-1 text-slate-700'>
-          <div>事件总数: {statistics.total_events}</div>
-          <div>聊天消息: {statistics.chat_messages}</div>
-            <div>系统事件: {statistics.system_events}</div>
-            <div>TTS完成: {statistics.tts_generated}</div>
-            <div>时长: {statistics.duration_minutes} 分钟</div>
-        </div>
-      </div>
-    </section>
-    <section className='border rounded p-4 bg-white shadow'>
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>基本信息</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-slate-700 space-y-2">
-            <div>会话ID: {session_info?.session_id}</div>
-            <div>剧本ID: {session_info?.script_id}</div>
-            <div>状态: {session_info?.status}</div>
-            <div>模式: AI 演绎</div>
-          </CardContent>
-        </Card>
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>演绎说明</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-slate-700 text-sm">
-              本会话为 AI 自主演绎，所有角色均由智能体驱动，无需真人参与。
+  return (
+    <ProtectedRoute>
+      <AppLayout>
+        <div className="min-h-screen bg-ink">
+          <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push('/profile/game-history')}
+                className="text-mist hover:text-paper hover:bg-raised/60"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                返回游戏历史
+              </Button>
+              <h1 className="font-dossier text-xl font-bold text-paper">游戏记录详情</h1>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </section>
-    {/* 已移除玩家列表，AI 自主演绎模式 */}
-  </div>;
+
+            {!detail ? (
+              <div className="flex items-center justify-center py-24">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brass" />
+              </div>
+            ) : (
+              <GameHistoryDetailContent
+                detail={detail}
+                scriptTitle={detail.script_info?.title}
+              />
+            )}
+          </div>
+        </div>
+      </AppLayout>
+    </ProtectedRoute>
+  );
 }

@@ -76,6 +76,19 @@ class AuthService:
                 )
     
     @staticmethod
+    def get_user_from_token(db: Session, token: str) -> Optional[User]:
+        """验证令牌并返回对应用户
+
+        令牌无效时抛出 HTTPException（与 verify_token 一致）；
+        令牌有效但用户不存在时返回 None。
+        统一的令牌验证入口，供认证中间件和 WebSocket 端点复用。
+        """
+        token_data = AuthService.verify_token(token)
+        if token_data.username is None:
+            return None
+        return AuthService.get_user_by_username(db, token_data.username)
+
+    @staticmethod
     def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
         """认证用户"""
         # 支持用户名或邮箱登录

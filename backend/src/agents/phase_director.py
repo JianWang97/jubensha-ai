@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ..schemas.game_phase import GamePhaseEnum as GamePhase
+from .agent_tools import tools_for_phase
 
 if TYPE_CHECKING:
     from .character_identity import CharacterIdentity
@@ -44,16 +45,16 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 你的任务：选择一个具体的地点或物品进行搜查，为后续线索公开做准备。
 
 指令要求：
-- 必须明确说出要搜查的地点名称（如"我要搜查书房"、"我检查一下花瓶"）
+- 必须调用 search_location 工具选定要搜查的地点名称（发言中也可说明，如"我要搜查书房"）
 - 可以简要说明搜查理由，但不要透露过多策略
 - 一次只能搜查一个地方
-- 搜到的线索将在下一阶段公开展示""",
+- 搜到的线索默认只有你自己知道，之后你可以选择公开或隐瞒""",
 
     GamePhase.INVESTIGATION: """现在是【线索公开与调查】阶段
-你的任务：基于已公开的线索，进行信息交换和初步推理。
+你的任务：基于你已掌握的线索，进行信息交换和初步推理。
 
 发言策略：
-- 如果你刚搜到线索：清晰念出线索内容，进行初步解读
+- 如果你刚搜到线索：可以选择公开线索内容并解读，也可以暂时隐瞒
 - 如果你要提问：向具体角色提出针对性问题（如"张三，你昨晚在哪里？"）
 - 如果你要回答：诚实回答他人问题（凶手可适当隐瞒）
 - 如果你要分析：结合线索进行逻辑推理，但避免过早下定论
@@ -61,6 +62,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 注意事项：
 - 问题要有针对性，能推进案件调查
 - 根据已发现的证据来提问和分析
+- 你可以选择公开你掌握的证据（调用 reveal_evidence 工具），也可以暂时隐瞒
 - 避免重复提问相同问题""",
 
     GamePhase.DISCUSSION: """现在是【圆桌讨论】阶段 - 核心推理环节
@@ -76,6 +78,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 - 可以提出自己的推理和怀疑
 - 可以反驳或支持他人的观点，但要加上自己的理由
 - 要结合已发现的证据来论证
+- 你可以选择公开你掌握的证据（调用 reveal_evidence 工具），也可以暂时隐瞒
 - 避免直接重复他人的话，要有自己的独特观点
 - 保持逻辑清晰，做到有理有据""",
 
@@ -88,7 +91,7 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 - 票后陈述：如果被质疑，为自己进行最后的辩解
 
 指令要求：
-- 必须明确说出你投票的对象
+- 必须调用 cast_vote 工具投出你的投票对象
 - 说明你的核心理由（1-2个最重要的证据或逻辑）
 - 要坚定表达你的判断
 - 不要犹豫不决或说"我不知道是谁"之类的模糊表达""",
@@ -108,6 +111,43 @@ _PHASE_TASKS: dict[GamePhase, str] = {
 - 此阶段可以自由提问和讨论
 - 诚实分享你的游戏体验和真实想法
 - 如果你是凶手，请详细说明你的作案过程，让大家了解完整真相""",
+}
+
+
+# ---------------------------------------------------------------------------
+# 回应方式说明（行动走原生 tool calling，发言走回复正文；
+# 解析端见 character_agent.CharacterAgent._build_response / agent_tools）
+# ---------------------------------------------------------------------------
+
+# 有工具的阶段（搜证 / 调查 / 讨论 / 投票）
+_OUTPUT_FORMAT_TOOLS = """**=== 回应方式（严格遵守）===**
+- 公开发言：直接作为回复正文输出，保持你的角色口吻；不要输出 JSON、代码围栏或任何格式标记。
+- 游戏行动：通过调用系统提供的工具完成（不要只在文字里描述）；没有想做的行动时可以不调用任何工具。
+**=================**"""
+
+# 无工具的阶段（背景 / 自我介绍 / 复盘）
+_OUTPUT_FORMAT_PLAIN = """**=== 回应方式（严格遵守）===**
+- 直接把你的公开发言作为回复正文输出，保持你的角色口吻。
+- 不要输出 JSON、代码围栏或任何格式标记。
+**=================**"""
+
+# 各阶段对工具使用的补充要求（追加在回应方式说明之后）
+_PHASE_OUTPUT_HINTS: dict[GamePhase, str] = {
+    GamePhase.EVIDENCE_COLLECTION: (
+        "本阶段要搜证时，调用 search_location 工具，location 填要搜查的地点名。"
+    ),
+    GamePhase.INVESTIGATION: (
+        "本阶段可以用 ask_question 工具质询（target 填被提问的角色名，question 填问题内容），"
+        "也可以用 reveal_evidence 工具公开你掌握的证据（evidence_names 只能填你自己掌握的证据名称），"
+        "也可以都不用、只发言。"
+    ),
+    GamePhase.DISCUSSION: (
+        "可以用 ask_question 工具质询，或用 reveal_evidence 工具公开你掌握的证据"
+        "（evidence_names 只能填你自己掌握的证据名称），暂不公开则不调用、只发言。"
+    ),
+    GamePhase.VOTING: (
+        "本阶段必须调用 cast_vote 工具投票（suspect 填你指认的角色名），并在发言中说明理由。"
+    ),
 }
 
 
@@ -134,8 +174,9 @@ class PhaseDirector:
         结构（参照 hello-agents enhanced_message）：
           [记忆上下文]
           [阶段专属内容（可搜证地点 / 投票候选人等）]
-          [已发现的证据]
+          [本角色可见的证据（已公开的 + 自己私藏的）]
           [当前阶段核心任务指令]
+          [回应方式说明（tool calling）]
           [GM 特殊指令（可选）]
         """
         parts: list[str] = []
@@ -151,8 +192,8 @@ class PhaseDirector:
         if phase_extra:
             parts.append(phase_extra)
 
-        # 3. 已发现的证据
-        evidence_ctx = self._build_evidence_context(game_state)
+        # 3. 证据上下文：只包含本角色可见的证据（公开 + 私藏），不再全量广播
+        evidence_ctx = self._build_evidence_context(memory, game_state)
         if evidence_ctx:
             parts.append(evidence_ctx)
 
@@ -167,16 +208,27 @@ class PhaseDirector:
             )
         # 凶手在投票前不要暴露
         elif identity.is_murderer and phase in (GamePhase.INVESTIGATION, GamePhase.DISCUSSION, GamePhase.VOTING):
-            task += "\n\n【凶手提示】继续隐藏你的身份，自然地将怀疑引向他人。"
+            task += "\n\n【凶手提示】继续隐藏你的身份，自然地将怀疑引向他人；你可以隐瞒或选择性公开自己掌握的证据，在发言中也可以说谎。"
 
         parts.append(f"【当前阶段：{phase.value}】\n\n**=== 你的核心任务 ===**\n{task}\n**====================**")
 
-        # 5. GM 特殊指令（来自 PhaseStep.gm_instructions）
+        # 5. 回应方式说明（有工具的阶段说明 tool calling，无工具阶段只要求直接发言）
+        has_tools = bool(tools_for_phase(phase))
+        output_block = _OUTPUT_FORMAT_TOOLS if has_tools else _OUTPUT_FORMAT_PLAIN
+        output_hint = _PHASE_OUTPUT_HINTS.get(phase)
+        if output_hint:
+            output_block += f"\n{output_hint}"
+        parts.append(output_block)
+
+        # 6. GM 特殊指令（来自 PhaseStep.gm_instructions）
         gm_instructions = game_state.get("gm_instructions", "").strip()
         if gm_instructions:
             parts.append(f"【GM 特别提示】{gm_instructions}")
 
-        parts.append("请严格按照你的核心任务进行回应，只说角色会说的话。")
+        if has_tools:
+            parts.append("请严格按照你的核心任务进行回应：公开发言直接作为正文输出，行动通过调用工具完成。")
+        else:
+            parts.append("请严格按照你的核心任务进行回应，直接输出你的发言。")
 
         return "\n\n".join(parts)
 
@@ -234,7 +286,7 @@ class PhaseDirector:
             s_lines = [f"- {loc}（{searcher}已搜查）" for loc, searcher in searched.items()]
             result += "\n\n**已搜查的地点：**\n" + "\n".join(s_lines)
 
-        result += "\n\n请明确说出你要搜查的地点，例如：「我要搜查书房」。每次只能选一个地点。"
+        result += "\n\n请调用 search_location 工具选定你要搜查的地点（发言中也可说明，如「我要搜查书房」）。每次只能选一个地点。"
         return result
 
     def _build_queryable_characters(
@@ -272,9 +324,32 @@ class PhaseDirector:
         return result
 
     @staticmethod
-    def _build_evidence_context(game_state: dict[str, Any]) -> str:
-        discovered = game_state.get("discovered_evidence", [])
-        if not discovered:
+    def _build_evidence_context(memory: "CharacterMemory", game_state: dict[str, Any]) -> str:
+        """构建本角色可见的证据上下文。
+
+        证据私有化：
+          - revealed_evidence —— 已被任意角色公开的证据（所有人都知道）
+          - memory.known_evidence —— 本角色自己搜到、尚未公开的私藏证据
+        未公开且非本角色搜到的证据不会出现在 prompt 中。
+        """
+        revealed = game_state.get("revealed_evidence", [])
+        # 已公开的证据从私藏列表中剔除，避免提示词仍声称其"尚未公开"
+        revealed_keys = {ev.get("id", ev.get("name")) for ev in revealed}
+        private = [
+            ev for ev in getattr(memory, "known_evidence", [])
+            if ev.get("id", ev.get("name")) not in revealed_keys
+        ]
+        if not revealed and not private:
             return ""
-        lines = [f"- {ev['name']}：{ev['description']}" for ev in discovered]
-        return "**已发现的全部证据：**\n" + "\n".join(lines)
+
+        parts: list[str] = []
+        if revealed:
+            lines = [f"- {ev['name']}：{ev.get('description', '')}" for ev in revealed]
+            parts.append("**已公开的证据（所有人都知道）：**\n" + "\n".join(lines))
+        if private:
+            lines = [f"- {ev['name']}：{ev.get('description', '')}" for ev in private]
+            parts.append(
+                "**你私下掌握的证据（尚未公开，其他人不知道）：**\n" + "\n".join(lines)
+                + "\n你可以选择公开这些证据（调用 reveal_evidence 工具），也可以继续隐瞒。"
+            )
+        return "\n\n".join(parts)

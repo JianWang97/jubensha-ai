@@ -1,6 +1,5 @@
 // 用户认证API服务
 import {
-  GameHistoryResponse as GameHistory,
   UserLogin as LoginData,
   PasswordChange,
   Token,
@@ -9,18 +8,8 @@ import {
   UserRegister,
   UserUpdate
 } from '@/client';
+import { GameHistory } from '@/types/auth';
 import { config } from '@/stores/configStore';
-import { StoreApi } from 'zustand';
-
-// 延迟导入authStore以避免循环依赖
-let authStore: StoreApi<unknown> | null = null;
-const getAuthStore = async () => {
-  if (!authStore) {
-    const { useAuthStore } = await import('@/stores/authStore');
-    authStore = useAuthStore;
-  }
-  return authStore;
-};
 
 class AuthService {
   private baseUrl: string;

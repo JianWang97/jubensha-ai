@@ -530,5 +530,38 @@ class StorageManager:
             print(f"❌ 存储统计获取失败: {e}")
             return {}
 
-# 全局存储管理器实例
-storage_manager = StorageManager()
+# 模块级缓存，保证容器单例与兼容别名始终是同一实例
+_storage_manager_instance: "StorageManager | None" = None
+
+
+def _get_or_create_storage_manager() -> "StorageManager":
+    """创建或返回缓存的存储管理器实例（作为DI容器的注册工厂）"""
+    global _storage_manager_instance
+    if _storage_manager_instance is None:
+        _storage_manager_instance = StorageManager()
+    return _storage_manager_instance
+
+
+def get_storage_manager() -> "StorageManager":
+    """获取全局存储管理器实例
+
+    优先从DI容器解析（需先调用 configure_services()）；
+    容器未配置时回退到本地创建，保持与旧模块级单例一致的行为。
+    """
+    global _storage_manager_instance
+    if _storage_manager_instance is not None:
+        return _storage_manager_instance
+    try:
+        from .dependency_container import container
+        service = container.resolve(StorageManager)
+    except Exception:
+        service = _get_or_create_storage_manager()
+    _storage_manager_instance = service
+    return service
+
+
+def __getattr__(name: str):
+    # 向后兼容：保留模块级 `storage_manager` 别名，改为惰性解析
+    if name == "storage_manager":
+        return get_storage_manager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

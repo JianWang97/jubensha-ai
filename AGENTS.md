@@ -28,6 +28,27 @@ npm run generate-api      # regenerate OpenAPI client from http://localhost:8010
 
 > The frontend dev server is hot-reloading. Don't restart it if a port is already occupied.
 
+### Dev dependencies (hybrid Docker mode)
+
+`docker-compose.dev.yml` runs only PostgreSQL + MinIO for local dev; backend and frontend run on the host. No restart policy — containers stay stopped until started manually.
+
+```bash
+docker compose -f docker-compose.dev.yml up -d   # start db (localhost:5432) + minio (9000/9001)
+docker compose -f docker-compose.dev.yml down    # stop (add -v to wipe data)
+```
+
+`docker-compose.yml` (root) is the production all-in-one deployment; don't use it for daily dev.
+
+### Docker (one-click deploy)
+```bash
+docker compose up -d --build   # frontend :8009, backend :8010, Postgres 16 (internal)
+docker compose down -v         # stop and wipe data volumes
+```
+
+- Root `docker-compose.yml` + `backend/Dockerfile` + `frontend/Dockerfile`. Config comes from the root `.env`; compose overrides `DB_HOST=db` and defaults `FILE_STORAGE=dir`.
+- The frontend image bakes in `NEXT_PUBLIC_API_URL` (browser → backend URL) at build time — rebuild the frontend image if it changes.
+- Data volumes: `pgdata` (Postgres), `backend_static` (/app/static), `backend_data` (/app/.data).
+
 ---
 
 ## Backend Architecture
@@ -62,7 +83,7 @@ See [DEPENDENCY_INJECTION_MIGRATION.md](backend/docs/DEPENDENCY_INJECTION_MIGRAT
 Unified JWT middleware in [`backend/src/core/auth_middleware.py`](backend/src/core/auth_middleware.py):
 - Path-regex policies: `NONE` / `OPTIONAL` / `REQUIRED` / `ADMIN`
 - Injects `request.state.current_user` and `request.state.is_authenticated`
-- Some routes still use `Depends(get_current_active_user)` from [`auth_dependencies.py`](backend/src/core/auth_dependencies.py) — both approaches coexist
+- Routes read the user via helpers from the middleware module (e.g. `Depends(get_current_active_user_from_request)`) — this is the single auth path; token verification itself lives in `AuthService` (`verify_token` / `get_user_from_token`), also reused by the WebSocket endpoint
 
 See [AUTH_MIDDLEWARE_GUIDE.md](backend/docs/AUTH_MIDDLEWARE_GUIDE.md) for usage.
 
@@ -79,6 +100,24 @@ See [AUTH_MIDDLEWARE_GUIDE.md](backend/docs/AUTH_MIDDLEWARE_GUIDE.md) for usage.
 - Core logic in [`backend/src/core/websocket_server.py`](backend/src/core/websocket_server.py)
 - Message routing by `type` field to handler registry
 - Sessions map: `session_id → GameSession`, `websocket → session_id`
+
+### Script Generation (ReAct Agent)
+
+AI 剧本生成走 WebSocket 上的分步 Agent 流程（非黑盒 HTTP）：
+
+- Agent: [`backend/src/agents/script_generation_agent.py`](backend/src/agents/script_generation_agent.py) — ReAct 循环（thought → tool call → observation），工具即生成步骤：`save_script_info / save_background_story / save_characters / save_locations / save_evidence / save_game_phases / finish`。每步独立事务落库；校验失败作为 observation 回喂 LLM 自我修正；`finish` 时缺少 game_phases 会补默认六阶段。
+- WS 消息：客户端发 `start_script_generation`（script_id/theme/player_count/script_type）、`cancel_script_generation`、`get_script_generation_state`（断线回放）；服务端推 `script_generation_event`（step_start/thought/action/observation/step_end/done/error/cancelled）与完成后的 `script_data_update`。
+- 思考透出：`llm_service.py` 的 `LLMResponse.reasoning_content`、`chat_completion_stream_chunks` 与 `split_think_tags` 负责分离 reasoning 与正式内容。
+- 前端：`scriptGenerationStore.ts` + `ScriptGenerationPanel.tsx`（步骤时间线 + 事件流），入口 `pages/script-manager/create.tsx`；`websocketStore.connect(scriptId, { autoEdit: false })` 可避免连接时自动进入编辑模式。
+
+### Script Editing (ReAct Agent)
+
+AI 剧本对话式编辑同样走 ReAct Agent（替代旧的 categorize → parse → execute 两段式管线）：
+
+- Agent: [`backend/src/agents/script_editing_agent.py`](backend/src/agents/script_editing_agent.py) — 结构镜像生成 Agent（`_emit` / `run()` / tools 模式 + JSON 行动降级 / 四件套事件）。先 `plan` 规划再逐个调用工具；批量创建必须逐个 add；校验失败作为 observation 回喂自我修正。
+- 工具：角色/证据/场景 add/update/delete（构造 `EditInstruction` 复用 `ScriptEditorService.execute_instruction` 的校验与增量落库）、`update_script_info`、`update_background_story`、game_phases 四工具（`ScriptRepository` 新增 flush-only 方法）、`bind_character_voice`（音色匹配逻辑在 `src/services/tts_voices.py`，与 `/api/tts/voices` 共用）、`finish`。
+- 事务：Agent 共享编辑会话的长寿命 db_session，工具只 flush，commit 由 WS handler 在 `successful_ops > 0` 时统一执行。`plan_only=True` 时工具在 SAVEPOINT 内执行并回滚（只校验不落库），供 HTTP `/api/script-editor/parse-instruction` 返回解析计划。
+- 事件契约不变：`script_edit_event`（`{type, step, step_name, content, kind, data, timestamp}`），step 取值改为工具域（plan/characters/evidence/locations/script_info/background_story/game_phases/voice，中文名映射在 `EDIT_STEP_NAME`）；`edit_result` 由 handler 按 `result.tool_results` 逐条广播。
 
 ---
 

@@ -1,346 +1,170 @@
 import AppLayout from '@/components/AppLayout';
 import AuthGuard from '@/components/AuthGuard';
+import ScriptGenerationPanel from '@/components/ScriptGenerationPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import scriptService, { GenerateScriptContentRequest, GeneratedScriptInfo } from '@/services/scriptService';
-import { ArrowRight, BookOpen, Lightbulb, PenTool, Sparkles, Wand2 } from 'lucide-react';
-import { useRouter } from 'next/router';
-import React, { useState } from 'react';
+import { ScriptsService } from '@/client';
+import { useAuthStore } from '@/stores/authStore';
+import { useScriptGenerationStore } from '@/stores/scriptGenerationStore';
+import { useWebSocketStore } from '@/stores/websocketStore';
+import { ArrowRight, Lightbulb, Loader2, PenTool, Users, BookOpen } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-interface InspirationOption {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  color: string;
-}
-
-const inspirationOptions: InspirationOption[] = [
-  {
-    id: 'random-theme',
-    title: '随机主题生成',
-    description: '让AI为你生成一个独特的剧本主题，激发创作灵感',
-    icon: <Sparkles className="w-8 h-8" />,
-    color: 'from-purple-500 to-pink-500'
-  },
-  {
-    id: 'one-sentence',
-    title: '一句话开始',
-    description: '输入一句话，让AI帮你扩展成完整的剧本',
-    icon: <PenTool className="w-8 h-8" />,
-    color: 'from-green-500 to-emerald-500'
-  }
-];
-
 const scriptTypes = [
-  { value: 'mystery', label: '推理悬疑' },
-  { value: 'emotional', label: '情感治愈' },
-  { value: 'horror', label: '恐怖惊悚' },
-  { value: 'comedy', label: '欢乐聚会' },
-  { value: 'historical', label: '古风历史' },
-  { value: 'modern', label: '现代都市' }
+  { value: '推理', label: '推理悬疑' },
+  { value: '情感', label: '情感治愈' },
+  { value: '恐怖', label: '恐怖惊悚' },
+  { value: '欢乐', label: '欢乐聚会' },
+  { value: '古风', label: '古风历史' },
+  { value: '现代', label: '现代都市' }
 ];
 
-const playerCounts = [
-  { value: '4', label: '4人' },
-  { value: '5', label: '5人' },
-  { value: '6', label: '6人' },
-  { value: '7', label: '7人' },
-  { value: '8', label: '8人' },
-  { value: '9+', label: '9人以上' }
-];
+const playerCounts = ['4', '5', '6', '7', '8'];
 
 export default function CreateScript() {
-  const router = useRouter();
-  const [selectedInspiration, setSelectedInspiration] = useState<string>('');
-  const [inspirationInput, setInspirationInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedTheme, setGeneratedTheme] = useState('');
-  const [isGeneratingInfo, setIsGeneratingInfo] = useState(false);
-  const [generatedInfo, setGeneratedInfo] = useState<GeneratedScriptInfo | null>(null);
-  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
-  
-  // 基础信息表单
-  const [formData, setFormData] = useState({
-    title: '',
-    type: '',
-    playerCount: '',
-    description: ''
-  });
+  const [theme, setTheme] = useState('');
+  const [playerCount, setPlayerCount] = useState('6');
+  const [scriptType, setScriptType] = useState('推理');
+  const [isCreating, setIsCreating] = useState(false);
+  const [phase, setPhase] = useState<'form' | 'generating'>('form');
 
-  const handleInspirationSelect = (inspirationId: string) => {
-    setSelectedInspiration(inspirationId);
-    
-    if (inspirationId === 'random-theme') {
-      generateRandomTheme();
+  const hasRequestedReplay = useRef(false);
+  const hasToastedDone = useRef(false);
+
+  const { user } = useAuthStore();
+  const { connect, sendMessage } = useWebSocketStore();
+  const genStatus = useScriptGenerationStore((s) => s.status);
+
+  // 页面挂载时：若有进行中的生成任务且 WS 已连接，请求状态重放（覆盖刷新/重连场景）
+  useEffect(() => {
+    if (hasRequestedReplay.current) return;
+    const genState = useScriptGenerationStore.getState();
+    const wsState = useWebSocketStore.getState();
+    if (genState.status === 'running' && wsState.isConnected) {
+      hasRequestedReplay.current = true;
+      wsState.sendMessage({ type: 'get_script_generation_state' });
+      setPhase('generating');
     }
-  };
+  }, []);
 
-  const generateRandomTheme = async () => {
-    setIsGenerating(true);
-    // 模拟AI生成主题
-    const themes = [
-      '神秘的古堡中发生了一起离奇的失踪案，每个人都有不可告人的秘密',
-      '一场暴雨夜，几个陌生人被困在偏僻的山庄里，死神悄然降临',
-      '校园里流传着诡异的都市传说，而真相比传说更加可怕',
-      '豪华游轮上的假面舞会，面具下隐藏着复仇的怒火',
-      '时光倒流的咖啡馆，每个顾客都在寻找失去的记忆'
-    ];
-    
-    setTimeout(() => {
-      const randomTheme = themes[Math.floor(Math.random() * themes.length)];
-      setGeneratedTheme(randomTheme);
-      setIsGenerating(false);
-    }, 2000);
-  };
+  // 生成完成时提示一次
+  useEffect(() => {
+    if (genStatus === 'done' && !hasToastedDone.current) {
+      hasToastedDone.current = true;
+      toast.success('剧本生成完成！');
+    }
+    if (genStatus !== 'done') {
+      hasToastedDone.current = false;
+    }
+  }, [genStatus]);
 
-  const generateScriptInfo = async () => {
-    if (!generatedTheme && !inspirationInput) {
-      toast.error('请先选择一个灵感主题');
+  const handleStartCreation = async () => {
+    if (!theme.trim()) {
+      toast.error('请先输入剧本主题');
       return;
     }
 
-    setIsGeneratingInfo(true);
+    setIsCreating(true);
     try {
-      const theme = generatedTheme || inspirationInput;
-      const response = await scriptService.generateScriptInfo({
-        theme,
-        script_type: formData.type || undefined,
-        player_count: formData.playerCount || undefined
+      // 1. 创建剧本骨架（占位标题，后续由 Agent 填充正式内容）
+      const placeholderTitle = theme.trim().slice(0, 20) || '未命名剧本';
+      const response = await ScriptsService.createScriptApiScriptsPost({
+        title: placeholderTitle,
+        description: '',
+        player_count: parseInt(playerCount, 10),
+        estimated_duration: 180,
+        difficulty: 'medium',
+        category: scriptType,
+        tags: [],
+        author: user?.nickname || user?.username || null,
+        inspiration_type: 'one-sentence',
+        inspiration_content: theme.trim()
       });
-      
-      setGeneratedInfo(response);
-      // 自动填充表单
-      setFormData({
-        title: response.title,
-        type: response.suggested_type,
-        playerCount: response.suggested_player_count,
-        description: response.description
-      });
-      
-      toast.success('AI已为您生成剧本基础信息！');
-    } catch (error) {
-      console.error('生成剧本信息失败:', error);
-      toast.error('生成失败，请稍后重试');
-    } finally {
-      setIsGeneratingInfo(false);
-    }
-  };
 
-  const handleCreateScript = async () => {
-    try {
-      setIsGeneratingContent(true);
-      
-      // 准备创建剧本的数据
-      const scriptData = {
-        title: formData.title,
-        description: formData.description,
-        player_count: parseInt(formData.playerCount),
-        estimated_duration: 180, // 默认3小时
-        difficulty_level: 'medium', // 默认中等难度
-        category: formData.type || '推理', // 使用表单中的类型作为分类
-        tags: [], // 默认空标签
-        // 自定义字段用于存储灵感信息
-        inspiration_type: selectedInspiration,
-        inspiration_content: selectedInspiration === 'random-theme' ? generatedTheme : inspirationInput,
-        background_story: generatedInfo?.background || ''
+      const scriptId = response.data?.id;
+      if (!response.success || !scriptId) {
+        throw new Error(response.message || '创建剧本失败');
+      }
+
+      // 2. 初始化生成状态并建立 WebSocket 连接（不自动进入编辑模式）
+      const genStore = useScriptGenerationStore.getState();
+      genStore.reset();
+      genStore.setScriptId(scriptId);
+      connect(scriptId, { autoEdit: false });
+      setPhase('generating');
+
+      // 3. 等待连接就绪后发送生成指令
+      const startPayload = {
+        type: 'start_script_generation',
+        script_id: scriptId,
+        theme: theme.trim(),
+        player_count: parseInt(playerCount, 10),
+        script_type: scriptType
       };
-      
-      console.log('Creating script with data:', scriptData);
-      
-      // 调用API创建剧本
-      const response = await scriptService.createScript(scriptData);
-      
-      if (response && response.id) {
-        toast.success('剧本创建成功！正在生成角色和证据...');
-        
-        // 自动生成角色和证据
-        try {
-          const theme = selectedInspiration === 'random-theme' ? generatedTheme : inspirationInput;
-          const contentRequest: GenerateScriptContentRequest = {
-            script_id: response.id,
-            theme: theme,
-            background_story: generatedInfo?.background || '',
-            player_count: parseInt(formData.playerCount),
-            script_type: formData.type
-          };
-          
-          const contentResponse = await scriptService.generateScriptContent(contentRequest);
-          
-          toast.success(`成功生成${contentResponse.characters.length}个角色和${contentResponse.evidence.length}个证据！`);
-        } catch (contentError) {
-          console.error('生成角色和证据失败:', contentError);
-          toast.warning('剧本创建成功，但角色和证据生成失败，您可以稍后手动添加');
+      const sendWhenOpen = (attempts: number) => {
+        const ws = useWebSocketStore.getState().ws;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          sendMessage(startPayload);
+          useScriptGenerationStore.getState().setStatus('running');
+        } else if (attempts < 50) {
+          setTimeout(() => sendWhenOpen(attempts + 1), 100);
+        } else {
+          toast.error('WebSocket 连接失败，请刷新页面重试');
         }
-        
-        // 跳转到编辑页面
-        router.push(`/script-manager/edit/${response.id}`);
-      } 
+      };
+      sendWhenOpen(0);
     } catch (error) {
       console.error('创建剧本失败:', error);
       toast.error('创建剧本失败，请稍后重试');
     } finally {
-      setIsGeneratingContent(false);
+      setIsCreating(false);
     }
   };
 
-  const renderInspirationStep = () => (
-    <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-4">
-          <Lightbulb className="w-8 h-8 text-white" />
-        </div>
-        <h1 className="text-3xl font-bold text-white mb-2">开始你的创作之旅</h1>
-        <p className="text-slate-400 text-lg">选择一个灵感启发方式，让创意自由流淌</p>
-      </div>
+  const handleBackToForm = () => {
+    useScriptGenerationStore.getState().reset();
+    setPhase('form');
+  };
 
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        {inspirationOptions.map((option) => (
-          <Card 
-            key={option.id}
-            className={`cursor-pointer transition-all duration-300 hover:scale-105 border-2 ${
-              selectedInspiration === option.id 
-                ? 'border-purple-500 bg-slate-800/80' 
-                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-            }`}
-            onClick={() => handleInspirationSelect(option.id)}
-          >
-            <CardHeader className="text-center pb-4">
-              <div className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r ${option.color} rounded-full mx-auto mb-4`}>
-                <div className="text-white">{option.icon}</div>
-              </div>
-              <CardTitle className="text-white text-xl">{option.title}</CardTitle>
-              <CardDescription className="text-slate-400">
-                {option.description}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
-
-      {/* 根据选择的灵感类型显示不同的输入界面 */}
-      {selectedInspiration === 'random-theme' && (
-        <Card className="bg-slate-800/80 border-slate-700 mb-6">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              AI生成的主题
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isGenerating ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-                <span className="ml-3 text-slate-400">正在生成创意主题...</span>
-              </div>
-            ) : generatedTheme ? (
-              <div className="bg-slate-900/50 rounded-lg p-4">
-                <p className="text-white text-lg leading-relaxed">{generatedTheme}</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-3"
-                  onClick={generateRandomTheme}
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  重新生成
-                </Button>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      )}
-
-      {selectedInspiration === 'one-sentence' && (
-        <Card className="bg-slate-800/80 border-slate-700 mb-6">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <PenTool className="w-5 h-5 text-green-400" />
-              输入你的创意起点
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              placeholder="例如：一个雨夜，图书馆里发生了奇怪的事情..."
-              value={inspirationInput}
-              onChange={(e) => setInspirationInput(e.target.value)}
-              className="bg-slate-900/50 border-slate-600 text-white min-h-[100px]"
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {selectedInspiration && (
-        <div className="flex justify-center">
-          <Button 
-            onClick={generateScriptInfo}
-            disabled={isGeneratingInfo || (!generatedTheme && !inspirationInput)}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
-          >
-            {isGeneratingInfo ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                AI正在生成中...
-              </>
-            ) : (
-              <>
-                <Wand2 className="w-4 h-4 mr-2" />
-                生成剧本基础信息
-              </>
-            )}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderDetailsStep = () => (
+  const renderForm = () => (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mb-4">
-          <BookOpen className="w-8 h-8 text-white" />
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-brass/15 border border-brass/40 rounded-full mb-4">
+          <Lightbulb className="w-8 h-8 text-brass" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">完善剧本信息</h1>
-        <p className="text-slate-400 text-lg">填写一些基础信息，让你的剧本更加完整</p>
+        <h1 className="text-3xl font-dossier text-paper mb-2">开始你的创作之旅</h1>
+        <p className="text-mist text-lg">输入一句话主题，AI 创作 Agent 将为你逐步生成完整剧本</p>
       </div>
 
-      {generatedInfo && (
-        <Card className="bg-slate-800/80 border-slate-700 mb-6">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Wand2 className="w-5 h-5 text-purple-400" />
-              AI生成的背景故事
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mt-4 p-4 bg-slate-900/50 rounded-lg">
-              <p className="text-slate-300 text-sm leading-relaxed">{generatedInfo.background}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="bg-slate-800/80 border-slate-700">
-        <CardContent className="p-6 space-y-6">
-          <div>
-            <label className="block text-white font-medium mb-2">剧本标题 *</label>
-            <Input
-              placeholder="给你的剧本起个吸引人的名字"
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              className="bg-slate-900/50 border-slate-600 text-white"
-            />
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-paper flex items-center gap-2">
+            <PenTool className="w-5 h-5 text-brass" />
+            一句话开始
+          </CardTitle>
+          <CardDescription className="text-mist">
+            描述你想要的剧本故事，AI 将实时展示创作过程
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Textarea
+            placeholder="例如：一个雨夜，图书馆里发生了奇怪的事情..."
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            className="min-h-[120px] font-dossier"
+          />
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-white font-medium mb-2">剧本类型 *</label>
-              <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
-                <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
+              <label className="flex items-center gap-1.5 text-paper font-medium mb-2">
+                <BookOpen className="w-4 h-4 text-brass" />
+                剧本类型
+              </label>
+              <Select value={scriptType} onValueChange={setScriptType}>
+                <SelectTrigger>
                   <SelectValue placeholder="选择剧本类型" />
                 </SelectTrigger>
                 <SelectContent>
@@ -354,44 +178,37 @@ export default function CreateScript() {
             </div>
 
             <div>
-              <label className="block text-white font-medium mb-2">玩家人数 *</label>
-              <Select value={formData.playerCount} onValueChange={(value) => setFormData({...formData, playerCount: value})}>
-                <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
+              <label className="flex items-center gap-1.5 text-paper font-medium mb-2">
+                <Users className="w-4 h-4 text-brass" />
+                玩家人数
+              </label>
+              <Select value={playerCount} onValueChange={setPlayerCount}>
+                <SelectTrigger>
                   <SelectValue placeholder="选择人数" />
                 </SelectTrigger>
                 <SelectContent>
                   {playerCounts.map((count) => (
-                    <SelectItem key={count.value} value={count.value}>
-                      {count.label}
+                    <SelectItem key={count} value={count}>
+                      {count}人
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
-
-          <div>
-            <label className="block text-white font-medium mb-2">剧本简介</label>
-            <Textarea
-              placeholder="简单描述一下你的剧本故事背景和特色..."
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              className="bg-slate-900/50 border-slate-600 text-white min-h-[120px]"
-            />
-          </div>
         </CardContent>
       </Card>
 
       <div className="flex justify-center mt-8">
-        <Button 
-          onClick={handleCreateScript}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8"
-          disabled={!formData.title || !formData.type || !formData.playerCount || isGeneratingContent}
+        <Button
+          onClick={handleStartCreation}
+          disabled={!theme.trim() || isCreating}
+          className="bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 px-8"
         >
-          {isGeneratingContent ? (
+          {isCreating ? (
             <>
-              <div className="w-5 h-5 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              正在生成角色和证据...
+              <Loader2 className="w-5 h-5 mr-2 animate-spin border-brass" />
+              正在创建剧本...
             </>
           ) : (
             <>
@@ -404,11 +221,21 @@ export default function CreateScript() {
     </div>
   );
 
+  const renderGenerating = () => (
+    <div>
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-dossier text-paper mb-1">AI 正在创作你的剧本</h1>
+        <p className="text-mist">你可以实时看到 Agent 的每一步思考与操作</p>
+      </div>
+      <ScriptGenerationPanel onReset={handleBackToForm} />
+    </div>
+  );
+
   return (
     <AuthGuard>
-      <AppLayout >
-        <div className="min-h-screen bg-slate-900 py-8 px-4">
-          {!selectedInspiration || !generatedInfo ? renderInspirationStep() : renderDetailsStep()}
+      <AppLayout>
+        <div className="min-h-screen bg-gradient-to-b from-ink to-[#10141C] py-8 px-4">
+          {phase === 'form' ? renderForm() : renderGenerating()}
         </div>
       </AppLayout>
     </AuthGuard>

@@ -32,3 +32,34 @@ class TTSService:
             model=config.model,
             **(config.extra_params or {})
         )
+
+
+# 模块级缓存，保证容器单例与各处获取到的实例一致
+_tts_service_instance: BaseTTSService | None = None
+
+
+def _get_or_create_tts_service() -> BaseTTSService:
+    """创建或返回缓存的TTS服务实例（作为DI容器的注册工厂）"""
+    global _tts_service_instance
+    if _tts_service_instance is None:
+        from ..core.config import config
+        _tts_service_instance = TTSService.from_config(config.tts_config)
+    return _tts_service_instance
+
+
+def get_tts_service() -> BaseTTSService:
+    """获取全局TTS服务实例
+
+    优先从DI容器解析（需先调用 configure_services()）；
+    容器未配置时回退到按配置创建，保持与每次 from_config 等效的行为。
+    """
+    global _tts_service_instance
+    if _tts_service_instance is not None:
+        return _tts_service_instance
+    try:
+        from ..core.dependency_container import container
+        service = container.resolve(BaseTTSService)
+    except Exception:
+        service = _get_or_create_tts_service()
+    _tts_service_instance = service
+    return service

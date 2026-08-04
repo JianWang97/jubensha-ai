@@ -36,13 +36,23 @@ def main():
     
     host = "0.0.0.0"  # 改为0.0.0.0允许外部访问
     port = int(os.getenv("PORT", 8010))
-    
+    reload = os.getenv("RELOAD", "false").lower() == "true"
+
+    if reload:
+        print("🔁 热重载已开启，代码变更后自动重启")
     print(f"🌐 服务器地址: http://{host}:{port}")
     print(f"🎮 游戏页面: http://{host}:{port}")
     print("\n按 Ctrl+C 停止服务器")
     
     try:
-        uvicorn.run(app, host=host, port=port, log_level="info")
+        uvicorn.run(
+            "main:app",
+            host=host,
+            port=port,
+            log_level="info",
+            reload=reload,
+            reload_dirs=["src", "main.py"],
+        )
     except KeyboardInterrupt:
         print("\n👋 服务器已停止")
 

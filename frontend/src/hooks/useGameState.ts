@@ -22,7 +22,7 @@ export interface GameResult {
 }
 
 export const useGameState = (scriptId?: number) => {
-  const { isConnected, gameState, sendMessage, startGame, nextPhase, resetGame } = useWebSocket(scriptId);
+  const { isConnected, gameState, startGame, nextPhase, resetGame } = useWebSocket(scriptId);
   // 使用 client services 替代 useApiClient
   const getCharacters = async (scriptId: number) => {
     const response = await Service.getCharactersApiCharactersScriptIdCharactersGet(scriptId);

@@ -2,10 +2,12 @@ import "@/styles/globals.css";
 import "@/styles/custom-scrollbar.css";
 import React from 'react';
 import type { AppProps } from "next/app";
+import { useRouter } from 'next/router';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useEffect, useState, useCallback } from 'react';
+import PageLoader from '@/components/PageLoader';
 
 // SSR安全的hooks
 const useSSRSafeState = (initialValue: any) => {
@@ -40,13 +42,13 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="min-h-screen bg-ink flex items-center justify-center">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">出现了一些问题</h2>
-            <p className="text-gray-400 mb-6">页面遇到了错误，请刷新页面重试</p>
+            <h2 className="font-dossier text-2xl font-semibold text-paper mb-4">出现了一些问题</h2>
+            <p className="text-mist mb-6">页面遇到了错误，请刷新页面重试</p>
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              className="px-6 py-3 bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 rounded-sm transition-colors"
             >
               刷新页面
             </button>
@@ -60,18 +62,20 @@ class ErrorBoundary extends React.Component<
 }
 
 export default function App({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+  const [routeLoading, setRouteLoading] = useState(false);
   const [isInitialized, setIsInitialized, isClient] = useSSRSafeState(false);
   const [authLoading, setAuthLoading] = useSSRSafeState(true);
   
   // 始终调用useAuthStore，但只在客户端使用其功能
-  const authStore = useAuthStore();
-  
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+
   const safeCheckAuth = useCallback(async () => {
     if (isClient) {
-      return authStore.checkAuth();
+      return checkAuth();
     }
     return Promise.resolve();
-  }, [isClient, authStore.checkAuth]);
+  }, [isClient, checkAuth]);
 
   // 初始化认证状态
   useEffect(() => {
@@ -89,15 +93,31 @@ export default function App({ Component, pageProps }: AppProps) {
     };
 
     initAuth();
-  }, [isClient, safeCheckAuth]);
+  }, [isClient, safeCheckAuth, setIsInitialized, setAuthLoading]);
+
+  // 路由切换进度条
+  useEffect(() => {
+    const handleStart = () => setRouteLoading(true);
+    const handleComplete = () => setRouteLoading(false);
+
+    router.events.on('routeChangeStart', handleStart);
+    router.events.on('routeChangeComplete', handleComplete);
+    router.events.on('routeChangeError', handleComplete);
+
+    return () => {
+      router.events.off('routeChangeStart', handleStart);
+      router.events.off('routeChangeComplete', handleComplete);
+      router.events.off('routeChangeError', handleComplete);
+    };
+  }, [router]);
 
   // 显示加载状态
   if (!isClient || !isInitialized || authLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-ink flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-500 mx-auto mb-4" />
-          <p className="text-gray-400">正在初始化应用...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-brass mx-auto mb-4" />
+          <p className="text-mist">正在初始化应用...</p>
         </div>
       </div>
     );
@@ -105,15 +125,16 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <ErrorBoundary>
+      <PageLoader visible={routeLoading} />
       <Component {...pageProps} />
       <Toaster
         position="top-right"
         theme="dark"
         toastOptions={{
           style: {
-            background: '#1e293b',
-            color: '#e2e8f0',
-            border: '1px solid #7c3aed',
+            background: '#151A24',
+            color: '#E8E4DA',
+            border: '1px solid #C9A15F',
           },
         }}
       />

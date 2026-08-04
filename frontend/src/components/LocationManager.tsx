@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ScriptLocation as Location, LocationPromptRequest, ImageType } from '@/client';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ScriptLocation as Location, ImageType } from '@/client';
 import { 
   Service,
 } from '@/client';
@@ -17,26 +17,20 @@ import ImageSelector from '@/components/ImageSelector';
 
 interface LocationManagerProps {
   scriptId: string;
+  onCountChange?: (count: number) => void;
 }
 
 const LocationManager: React.FC<LocationManagerProps> = ({
-  scriptId
+  scriptId,
+  onCountChange
 }) => {
   // 场景相关状态
   const [locations, setLocations] = useState<Location[]>([]);
   const [showLocationForm, setShowLocationForm] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLocationFormFullscreen, setIsLocationFormFullscreen] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
   // 使用 client services
-  const getLocations = async (scriptId: number) => {
-    const response = await Service.getLocationsApiLocationsScriptIdLocationsGet(scriptId);
-    return response.data;
-  };
-  
   const createLocation = async (request: Location) => {
     const response = await Service.createLocationApiLocationsScriptIdLocationsPost(Number(scriptId), request);
     return response.data;
@@ -53,12 +47,6 @@ const LocationManager: React.FC<LocationManagerProps> = ({
   };
   
 
-  
-  const generateLocationPrompt = async (request: LocationPromptRequest) => {
-    const response = await Service.generateLocationPromptApiLocationsLocationsGeneratePromptPost(request);
-    return response;
-  };
-
   const [locationForm, setLocationForm] = useState<Partial<Location>>({
     name: '',
     description: '',
@@ -68,7 +56,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
   });
   
   // 图片生成相关状态
-  const [imageGenParams, setImageGenParams] = useState({
+  const [, setImageGenParams] = useState({
     positive_prompt: '',
     negative_prompt: '',
     width: 512,
@@ -81,31 +69,46 @@ const LocationManager: React.FC<LocationManagerProps> = ({
   // 可搜索物品输入状态
   const [newSearchableItem, setNewSearchableItem] = useState('');
 
-  useEffect(() => {
-    initLocationForm();
-  }, [scriptId]);
-
-  const initLocationForm = async () => {
+  const initLocationForm = useCallback(async () => {
     if(scriptId){
       try {
-        const response = await getLocations(Number(scriptId));
+        const response = await Service.getLocationsApiLocationsScriptIdLocationsGet(Number(scriptId));
         // API返回的是ScriptResponse格式，数据在data.locations中
-        if(response && Array.isArray(response.locations)){
-          console.log('response.locations', response.locations);
-          setLocations(response.locations);
+        const data = response.data;
+        if(data && Array.isArray(data.locations)){
+          console.log('response.locations', data.locations);
+          setLocations(data.locations);
+          onCountChange?.(data.locations.length);
         } else {
           // 如果返回的格式不正确，设置为空数组
           setLocations([]);
-          console.warn('API返回的场景数据格式不正确:', response);
+          onCountChange?.(0);
+          console.warn('API返回的场景数据格式不正确:', data);
         }
       } catch (error) {
         console.error('获取场景列表失败:', error);
         toast('获取场景列表失败');
         // 出错时也设置为空数组
         setLocations([]);
+        onCountChange?.(0);
       }
     }
-  };
+  }, [scriptId, onCountChange]);
+
+  useEffect(() => {
+    initLocationForm();
+  }, [initLocationForm]);
+
+  // AI 通过对话更新剧本后实时刷新场景列表
+  useEffect(() => {
+    const handleScriptDataUpdate = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'script_data_update') {
+        initLocationForm();
+      }
+    };
+    window.addEventListener('script_edit_result', handleScriptDataUpdate);
+    return () => window.removeEventListener('script_edit_result', handleScriptDataUpdate);
+  }, [initLocationForm]);
 
   // 添加或编辑场景
   const handleSaveLocation = async () => {
@@ -217,98 +220,46 @@ const LocationManager: React.FC<LocationManagerProps> = ({
     }));
   };
 
-  // 生成场景提示词
-  const handleGenerateLocationPrompt = async () => {
-    if (!locationForm.name?.trim() || !locationForm.description?.trim()) {
-      toast('请先填写场景名称和描述');
-      return;
-    }
-
-    setIsGeneratingPrompt(true);
-    try {
-      const request = {
-        location_name: locationForm.name,
-        location_description: locationForm.description,
-        script_theme: '', // 可以从剧本信息中获取
-        style_preference: '', // 可以让用户选择
-        is_crime_scene: locationForm.is_crime_scene || false
-      };
-
-      console.log('发送请求:', request);
-      const result = await generateLocationPrompt(request);
-      console.log('接收到的结果:', result);
-      
-      // 更健壮的数据验证
-      if (result && typeof result === 'object') {
-        // 检查是否有直接的prompt字段
-        if (result.prompt) {
-          setImageGenParams(prev => ({ ...prev, positive_prompt: result.prompt }));
-          toast('场景提示词生成成功！');
-          return;
-        }
-        // 检查是否有data.prompt字段
-        if (result.data && result.data.prompt) {
-          setImageGenParams(prev => ({ ...prev, positive_prompt: result.data.prompt }));
-          toast('场景提示词生成成功！');
-          return;
-        }
-        // 检查是否有success字段但没有prompt
-        if (result.success === false) {
-          throw new Error(result.message || '生成失败');
-        }
-      }
-      
-      console.error('意外的响应格式:', result);
-      throw new Error('生成结果格式不正确');
-    } catch (error) {
-      console.error('场景提示词生成失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '未知错误';
-      toast(`场景提示词生成失败：${errorMessage}`);
-    } finally {
-      setIsGeneratingPrompt(false);
-    }
-  };
-
 
 
   return (
-    <Card className="border-blue-500/30 shadow-2xl shadow-blue-500/10 modern-card">
-      <CardHeader className="relative overflow-hidden">
+    <Card className="border-transparent shadow-none">
+      <CardHeader className="px-0 pt-0">
         <div className="relative flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 rounded-lg border border-blue-500/30">
-              <MapPin className="w-6 h-6 text-blue-200" />
+            <div className="flex h-9 w-9 items-center justify-center border border-brass/30 bg-brass/10 rounded-sm">
+              <MapPin className="w-5 h-5 text-brass" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold text-blue-200 flex items-center gap-2">
+              <CardTitle className="text-xl font-bold text-paper flex items-center gap-2">
                 场景管理
               </CardTitle>
-              <p className="text-sm text-blue-300/70 mt-1">管理剧本中的所有场景信息</p>
+              <p className="text-sm text-mist mt-0.5">管理剧本中的所有场景信息</p>
             </div>
           </div>
           <Button 
             onClick={() => setShowLocationForm(true)}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 shadow-lg hover:shadow-blue-500/25 transition-all duration-300 modern-button"
+            className="h-8 rounded-sm border border-brass/40 bg-brass/10 px-3 font-data text-xs tracking-widest text-brass hover:bg-brass/20"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             添加场景
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         {/* 场景列表 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
           {locations?.map((location) => (
-            <Card key={location.id} className="bg-gradient-to-br from-slate-700/80 to-slate-800/80 rounded-2xl border border-blue-500/20 hover:border-blue-400/40 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/20 hover:scale-[1.02] group modern-card location-card">
+            <Card key={location.id} className="rounded-sm border border-line bg-raised transition-colors hover:border-brass/30 group location-card shadow-none">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold text-blue-200 mb-2 group-hover:text-blue-100 transition-colors flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-lg font-bold text-paper mb-2 transition-colors flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-brass/70" />
                       {location.name}
                     </h3>
                     {location.is_crime_scene && (
-                      <Badge variant="destructive" className="text-xs mb-2 bg-red-600/20 text-red-300 border-red-500/30">
+                      <Badge variant="destructive" className="text-xs mb-2 border-thread/30 bg-thread-dim/30 text-thread">
                         <Search className="w-3 h-3 mr-1" /> 案发现场
                       </Badge>
                     )}
@@ -318,7 +269,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                       size="sm"
                       variant="ghost"
                       onClick={() => handleEditLocation(location)}
-                      className="text-blue-300 hover:text-blue-200 hover:bg-blue-800/30 transition-colors duration-300"
+                      className="text-mist hover:text-brass hover:bg-raised"
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -326,7 +277,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDeleteLocation(location)}
-                      className="text-red-300 hover:text-red-200 hover:bg-red-800/30 transition-colors duration-300"
+                      className="text-mist hover:text-thread hover:bg-raised"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -335,11 +286,13 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                 
                 {location.background_image_url && (
                   <div className="mb-4">
-                    <div className="w-full h-36 rounded-xl overflow-hidden border border-blue-500/30 bg-slate-800 shadow-lg group-hover:shadow-blue-500/20 transition-all duration-300">
+                    <div className="w-full h-36 rounded-sm overflow-hidden border border-line bg-ink/50">
+                      {/* 动态后端图片URL（可能来自未纳入 remotePatterns 的主机），保留原生 img 以保证渲染稳定 */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
                         src={location.background_image_url} 
                         alt={location.name}
-                        className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                        className="w-full h-full object-cover transition-transform duration-500"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik02NCA5NkM3NC4yIDk2IDgyIDg4LjIgODIgNzhDODIgNjcuOCA3NC4yIDYwIDY0IDYwQzUzLjggNjAgNDYgNjcuOCA0NiA3OEM0NiA4OC4yIDUzLjggOTYgNjQgOTZaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxwYXRoIGQ9Ik00MCA0MEg4OFY4OEg0MFY0MFoiIHN0cm9rZT0iIzZCNzI4NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PC9zdmc+Cg==';
                         }}
@@ -350,24 +303,24 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                 
                 {!location.background_image_url && (
                   <div className="mb-4">
-                    <div className="w-full h-36 rounded-xl border-2 border-dashed border-blue-500/30 flex items-center justify-center bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-sm">
+                    <div className="w-full h-36 rounded-sm border border-dashed border-line flex items-center justify-center bg-ink/30">
                       <div className="text-center">
-                        <Camera className="w-12 h-12 mb-2 opacity-60 text-blue-300" />
-                        <div className="text-sm text-blue-300 opacity-70">暂无图片</div>
+                        <Camera className="w-10 h-10 mb-2 opacity-60 text-faint" />
+                        <div className="text-sm text-faint">暂无图片</div>
                       </div>
                     </div>
                   </div>
                 )}
                 
-                <div className="mb-4 bg-slate-700/30 p-3 rounded-lg border border-blue-500/20">
-                  <p className="text-blue-300/90 text-sm line-clamp-2">
+                <div className="mb-4 bg-ink/40 p-3 rounded-sm border border-hairline">
+                  <p className="text-mist text-sm line-clamp-2">
                     {location.description}
                   </p>
                 </div>
                 
                 {location.searchable_items && location.searchable_items.length > 0 && (
                   <div>
-                    <p className="text-blue-200 text-xs mb-1 flex items-center gap-1">
+                    <p className="text-mist text-xs mb-1 flex items-center gap-1">
                       <Search className="w-3 h-3" />
                       可搜索物品:
                     </p>
@@ -391,16 +344,16 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         </div>
 
         {locations.length === 0 && (
-          <div className="text-blue-300 text-center py-16 bg-gradient-to-br from-slate-700/30 to-slate-800/30 rounded-2xl border-2 border-dashed border-blue-500/30 backdrop-blur-sm modern-empty-state">
-            <div className="text-6xl mb-6 opacity-60"><MapPin className="w-16 h-16 mx-auto" /></div>
-            <div className="text-xl font-semibold mb-2">暂无场景</div>
-            <div className="text-sm opacity-70 mb-6">点击上方按钮添加第一个场景</div>
+          <div className="text-mist text-center py-14 bg-panel/60 rounded-sm border border-dashed border-line">
+            <div className="text-4xl mb-4 opacity-60"><MapPin className="w-12 h-12 mx-auto text-faint" /></div>
+            <div className="text-lg font-medium mb-1 text-paper">暂无场景</div>
+            <div className="text-sm opacity-70 mb-5">点击上方按钮添加第一个场景</div>
             <div className="flex justify-center">
               <Button 
                 onClick={() => setShowLocationForm(true)}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+                className="h-8 rounded-sm border border-brass/40 bg-brass/10 px-3 font-data text-xs tracking-widest text-brass hover:bg-brass/20"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4 mr-1.5" />
                 立即添加
               </Button>
             </div>
@@ -411,18 +364,18 @@ const LocationManager: React.FC<LocationManagerProps> = ({
         <Dialog open={showLocationForm} onOpenChange={setShowLocationForm}>
           <DialogContent 
             showCloseButton={false}
-            className="bg-gradient-to-br from-slate-900/98 via-blue-950/98 to-slate-900/98 backdrop-blur-xl border-blue-500/40 min-h-[80vh] !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden text-blue-100 custom-scrollbar">
-            <DialogHeader className="border-b border-blue-500/20 pb-6">
+            className="bg-panel border-line min-h-[80vh] !max-w-[95vw] !w-[95vw] max-h-[95vh] overflow-hidden text-paper custom-scrollbar">
+            <DialogHeader className="border-b border-hairline pb-5">
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-200 to-cyan-200 bg-clip-text text-transparent flex items-center gap-3">
-                  <MapPin className="w-6 h-6 text-blue-400" />
+                <DialogTitle className="text-xl font-semibold text-paper flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-brass" />
                   {editingLocation ? '编辑场景' : '添加场景'}
                 </DialogTitle>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={resetForm}
-                  className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 h-auto p-3 rounded-lg transition-all duration-200"
+                  className="text-mist hover:text-paper hover:bg-raised h-auto p-2 rounded-sm"
                 >
                   <X className="w-5 h-5" />
                 </Button>
@@ -431,9 +384,9 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             
             <div className="space-y-6 overflow-y-auto custom-scrollbar dialog-content-scroll flex-1 max-h-[70vh]">
               {/* 第一行：场景图片居中 */}
-              <div className="bg-slate-700/30 rounded-xl p-6 border border-blue-500/20">
-                <h3 className="text-lg font-semibold text-blue-200 mb-4 flex items-center justify-center gap-2">
-                  <Camera className="w-5 h-5" /> 场景图片
+              <div className="bg-ink/40 rounded-sm p-6 border border-hairline">
+                <h3 className="text-base font-semibold text-paper mb-4 flex items-center justify-center gap-2">
+                  <Camera className="w-5 h-5 text-brass/70" /> 场景图片
                 </h3>
                 <div className="flex justify-center">
                   <ImageSelector
@@ -454,31 +407,31 @@ const LocationManager: React.FC<LocationManagerProps> = ({
               </div>
               
               {/* 基本信息 */}
-              <div className="bg-slate-700/30 rounded-xl p-6 border border-blue-500/20">
-                <h3 className="text-lg font-semibold text-blue-200 mb-4 flex items-center gap-2">
+              <div className="bg-ink/40 rounded-xl p-6 border border-hairline">
+                <h3 className="text-lg font-semibold text-mist mb-4 flex items-center gap-2">
                   <MapPin className="w-5 h-5" /> 基本信息
                 </h3>
                 <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-blue-200 mb-2">
+                  <label className="block text-sm font-medium text-mist mb-2">
                     场景名称 *
                   </label>
                   <Input
                     value={locationForm.name || ''}
                     onChange={(e) => setLocationForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400"
+                    className="bg-panel border-line text-paper/85 placeholder:text-faint focus:border-brass/60"
                     placeholder="输入场景名称"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-blue-200 mb-2">
+                  <label className="block text-sm font-medium text-mist mb-2">
                     场景描述 *
                   </label>
                   <Textarea
                     value={locationForm.description || ''}
                     onChange={(e) => setLocationForm(prev => ({ ...prev, description: e.target.value }))}
-                    className="bg-slate-700/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400 resize-none"
+                    className="bg-panel border-line text-paper/85 placeholder:text-faint focus:border-brass/60 resize-none"
                     rows={4}
                     placeholder="详细描述这个场景的环境、氛围等"
                   />
@@ -489,23 +442,23 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                     id="is_crime_scene"
                     checked={locationForm.is_crime_scene || false}
                     onCheckedChange={(checked) => setLocationForm(prev => ({ ...prev, is_crime_scene: checked as boolean }))}
-                    className="border-blue-500/30 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-500"
+                    className="border-line data-[state=checked]:bg-red-600 data-[state=checked]:border-red-500"
                   />
-                  <label htmlFor="is_crime_scene" className="text-sm text-red-300">
+                  <label htmlFor="is_crime_scene" className="text-sm text-thread">
                     标记为案发现场
                   </label>
                 </div>
 
                 {/* 可搜索物品 */}
                 <div>
-                  <label className="block text-sm font-medium text-blue-200 mb-2">
+                  <label className="block text-sm font-medium text-mist mb-2">
                     可搜索物品
                   </label>
                   <div className="flex gap-2 mb-2">
                     <Input
                       value={newSearchableItem}
                       onChange={(e) => setNewSearchableItem(e.target.value)}
-                      className="bg-slate-700/50 border-blue-500/30 text-blue-100 placeholder-blue-400/50 focus:border-blue-400 flex-1"
+                      className="bg-panel border-line text-paper/85 placeholder:text-faint focus:border-brass/60 flex-1"
                       placeholder="输入物品名称"
                       onKeyPress={(e) => e.key === 'Enter' && handleAddSearchableItem()}
                     />
@@ -524,7 +477,7 @@ const LocationManager: React.FC<LocationManagerProps> = ({
                         {item}
                         <button
                           onClick={() => handleRemoveSearchableItem(item)}
-                          className="ml-1 text-red-400 hover:text-red-300"
+                          className="ml-1 text-red-400 hover:text-thread"
                         >
                           ×
                         </button>
@@ -537,11 +490,11 @@ const LocationManager: React.FC<LocationManagerProps> = ({
             </div>
             </div>
 
-            <DialogFooter className="flex justify-center mt-8 pt-6 border-t border-blue-500/20">
+            <DialogFooter className="flex justify-center mt-8 pt-6 border-t border-hairline">
               <Button
                 onClick={handleSaveLocation}
                 disabled={isLoading || !locationForm.name?.trim() || !locationForm.description?.trim()}
-                className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-500 disabled:opacity-50 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                className="h-9 rounded-sm border border-brass/40 bg-brass/10 px-6 font-data text-sm tracking-widest text-brass hover:bg-brass/20 disabled:opacity-50"
               >
                 {isLoading ? (
                   <>

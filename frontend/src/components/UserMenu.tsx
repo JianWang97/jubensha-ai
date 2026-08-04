@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { User, LogOut, Settings, ChevronDown, ArrowRight, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,7 +31,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
       await logout();
       toast.success('已成功登出');
       router.push('/');
-    } catch (error) {
+    } catch {
       toast.error('登出失败');
     } finally {
       setIsLoggingOut(false);
@@ -39,48 +40,13 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
 
   // 未登录状态
   if (!isAuthenticated || !user) {
-    if (collapsed) {
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/10 p-2"
-              title="登录/注册"
-            >
-              <User className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            align="end" 
-            className="w-40 bg-gray-900/95 backdrop-blur-md border-gray-700"
-          >
-            <DropdownMenuItem 
-              className="text-white hover:bg-white/10 cursor-pointer"
-              onClick={() => router.push('/auth/login')}
-            >
-              <ArrowRight className="h-4 w-4 mr-2" />
-              登录
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              className="text-white hover:bg-white/10 cursor-pointer"
-              onClick={() => router.push('/auth/register')}
-            >
-              <UserCheck className="h-4 w-4 mr-2" />
-              注册
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    }
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="text-white hover:bg-white/10 p-2"
+            className="text-mist hover:bg-raised/60 hover:text-paper p-2"
             title="登录/注册"
           >
             <User className="h-4 w-4" />
@@ -88,17 +54,17 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
         </DropdownMenuTrigger>
         <DropdownMenuContent 
           align="end" 
-          className="w-40 bg-gray-900/95 backdrop-blur-md border-gray-700"
+          className="w-40"
         >
           <DropdownMenuItem 
-            className="text-white hover:bg-white/10 cursor-pointer"
+            className="text-paper hover:bg-raised cursor-pointer"
             onClick={() => router.push('/auth/login')}
           >
             <ArrowRight className="h-4 w-4 mr-2" />
             登录
           </DropdownMenuItem>
           <DropdownMenuItem 
-            className="text-white hover:bg-white/10 cursor-pointer"
+            className="text-paper hover:bg-raised cursor-pointer"
             onClick={() => router.push('/auth/register')}
           >
             <UserCheck className="h-4 w-4 mr-2" />
@@ -116,20 +82,23 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
         <Button
           variant="ghost"
           className={cn(
-            "text-white hover:bg-white/10",
-            collapsed ? "p-2" : "flex items-center space-x-2 px-3 py-2 rounded-md",
+            "text-mist hover:bg-raised/60 hover:text-paper",
+            collapsed ? "p-2" : "flex items-center space-x-2 px-3 py-2 rounded-sm",
             variant === 'compact' ? "p-2" : ""
           )}
         >
-          <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
+          <div className="h-8 w-8 rounded-full bg-brass/20 border border-brass/40 flex items-center justify-center">
             {user.avatar_url ? (
-              <img
+              <Image
                 src={user.avatar_url}
                 alt="头像"
+                width={32}
+                height={32}
+                unoptimized
                 className="h-8 w-8 rounded-full object-cover"
               />
             ) : (
-              <User className="h-4 w-4 text-white" />
+              <User className="h-4 w-4 text-brass" />
             )}
           </div>
           {!collapsed && variant !== 'compact' && (
@@ -138,7 +107,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
                 <div className="text-sm font-medium">
                   {user.nickname || user.username}
                 </div>
-                <div className="text-xs text-gray-300">
+                <div className="text-xs text-mist">
                   @{user.username}
                 </div>
               </div>
@@ -150,23 +119,23 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
       
       <DropdownMenuContent 
         align="end" 
-        className="w-56 bg-gray-900/95 backdrop-blur-md border-gray-700"
+        className="w-56"
       >
-        <DropdownMenuLabel className="text-white">
+        <DropdownMenuLabel className="text-paper">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">
               {user.nickname || user.username}
             </p>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-faint">
               {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
         
-        <DropdownMenuSeparator className="bg-gray-700" />
+        <DropdownMenuSeparator />
         
         <DropdownMenuItem 
-          className="text-white hover:bg-white/10 cursor-pointer"
+          className="text-paper hover:bg-raised cursor-pointer"
           onClick={() => router.push('/profile')}
         >
           <Settings className="h-4 w-4 mr-2" />
@@ -174,10 +143,10 @@ const UserMenu: React.FC<UserMenuProps> = ({ collapsed = false, variant = 'defau
         </DropdownMenuItem>
         
         
-        <DropdownMenuSeparator className="bg-gray-700" />
+        <DropdownMenuSeparator />
         
         <DropdownMenuItem 
-          className="text-red-400 hover:bg-red-500/10 cursor-pointer"
+          className="text-thread hover:bg-thread/10 cursor-pointer"
           onClick={handleLogout}
           disabled={isLoggingOut}
         >

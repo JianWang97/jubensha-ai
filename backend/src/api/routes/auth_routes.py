@@ -1,12 +1,11 @@
 """用户认证API路由"""
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from src.services.auth_service import AuthService, ACCESS_TOKEN_EXPIRE_MINUTES
-from src.core.auth_dependencies import get_current_active_user
-from src.core.middleware_dependencies import (
-    get_current_admin_user_middleware,
+from src.core.auth_middleware import (
+    get_current_active_user_from_request,
+    get_current_admin_user_from_request,
 )
 from src.schemas.user_schemas import (
     UserRegister, UserLogin, UserResponse, UserUpdate, PasswordChange,
@@ -17,7 +16,6 @@ from src.core.container_integration import get_db_session_depends
 from src.core.config import config
 
 router = APIRouter(prefix="/api/auth", tags=["用户认证"])
-security = HTTPBearer()
 
 @router.post("/anonymous-login", response_model=Token, summary="匿名登录")
 async def anonymous_login(
@@ -117,18 +115,15 @@ async def login(
 
 @router.get("/me", response_model=UserResponse, summary="获取当前用户信息")
 async def get_current_user_info(
-    request: Request,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user_from_request)
 ):
-    """获取当前用户信息（使用中间件认证）"""
-    # 可以选择使用中间件的用户信息或传统依赖
-    # middleware_user = get_current_active_user_middleware(request)
+    """获取当前用户信息（由认证中间件注入）"""
     return UserResponse.from_orm(current_user)
 
 @router.put("/me", response_model=UserResponse, summary="更新用户资料")
 async def update_profile(
     user_update: UserUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     db: Session = get_db_session_depends()
 ):
     """更新用户资料"""
@@ -155,7 +150,7 @@ async def update_profile(
 @router.post("/change-password", summary="修改密码")
 async def change_password(
     password_data: PasswordChange,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     db: Session = get_db_session_depends()
 ):
     """修改密码"""
@@ -186,7 +181,7 @@ async def change_password(
 
 @router.post("/logout", summary="用户登出")
 async def logout(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user_from_request)
 ):
     """用户登出"""
     # 注意：JWT是无状态的，实际的登出需要在客户端删除令牌
@@ -200,9 +195,9 @@ async def get_users(
     limit: int = 20,
     db: Session = get_db_session_depends()
 ):
-    """获取用户列表（使用中间件管理员认证）"""
+    """获取用户列表（由认证中间件验证管理员权限）"""
     # 使用中间件验证管理员权限
-    current_user = get_current_admin_user_middleware(request)
+    current_user = get_current_admin_user_from_request(request)
     users = db.query(User).filter(User.is_active == True).offset(skip).limit(limit).all()
     return [UserBrief.from_orm(user) for user in users]
 
@@ -210,7 +205,7 @@ async def get_users(
 async def get_user_by_id(
     user_id: int,
     db: Session = get_db_session_depends(),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user_from_request)
 ):
     """获取指定用户信息"""
     user = AuthService.get_user_by_id(db, user_id)
@@ -231,7 +226,7 @@ async def get_user_by_id(
 
 @router.get("/verify-token", summary="验证令牌")
 async def verify_token(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user_from_request)
 ):
     """验证令牌有效性"""
     return {

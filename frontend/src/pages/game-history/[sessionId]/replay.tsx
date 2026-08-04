@@ -1,14 +1,13 @@
-import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '../../../components/AppLayout';
-import { GameEventItem } from '../../../services/gameHistoryService';
 import { useGameHistoryStore } from '../../../stores/gameHistoryStore';
 import ReplayControlDrawer from '@/components/ReplayControlDrawer';
 import CharacterAvatars from '@/components/CharacterAvatars';
 import { ScriptCharacter, Service } from '@/client';
 import { useTTSStore } from '@/stores/ttsStore';
 import { TTSEvent, AudioCache } from '@/types/tts';
+import { AlertTriangle, PhoneOff, SearchX, Theater } from 'lucide-react';
 
 
 
@@ -73,18 +72,6 @@ export default function ReplayPage() {
     }
   }, [detail, loadCharacters]);
   
-  // 调试输出
-  useEffect(() => {
-    console.log('数据状态更新:', {
-      sessionId,
-      eventsLoading,
-      eventsCount: events.length,
-      detailExists: !!detail,
-      error,
-      ttsEventsCount: ttsTimeline.events.length
-    });
-  }, [sessionId, eventsLoading, events.length, detail, error]);
-
   // 计算TTS时间线
   const ttsTimeline = useMemo(() => {
     if (!events.length) return { events: [], totalDurationMs: 0 };
@@ -108,22 +95,20 @@ export default function ReplayPage() {
     return { events: ttsEvents, totalDurationMs: currentTime };
   }, [events]);
 
-  // 更新当前发言角色
+  // 调试输出
   useEffect(() => {
-    const currentEvent = getCurrentEvent();
-    if (currentEvent?.character_name) {
-      setCurrentSpeakingCharacter(currentEvent.character_name);
-    } else {
-      setCurrentSpeakingCharacter(null);
-    }
-  }, [currentEventIndex, currentTimeMs, ttsTimeline.events]);
-
-
-
-
+    console.log('数据状态更新:', {
+      sessionId,
+      eventsLoading,
+      eventsCount: events.length,
+      detailExists: !!detail,
+      error,
+      ttsEventsCount: ttsTimeline.events.length
+    });
+  }, [sessionId, eventsLoading, events.length, detail, error, ttsTimeline.events.length]);
 
   // 查找当前播放事件
-  const getCurrentEvent = () => {
+  const getCurrentEvent = useCallback(() => {
     // 优先使用currentEventIndex来获取当前事件，确保与右侧列表选中项一致
     if (currentEventIndex >= 0 && currentEventIndex < ttsTimeline.events.length) {
       return ttsTimeline.events[currentEventIndex];
@@ -132,7 +117,21 @@ export default function ReplayPage() {
     return ttsTimeline.events.find(
       event => currentTimeMs >= event.startTimeMs && currentTimeMs <= event.endTimeMs
     );
-  };
+  }, [currentEventIndex, currentTimeMs, ttsTimeline.events]);
+
+  // 更新当前发言角色
+  useEffect(() => {
+    const currentEvent = getCurrentEvent();
+    if (currentEvent?.character_name) {
+      setCurrentSpeakingCharacter(currentEvent.character_name);
+    } else {
+      setCurrentSpeakingCharacter(null);
+    }
+  }, [currentEventIndex, currentTimeMs, ttsTimeline.events, getCurrentEvent]);
+
+
+
+
 
   // 懒加载并播放指定事件（含缓存与音量控制）
   const playEvent = useCallback(async (event: TTSEvent) => {
@@ -289,7 +288,7 @@ export default function ReplayPage() {
         }
       }
     }
-  }, [ttsTimeline.events, isPlaying, currentAudio, getCurrentEvent, playEvent, isMuted, volume]);
+  }, [ttsTimeline.events, ttsTimeline.totalDurationMs, isPlaying, currentAudio, currentEventIndex, getCurrentEvent, playEvent, isMuted, volume]);
 
 
 
@@ -320,25 +319,25 @@ export default function ReplayPage() {
       isGamePage={true}
       showSidebar={false}
     >
-      <div className="min-h-screen text-white">
+      <div className="min-h-screen text-paper">
 
         {eventsLoading ? (
           <div className="fixed inset-0 flex items-center justify-center z-20">
-            <div className="bg-black/60 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+            <div className="bg-panel border border-line rounded-sm p-8">
               <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mb-4"></div>
-                <p className="text-gray-300">正在加载回放数据...</p>
-                {sessionId && <p className="text-xs text-gray-500 mt-2">Session: {sessionId}</p>}
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brass mb-4"></div>
+                <p className="text-mist">正在加载回放数据...</p>
+                {sessionId && <p className="text-xs text-faint mt-2 font-data">Session: {sessionId}</p>}
               </div>
             </div>
           </div>
         ) : error ? (
           <div className="fixed inset-0 flex items-center justify-center z-20">
-            <div className="bg-black/60 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+            <div className="bg-panel border border-line rounded-sm p-8">
               <div className="text-center">
-                <div className="text-6xl mb-4">⚠️</div>
-                <h2 className="text-xl font-semibold text-red-300 mb-2">加载失败</h2>
-                <p className="text-gray-400 mb-4">{error}</p>
+                <AlertTriangle className="text-5xl text-thread mx-auto mb-4" />
+                <h2 className="font-dossier text-xl font-semibold text-thread mb-2">加载失败</h2>
+                <p className="text-mist mb-4">{error}</p>
                 <button 
                   onClick={() => {
                     if (sessionId && typeof sessionId === 'string') {
@@ -346,7 +345,7 @@ export default function ReplayPage() {
                       loadAllEvents(sessionId);
                     }
                   }}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-colors"
+                  className="px-4 py-2 bg-brass/10 border border-brass/40 text-brass hover:bg-brass/20 rounded-sm transition-colors"
                 >
                   重试
                 </button>
@@ -355,11 +354,11 @@ export default function ReplayPage() {
           </div>
         ) : !sessionId ? (
           <div className="fixed inset-0 flex items-center justify-center z-20">
-            <div className="bg-black/60 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
+            <div className="bg-panel border border-line rounded-sm p-8">
               <div className="text-center">
-                <div className="text-6xl mb-4">🔍</div>
-                <h2 className="text-xl font-semibold text-yellow-300 mb-2">缺少会话ID</h2>
-                <p className="text-gray-400">无法加载回放数据，请检查URL中的sessionId参数</p>
+                <SearchX className="text-5xl text-brass mx-auto mb-4" />
+                <h2 className="font-dossier text-xl font-semibold text-brass mb-2">缺少会话ID</h2>
+                <p className="text-mist">无法加载回放数据，请检查URL中的sessionId参数</p>
               </div>
             </div>
           </div>
@@ -398,33 +397,33 @@ export default function ReplayPage() {
                     <CharacterAvatars characters={characters} />
                   </div>
                 ) : events.length > 0 ? (
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-4xl shadow-2xl border-4 border-white/20">
-                    🎭
+                  <div className="w-32 h-32 rounded-full bg-raised border border-line flex items-center justify-center">
+                    <Theater className="text-4xl text-brass" />
                   </div>
                 ) : (
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center text-white text-4xl shadow-2xl border-4 border-white/20">
-                    📵
+                  <div className="w-32 h-32 rounded-full bg-raised border border-line flex items-center justify-center">
+                    <PhoneOff className="text-4xl text-brass" />
                   </div>
                 )}
               </div>
             </div>
 
             {/* 底部游戏界面区域 - 类似游戏画面 */}
-            <div className="flex-shrink-0 bg-black/40 backdrop-blur-sm border-t border-white/10 fixed bottom-0 left-0 right-0">
+            <div className="flex-shrink-0 bg-ink/70 border-t border-hairline fixed bottom-0 left-0 right-0">
               {/* 字幕显示区域 */}
               <div className="px-6 py-4 min-h-[120px] flex items-center justify-center">
                 <div className="w-full max-w-4xl">
                   {currentEvent ? (
                     <div className="text-center space-y-2">
-                      <div className="text-lg font-semibold text-white">
+                      <div className="font-dossier text-lg font-semibold text-paper">
                         {currentEvent.character_name || '系统'}
                       </div>
-                      <div className="text-base text-gray-200 bg-black/50 rounded-lg px-4 py-2">
+                      <div className="text-base text-mist bg-panel border border-line rounded-sm px-4 py-2">
                         {currentEvent.content}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center text-gray-400">
+                    <div className="text-center text-faint">
                       等待回放开始...
                     </div>
                   )}

@@ -43,8 +43,26 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: var(--font-geist-sans);
+
+  /* 案卷工作台色板 */
+  --color-ink: #0E1116;
+  --color-panel: #151A24;
+  --color-raised: #1D2532;
+  --color-hairline: #1C2430;
+  --color-line: #262F3D;
+  --color-paper: #E8E4DA;
+  --color-mist: #9AA3AE;
+  --color-faint: #5C6673;
+  --color-brass: #C9A15F;
+  --color-brass-dim: #8A6B3C;
+  --color-thread: #B3473F;
+  --color-thread-dim: #7A2E28;
+
+  /* 案卷字体：卷宗正文（衬线）/ 数据编号（等宽） */
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --font-mono: var(--font-geist-mono);
+  --font-dossier: "Songti SC", "STSong", "SimSun", "Noto Serif SC", serif;
+  --font-data: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -74,14 +92,30 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* 可见键盘焦点：黄铜细框，不依赖浏览器默认 */
+:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
+/* 尊重减少动态偏好：取消装饰性过渡与动画 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* 全局滚动条样式 */
 * {
   /* Firefox */
   scrollbar-width: thin;
-  scrollbar-color: rgba(71, 85, 105, 0.8) rgba(30, 41, 59, 0.3);
+  scrollbar-color: rgba(198, 161, 95, 0.35) rgba(28, 36, 48, 0.6);
 }
 
 /* WebKit 浏览器 (Chrome, Safari, Edge) */
@@ -91,20 +125,15 @@ body {
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(30, 41, 59, 0.3);
-  border-radius: 4px;
+  background: rgba(28, 36, 48, 0.6);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(71, 85, 105, 0.8);
+  background: rgba(198, 161, 95, 0.35);
   border-radius: 4px;
-  border: 1px solid rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(28, 36, 48, 0.5);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 1);
-}
-
-*::-webkit-scrollbar-corner {
-  background: rgba(30, 41, 59, 0.3);
+  background: rgba(198, 161, 95, 0.55);
 }

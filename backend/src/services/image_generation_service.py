@@ -128,5 +128,38 @@ class ImageGenerationServiceFactory:
             # 默认使用ComfyUI
             return ComfyUIImageGenerationService()
 
-# 全局服务实例
-image_generation_service = ImageGenerationServiceFactory.create_service()
+# 模块级缓存，保证容器单例与兼容别名始终是同一实例
+_image_generation_service_instance: Optional[ImageGenerationService] = None
+
+
+def _get_or_create_image_generation_service() -> ImageGenerationService:
+    """创建或返回缓存的图像生成服务实例（作为DI容器的注册工厂）"""
+    global _image_generation_service_instance
+    if _image_generation_service_instance is None:
+        _image_generation_service_instance = ImageGenerationServiceFactory.create_service()
+    return _image_generation_service_instance
+
+
+def get_image_generation_service() -> ImageGenerationService:
+    """获取全局图像生成服务实例
+
+    优先从DI容器解析（需先调用 configure_services()）；
+    容器未配置时回退到本地创建，保持与旧模块级单例一致的行为。
+    """
+    global _image_generation_service_instance
+    if _image_generation_service_instance is not None:
+        return _image_generation_service_instance
+    try:
+        from ..core.dependency_container import container
+        service = container.resolve(ImageGenerationService)
+    except Exception:
+        service = _get_or_create_image_generation_service()
+    _image_generation_service_instance = service
+    return service
+
+
+def __getattr__(name: str):
+    # 向后兼容：保留模块级 `image_generation_service` 别名，改为惰性解析
+    if name == "image_generation_service":
+        return get_image_generation_service()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

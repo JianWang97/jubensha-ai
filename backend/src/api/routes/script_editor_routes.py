@@ -21,7 +21,7 @@ from ...schemas.script_editor import (
     EditResultResponse,
     BatchEditResponse
 )
-from src.core.auth_dependencies import get_current_active_user
+from src.core.auth_middleware import get_current_active_user_from_request
 from src.db.models.user import User
 from ...core.container_integration import get_script_repo_depends, get_script_editor_svc_depends
 
@@ -35,35 +35,44 @@ router = APIRouter(prefix="/api/script-editor", tags=["剧本编辑"])
 @router.post("/parse-instruction", response_model=APIResponse[ParsedInstructionsResponse])
 async def parse_instruction(
     request: ParseInstructionRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[ParsedInstructionsResponse]:
-    """解析用户的自然语言指令"""
+    """解析用户的自然语言指令（经 ScriptEditingAgent 计划模式：只校验不落库）"""
     try:
         # 检查剧本权限
         script = editor_service.script_repository.get_script_by_id(request.script_id)
         if not script:
             raise HTTPException(status_code=404, detail="剧本不存在")
-        
+
         if script.info.author != current_user.username:
             raise HTTPException(status_code=403, detail="无权限编辑此剧本")
-        
-        # 解析指令
-        instructions = await editor_service.parse_user_instruction(
-            request.instruction, request.script_id
+
+        # plan_only：ReAct 循环照跑，工具在 SAVEPOINT 内执行并回滚，
+        # 收集到的工具调用序列即解析结果（来源：ScriptEditingAgent 计划模式）
+        from ...agents.script_editing_agent import ScriptEditingAgent
+        agent = ScriptEditingAgent(
+            script_id=request.script_id,
+            instruction=request.instruction,
+            db_session=editor_service.script_repository.db,
+            plan_only=True,
         )
-        
+        agent_result = await agent.run()
+        instructions = agent_result.get("planned_instructions", [])
+
         response_data = ParsedInstructionsResponse(
             instructions=instructions,
             original_instruction=request.instruction
         )
-        
+
         return APIResponse(
             success=True,
             data=response_data,
-            message="指令解析成功"
+            message="指令解析成功（ScriptEditingAgent 计划模式）"
         )
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"解析指令失败: {str(e)}")
 
@@ -71,7 +80,7 @@ async def parse_instruction(
 @router.post("/execute-instruction", response_model=APIResponse[EditResultResponse])
 async def execute_instruction(
     request: ExecuteInstructionRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[EditResultResponse]:
     """执行单个编辑指令"""
@@ -112,7 +121,7 @@ async def execute_instruction(
 @router.post("/batch-edit", response_model=APIResponse[BatchEditResponse])
 async def batch_edit(
     request: BatchEditRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[BatchEditResponse]:
     """批量执行编辑指令"""
@@ -126,22 +135,25 @@ async def batch_edit(
             raise HTTPException(status_code=403, detail="无权限编辑此剧本")
         
         all_results = []
-        
-        # 逐个处理指令
+
+        # 逐个处理指令：每条自然语言指令跑一个 ScriptEditingAgent（完整执行落库）
+        from ...agents.script_editing_agent import ScriptEditingAgent
         for instruction_text in request.instructions:
             try:
-                # 解析指令
-                instructions = await editor_service.parse_user_instruction(
-                    instruction_text, request.script_id
+                agent = ScriptEditingAgent(
+                    script_id=request.script_id,
+                    instruction=instruction_text,
+                    db_session=editor_service.script_repository.db,
                 )
-                
-                # 执行每个解析出的指令
-                for instruction in instructions:
-                    result = await editor_service.execute_instruction(
-                        instruction, request.script_id
-                    )
-                    all_results.append(result)
-                    
+                agent_result = await agent.run()
+                for tr in agent_result.get("tool_results", []):
+                    all_results.append(EditResult(success=tr["success"], message=tr["message"]))
+                if not agent_result.get("tool_results"):
+                    all_results.append(EditResult(
+                        success=False,
+                        message=f"无法理解该指令: {instruction_text}"
+                    ))
+
             except Exception as e:
                 # 如果某个指令失败，记录错误但继续处理其他指令
                 error_result = EditResult(
@@ -178,7 +190,7 @@ async def batch_edit(
 @router.post("/generate-suggestion", response_model=APIResponse[str])
 async def generate_suggestion(
     request: GenerateSuggestionRequest,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[str]:
     """生成AI编辑建议"""
@@ -209,7 +221,7 @@ async def generate_suggestion(
 @router.get("/script/{script_id}/editing-context", response_model=APIResponse[Dict[str, Any]])
 async def get_editing_context(
     script_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[Dict[str, Any]]:
     """获取剧本编辑上下文信息"""
@@ -253,7 +265,7 @@ async def get_editing_context(
 @router.get("/script/{script_id}/validation", response_model=APIResponse[Dict[str, Any]])
 async def validate_script(
     script_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_request),
     editor_service: ScriptEditorService = get_script_editor_svc_depends()
 ) -> APIResponse[Dict[str, Any]]:
     """验证剧本完整性"""
