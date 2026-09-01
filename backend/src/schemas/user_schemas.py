@@ -7,10 +7,17 @@ from datetime import datetime
 class UserRegister(BaseModel):
     """用户注册模式"""
     username: str = Field(..., min_length=3, max_length=50, description="用户名")
-    email: EmailStr = Field(..., description="邮箱地址")
+    email: Optional[EmailStr] = Field(None, description="邮箱地址（可选）")
     password: str = Field(..., min_length=6, max_length=100, description="密码")
     nickname: Optional[str] = Field(None, max_length=50, description="昵称")
-    
+
+    @validator('email', pre=True)
+    def empty_email_to_none(cls, v):
+        """前端未填写时会传空串，归一化为 None 以跳过邮箱格式校验"""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
     @validator('username')
     def validate_username(cls, v):
         if not v.isalnum() and '_' not in v:
@@ -53,7 +60,7 @@ class UserResponse(BaseModel):
     """用户响应模式"""
     id: int
     username: str
-    email: str
+    email: Optional[str]
     nickname: Optional[str]
     avatar_url: Optional[str]
     bio: Optional[str]
