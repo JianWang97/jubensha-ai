@@ -3,7 +3,7 @@
 export interface User {
   id: number;
   username: string;
-  email: string;
+  email?: string | null;
   nickname?: string;
   avatar_url?: string;
   is_active: boolean;
@@ -14,7 +14,7 @@ export interface User {
 export interface UserProfile {
   id: number;
   username: string;
-  email: string;
+  email?: string | null;
   nickname: string;
   avatar_url?: string;
   bio?: string;
@@ -29,7 +29,7 @@ export interface UserProfile {
 
 export interface UserRegister {
   username: string;
-  email: string;
+  email?: string | null;
   password: string;
   nickname?: string;
 }
@@ -60,7 +60,7 @@ export interface Token {
 export interface UserResponse {
   id: number;
   username: string;
-  email: string;
+  email?: string | null;
   nickname?: string;
   avatar_url?: string;
   is_active: boolean;

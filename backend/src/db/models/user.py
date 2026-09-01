@@ -10,7 +10,8 @@ class User(BaseSQLAlchemyModel):
     
     # 基本信息
     username = Column(String(50), unique=True, nullable=False, index=True, comment="用户名")
-    email = Column(String(100), unique=True, nullable=False, index=True, comment="邮箱")
+    # 邮箱可选：未填写时存 NULL（PostgreSQL 唯一约束允许多个 NULL，空串则会冲突）
+    email = Column(String(100), unique=True, nullable=True, index=True, comment="邮箱")
     hashed_password = Column(String(255), nullable=False, comment="加密密码")
     
     # 个人资料

@@ -91,11 +91,15 @@ class AuthService:
     @staticmethod
     def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
         """认证用户"""
+        # 空标识直接拒绝，避免匹配到 email 为空的账户
+        if not username or not username.strip():
+            return None
+
         # 支持用户名或邮箱登录
         user = db.query(User).filter(
             (User.username == username) | (User.email == username)
         ).first()
-        
+
         if not user:
             return None
         user_dict = user.to_dict()
@@ -110,8 +114,10 @@ class AuthService:
         return db.query(User).filter(User.username == username).first()
     
     @staticmethod
-    def get_user_by_email(db: Session, email: str) -> Optional[User]:
-        """根据邮箱获取用户"""
+    def get_user_by_email(db: Session, email: Optional[str]) -> Optional[User]:
+        """根据邮箱获取用户（email 为空时直接返回 None，避免退化成 IS NULL 查询）"""
+        if not email:
+            return None
         return db.query(User).filter(User.email == email).first()
     
     @staticmethod
@@ -120,22 +126,27 @@ class AuthService:
         return db.query(User).filter(User.id == user_id).first()
     
     @staticmethod
-    def create_user(db: Session, username: str, email: str, password: str, nickname: Optional[str] = None) -> User:
-        """创建用户"""
+    def create_user(db: Session, username: str, email: Optional[str], password: str, nickname: Optional[str] = None) -> User:
+        """创建用户（email 可选，未填写时存 NULL）"""
         # 检查用户名是否已存在
         if AuthService.get_user_by_username(db, username):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="用户名已存在"
             )
-        
-        # 检查邮箱是否已存在
-        if AuthService.get_user_by_email(db, email):
+
+        # 空串归一化为 None：唯一约束下多个 NULL 允许共存，多个 "" 会冲突
+        email = email.strip() if isinstance(email, str) else email
+        if not email:
+            email = None
+
+        # 仅在填写了邮箱时检查重复
+        if email and AuthService.get_user_by_email(db, email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="邮箱已被注册"
             )
-        
+
         # 创建新用户
         hashed_password = AuthService.get_password_hash(password)
         db_user = User(

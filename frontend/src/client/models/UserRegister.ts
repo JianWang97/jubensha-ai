@@ -11,9 +11,9 @@ export type UserRegister = {
      */
     username: string;
     /**
-     * 邮箱地址
+     * 邮箱地址（可选）
      */
-    email: string;
+    email?: (string | null);
     /**
      * 密码
      */

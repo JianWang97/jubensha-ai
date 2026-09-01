@@ -30,7 +30,10 @@ const RegisterPage: React.FC = () => {
   const { register, isLoading, error, clearError } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState<UserRegister & { confirmPassword: string }>({
+  // 表单状态里 email 保持为 string（受控输入不接受 null），提交时才转成可选字段
+  const [formData, setFormData] = useState<
+    Omit<UserRegister, 'email'> & { email: string; confirmPassword: string }
+  >({
     username: '',
     email: '',
     password: '',
@@ -94,9 +97,11 @@ const RegisterPage: React.FC = () => {
     if (!validateForm()) return;
 
     try {
+      const trimmedEmail = formData.email?.trim();
       const registerData: UserRegister = {
         username: formData.username,
-        email: formData.email,
+        // 邮箱可选：留空时不提交该字段
+        ...(trimmedEmail ? { email: trimmedEmail } : {}),
         password: formData.password,
         nickname: formData.nickname,
       };
