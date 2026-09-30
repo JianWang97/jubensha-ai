@@ -69,9 +69,13 @@ class CharacterMemory:
         """
         self._personal_log.append(PersonalEvent(content=content, importance=importance))
         if len(self._personal_log) > self.PERSONAL_LOG_CAPACITY:
-            # 按重要性升序排序，移除最不重要的
-            self._personal_log.sort(key=lambda e: e.importance)
-            self._personal_log.pop(0)
+            # 移除重要性最低的一条（并列时移除最早的），但保持其余条目的时间顺序，
+            # 以免 recall_personal() 的“取最近 N 条”退化为“取最重要 N 条”。
+            min_idx = min(
+                range(len(self._personal_log)),
+                key=lambda i: self._personal_log[i].importance,
+            )
+            self._personal_log.pop(min_idx)
 
     def update_suspicion(self, target: str, delta: float) -> None:
         """更新对某角色的怀疑度，值被钳制在 [0.0, 1.0]。"""
